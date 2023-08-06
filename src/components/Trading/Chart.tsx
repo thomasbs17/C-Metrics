@@ -1,6 +1,8 @@
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 import { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { FilterState } from '../StateManagement';
 
 
 function GetData() {
@@ -9,7 +11,6 @@ function GetData() {
     fetch('https://jsonplaceholder.typicode.com/posts?_limit=10')
       .then((response) => response.json())
       .then((data) => {
-        console.log(data);
         setPosts(data);
       })
       .catch((err) => {
@@ -20,20 +21,17 @@ function GetData() {
 }
 
 function LineChart() {
-  const selectedExchange = (document.getElementById('exchange-dropdown') as HTMLInputElement).value
-  const selectedCurrency = (document.getElementById('exchange-dropdown') as HTMLInputElement).value
-  const selectedAsset = (document.getElementById('exchange-dropdown') as HTMLInputElement).value
+  const { tradingType, exchange, currency, asset } = useSelector((state: FilterState) => state);
   const options = {
     title: {
-      
-      text: `${selectedExchange}: ${selectedCurrency}-${selectedAsset}`
+      text: `${exchange}: ${asset}-${currency}`
     },
     series: [{
       data: [1, 2, 3],
     }],
-    chart: { backgroundColor: 'transparent' , height: 650}
+    chart: { backgroundColor: 'transparent', height: 600 },
+    credits: { enabled: false }
   };
-  console.log(GetData())
 
   return (
     <HighchartsReact
