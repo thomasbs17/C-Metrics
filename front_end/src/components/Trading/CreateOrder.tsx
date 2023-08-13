@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Accordion, Button, ButtonGroup, Form, Stack, Tab, Tabs, ToggleButton } from 'react-bootstrap';
 
 type OrderTypeFilterProps = {
@@ -18,7 +18,7 @@ function OrderTypeFilter({ orderTypes, selectedOrderType, handleOrderTypeChange 
         <div>
             {/* Use a div with inline display for horizontal layout */}
             {orderTypes.map((orderType) => (
-                <div key={orderType} className="mb-3" style={{ display: 'inline-block' }}>
+                <div key={orderType} className="mb-3" style={{ display: 'inline-block' }} id={`${orderType}_filter`}>
                     <Form.Check
                         inline
                         type={'radio'}
@@ -61,7 +61,7 @@ function OrderDetails({ orderDirection }: OrderDetailsProps) {
                 />
             </Form.Group>
             <Form.Group controlId="amount" style={{ padding: '10px' }} >
-                <Button variant={orderDirection === 'Buy' ? 'success' : 'danger'}>{orderDirection}</Button>
+                <Button variant={orderDirection === 'Buy' ? 'success' : 'danger'} style={{ width: '100%' }}>{orderDirection}</Button>
             </Form.Group>
         </Form>
     );
@@ -69,8 +69,25 @@ function OrderDetails({ orderDirection }: OrderDetailsProps) {
 }
 
 function CreateOrderWidget() {
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const container = containerRef.current;
+        if (container) {
+            container.style.opacity = '1';
+            container.style.transform = 'translateY(0)';
+        }
+    }, []);
+
+    const containerStyle: React.CSSProperties = {
+        opacity: 0,
+        transform: 'translateY(-50px)',
+        transition: 'opacity 1s, transform 1s',
+        height: '500px'
+    };
+
     return (
-        <Stack className="border border-primary rounded-3 p-3">
+        <Stack className="border border-primary rounded-3 p-3" style={containerStyle} ref={containerRef}>
             <Tabs
                 defaultActiveKey="buy"
                 className="mb-3"

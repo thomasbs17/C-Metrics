@@ -11,8 +11,8 @@ export type FilterState = {
 
 export const initialState: FilterState = {
     tradingType: 'Paper Trading',
-    exchange: 'Coinbase',
-    currency: 'GBP',
+    exchange: 'coinbasepro',
+    currency: 'USD',
     asset: 'BTC',
 };
 
@@ -31,5 +31,5 @@ const filterReducer = (state: FilterState = initialState, action: AnyAction): Fi
     }
 };
 
-// Create the Redux store
+
 export const filtersStore = createStore(filterReducer);
