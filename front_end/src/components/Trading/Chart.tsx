@@ -296,7 +296,7 @@ export function TradingChart() {
     try {
       setIsLoading(true);
       const ohlc_response = await axios.get(
-        `http://localhost:8000/ohlc/?exchange=${exchange}&pair=${pair}`
+        `http://127.0.0.1:8000/ohlc/?exchange=${exchange}&pair=${pair}`
       );
       // console.log('RAW OHLC');
       // console.log(ohlc_response.data)
@@ -312,7 +312,7 @@ export function TradingChart() {
   async function fetchOrderBookData(pair: string) {
     try {
       const orderBookResponse = await axios.get(
-        `http://localhost:8000/order_book/?exchange=${exchange}&pair=${pair}`
+        `http://127.0.0.1:8000/order_book/?exchange=${exchange}&pair=${pair}`
       );
       setOrderBookData(orderBookResponse.data);
     } catch (error) {

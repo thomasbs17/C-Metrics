@@ -22,7 +22,7 @@ function LoadNews() {
         async function getNewsData() {
             setNewsData([]);
             try {
-                const response = await fetch(`http://localhost:8000/news/?pair=${pair}`);
+                const response = await fetch(`http://127.0.0.1:8000/news/?pair=${pair}`);
                 const data = await response.json();
                 setNewsData(data);
             } catch (error) {

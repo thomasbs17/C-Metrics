@@ -239,7 +239,7 @@ function LoadExchanges() {
     useEffect(() => {
         async function getExchangesData() {
             try {
-                const response = await fetch('http://localhost:8000/exchanges/');
+                const response = await fetch('http://127.0.0.1:8000/exchanges/');
                 const data = await response.json();
                 if (data.length > 0) {
                     setExchanges(data);
@@ -258,7 +258,7 @@ function LoadMarkets(exchange: string) {
     useEffect(() => {
         async function getMarketsData() {
             try {
-                const response = await fetch(`http://localhost:8000/markets/?exchange=${exchange}`);
+                const response = await fetch(`http://127.0.0.1:8000/markets/?exchange=${exchange}`);
                 const data = await response.json();
                 setMarkets(data);
             } catch (error) {
