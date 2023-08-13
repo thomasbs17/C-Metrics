@@ -4,15 +4,16 @@
 # FRONT-END
 
 # dependencies
-/node_modules
-/.pnp
-.pnp.js
+/node_modules/
+/front_end/node_modules/
+/front_end/.pnp
+/front_end.pnp.js
 
 # testing
-/coverage
+/front_end/coverage
 
 # production
-/build
+/front_end/build
 
 # misc
 .DS_Store
