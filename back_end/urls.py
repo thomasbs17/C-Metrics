@@ -17,17 +17,24 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from crypto_station_api.views import SimpleJSONView, get_exchanges, get_ohlc, get_order_book, get_markets, get_news
+from crypto_station_api.views import (
+    SimpleJSONView,
+    get_exchanges,
+    get_ohlc,
+    get_order_book,
+    get_markets,
+    get_news,
+)
 
 # router = routers.DefaultRouter()
 # router.register(r'ohlc', SimpleJSONView.OhlcView.as_view(), 'ohlc')
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path('json/', SimpleJSONView.as_view(), name='simple_json'),
-    path('exchanges/', get_exchanges, name='all_exchanges'),
-    path('markets/', get_markets, name='all_markets'),
-    path('ohlc/', get_ohlc, name='get_ohlc'),
-    path('order_book/', get_order_book, name='order_book'),
-    path('news/', get_news, name='news'),
+    path("json/", SimpleJSONView.as_view(), name="simple_json"),
+    path("exchanges/", get_exchanges, name="all_exchanges"),
+    path("markets/", get_markets, name="all_markets"),
+    path("ohlc/", get_ohlc, name="get_ohlc"),
+    path("order_book/", get_order_book, name="order_book"),
+    path("news/", get_news, name="news"),
 ]
