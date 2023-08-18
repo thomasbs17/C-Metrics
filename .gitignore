@@ -34,3 +34,5 @@ db.sqlite3
 /env
 *.env
 .vscode
+/Notes.txt
+.idea/*
