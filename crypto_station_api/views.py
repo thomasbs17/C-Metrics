@@ -33,7 +33,7 @@ def get_order_book(request):
     pair = request.query_params.get("pair")
     exchange_class = getattr(ccxt, exchange)
     exchange = exchange_class()
-    order_book_data = exchange.fetch_order_book(symbol=pair)
+    order_book_data = exchange.fetch_order_book(symbol=pair, limit=1000)
     return JsonResponse(order_book_data, safe=False)
 
 
@@ -51,4 +51,14 @@ def get_news(request):
     googlenews = GoogleNews()
     googlenews.get_news(pair)
     data = googlenews.results()
+    return JsonResponse(data, safe=False)
+
+
+@api_view(["GET"])
+def get_public_trades(request):
+    exchange = request.query_params.get("exchange")
+    pair = request.query_params.get("pair")
+    exchange_class = getattr(ccxt, exchange)
+    exchange = exchange_class()
+    data = exchange.fetch_trades(symbol=pair, limit=1000)
     return JsonResponse(data, safe=False)
