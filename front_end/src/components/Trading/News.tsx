@@ -42,27 +42,28 @@ function News() {
         news.length === 0 ?
             <Spinner style={{ marginLeft: '50%', marginTop: '10%' }}></Spinner>
             :
-            <Table striped bordered hover size="sm" responsive >
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Title</th>
-                        <th>Media</th>
-                        <th>Image</th>
-                    </tr>
-                </thead>
-                <tbody >
-                    {news.map(article =>
+            <div style={{ height: '225px', overflowY: 'scroll' }}>
+                <Table striped bordered hover size="sm" responsive >
+                    <thead style={{position: 'sticky', top: 0 }}>
                         <tr>
-                            <td>{article.date}</td>
-                            <td><a href={`https:/${article.link}`} target="_blank">{article.title}</a></td>
-                            <td>{article.media}</td>
-                            <td><Image src={article.img} thumbnail /></td>
+                            <th>Date</th>
+                            <th>Title</th>
+                            <th>Media</th>
+                            <th>Image</th>
                         </tr>
-                    )}
-                </tbody>
-            </Table>
-
+                    </thead>
+                    <tbody>
+                        {news.map(article =>
+                            <tr>
+                                <td>{article.date}</td>
+                                <td><a href={`https:/${article.link}`} target="_blank">{article.title}</a></td>
+                                <td>{article.media}</td>
+                                <td><Image src={article.img} thumbnail /></td>
+                            </tr>
+                        )}
+                    </tbody>
+                </Table>
+            </div>
     );
 }
 

@@ -1,14 +1,15 @@
-// import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FilterState } from '../StateManagement';
 import axios from 'axios';
 import Highcharts from 'highcharts/highstock'
-import { Alert, Col, Container, Row, Spinner } from 'react-bootstrap';
+import { Col, Row, Spinner } from 'react-bootstrap';
 import Lottie from 'lottie-react';
 import CreateOrderWidget from './CreateOrder';
+import HighchartsBoost from "highcharts/modules/boost";
 
+HighchartsBoost(Highcharts);
 const chartsHeight = 500;
 
 type OrderBookItem = [number, number]
@@ -16,25 +17,28 @@ type OrderBookItem = [number, number]
 type OhlcData = number[][];
 
 type OrderBookData = {
-  asks: OrderBookItem[];
-  bids: OrderBookItem[];
-  datetime: string;
-  nonce: null;
-  symbol: string;
-  timestamp: number;
+  asks: Array<[number, number]>;
+  bids: Array<[number, number]>;
 };
+
+type PublicTradeItem = {
+  price: number,
+  amount: number
+};
+
 
 interface OrderBookChartProps {
   data: { 'bids': Array<OrderBookItem>, 'asks': Array<OrderBookItem> },
-  options: Highcharts.Options;
-  minLowMaxHigh: [number, number]
+  zoomHandler: (event: Highcharts.AxisSetExtremesEventObject) => void;
+  priceAxis: any
 };
 
 interface OhlcChartProps {
-  data: OhlcData;
+  data: { 'ohlc': OhlcData, 'publicTrades': Array<PublicTradeItem> };
   exchange: string;
   pair: string;
-  options: Highcharts.Options;
+  zoomHandler: (event: Highcharts.AxisSetExtremesEventObject) => void;
+  priceAxis: any
 };
 
 
@@ -74,85 +78,106 @@ function NoDataAnimation() {
 function buildCumulativeVolume(orderBook: OrderBookData, minLowMaxHigh: [number, number]) {
   let cumulativeBid = 0;
   let bidData: OrderBookItem[] = []
+
+  if (orderBook['bids'].length != 0) {
+    bidData.push([0, orderBook['bids'][0][0]])
+  };
   orderBook['bids'].forEach(item => {
     cumulativeBid += item[1];
     if (item[0] >= minLowMaxHigh[0]) (
       bidData.push([cumulativeBid, item[0]])
     )
   });
-  // if (bidData.length != 0) {
-  //   bidData.push([0, bidData[0][1]])
-  // }
-  // if (bidData.length != 0 && bidData[bidData.length - 1][1] > minLowMaxHigh[0]) {
-  //   bidData.push([0, minLowMaxHigh[0]])
-  // }
-
   let cumulativeAsk = 0;
   let askData: OrderBookItem[] = [];
-
+  if (orderBook['asks'].length != 0) {
+    askData.push([0, orderBook['asks'][0][0]])
+  };
   orderBook['asks'].forEach(item => {
     cumulativeAsk += item[1];
     if (item[0] <= minLowMaxHigh[1]) (
       askData.push([cumulativeAsk, item[0]])
     )
   });
-  // if (askData.length != 0 && askData[askData.length - 1][1] < minLowMaxHigh[1]) {
-  //   askData.push([0, minLowMaxHigh[1]])
-  // }
-  // if (askData.length != 0) {
-  //   askData.push([0, askData[0][1]])
-  // }
+
 
   return { 'bids': bidData, 'asks': askData }
 };
 
+function getMinLowMaxHigh(ohlcData: OhlcData) {
+  let ohlcPrices: Array<number> = []
+  ohlcData.map((item: Array<number>) => ohlcPrices.push(item[2], item[3]));
+  const minLow = Math.min(...ohlcPrices);
+  const maxHigh = Math.max(...ohlcPrices);
+  return [minLow, maxHigh]
+};
 
-function findMinMaxHighLow(ohlcData: OhlcData) {
-  let minLow = Number.POSITIVE_INFINITY;
-  let maxHigh = Number.NEGATIVE_INFINITY;
+function setOrderBookBoundaries(rawOrderBook: any, minLowMaxHigh: [number, number]) {
+  let bidsData: Array<[number, number]> = [];
+  let asksData: Array<[number, number]> = [];
+  rawOrderBook['bids'].forEach((item: Array<number>) => {
+    if (item[0] >= minLowMaxHigh[0]) {
+      bidsData.push([item[0], item[1]])
+    }
+  })
+  rawOrderBook['asks'].forEach((item: Array<number>) => {
+    if (item[0] <= minLowMaxHigh[1]) {
+      asksData.push([item[0], item[1]])
+    }
+  })
+  return { 'asks': asksData, 'bids': bidsData };
+}
 
-  for (const dataPoint of ohlcData) {
-    const [timestamp, open, high, low, close, volume] = dataPoint;
-    if (low < minLow) {
-      minLow = low;
-    }
-    if (high > maxHigh) {
-      maxHigh = high;
-    }
-  }
-  return [minLow, maxHigh];
+function getChartBoundaries(event: Highcharts.AxisSetExtremesEventObject, ohlcData: OhlcData, cumulativeOrderBook: any) {
+
+  let bookPrices: Array<number> = [];
+  ['bids', 'asks'].forEach((side: string) => cumulativeOrderBook[side].map((item: any[]) => bookPrices.push(item[0])))
+
+  let ohlcPrices: Array<number> = []
+  ohlcData.map((item: Array<number>) => (item[0] >= event.min && item[0] <= event.max) && ohlcPrices.push(item[2], item[3]));
+  const minLow = Math.min(...ohlcPrices);
+  const maxHigh = Math.max(...ohlcPrices);
+
+  const lowerBoundary = Math.min(minLow); // ...bookPrices
+  const upperBoundary = Math.max(maxHigh); //...bookPrices
+  return [lowerBoundary, upperBoundary];
 };
 
 function OrderBookChart(props: OrderBookChartProps) {
 
+  let spread = 'N/A'
+  if (props.data.bids.length > 0 && props.data.asks.length > 0) {
+    spread = ((props.data.asks[0][1] / props.data.bids[0][1] - 1) * 100).toFixed(2);
+  }
   const options = {
+    boost: {
+      useGPUTranslations: true,
+      // Chart-level boost when there are more than 5 series in the chart
+      seriesThreshold: 5
+    },
     xAxis: [
       {
         type: 'linear',
         labels: { enabled: false, },
         crosshair: {
-          color: 'gray', // Choose your crosshair color
-          width: 1,      // Choose your crosshair width
+          color: 'gray',
+          width: 1,
         },
         snap: false,
+        events: {
+          setExtremes: props.zoomHandler
+        }
       },
     ],
     yAxis: [
-      {
-        height: '70%',
-        labels: { enabled: false, },
-        title: {
-          text: ''
-        },
-        id: 'priceAxis',
-        gridLineWidth: 0,
-        snap: false,
-        min: props.minLowMaxHigh[0],
-        max: props.minLowMaxHigh[1]
-      },
+      props.priceAxis
     ],
     title: {
-      text: ''
+      text: `Spread: ${spread}%`,
+      margin: 0,
+      style: {
+        fontSize: '15px'
+      }
     },
     series: [
       {
@@ -161,7 +186,7 @@ function OrderBookChart(props: OrderBookChartProps) {
         yAxis: 0,
         color: 'green',
         fillColor: {
-          linearGradient: [0, 0, 0, 300], // Adjust the gradient as needed
+          linearGradient: [300, 0, 0, 300], // Adjust the gradient as needed
           stops: [
             [0, 'rgba(0, 128, 0, 1)'], // Adjust the color and opacity as needed
             [1, 'rgba(0, 0, 0, 1)']      // Adjust the color and opacity as needed
@@ -185,9 +210,13 @@ function OrderBookChart(props: OrderBookChartProps) {
         type: 'area' // Use 'area' type for area chart
       },
     ],
-    chart: { backgroundColor: 'transparent', height: chartsHeight },
+    chart: {
+      backgroundColor: 'transparent',
+      height: chartsHeight,
+      panning: true,
+      panKey: 'shift'
+    },
     credits: { enabled: false },
-    ...props.options,
   };
   return (
     <HighchartsReact
@@ -198,7 +227,7 @@ function OrderBookChart(props: OrderBookChartProps) {
 }
 
 function OhlcChart(props: OhlcChartProps) {
-  const volumeArray = props.data.map(item => [item[0], item[4]]);
+  const volumeArray = props.data['ohlc'].map(item => [item[0], item[4]]);
   const options = {
     plotOptions: {
       ohlc: {
@@ -214,30 +243,21 @@ function OhlcChart(props: OhlcChartProps) {
           width: 1,
           snap: false
         },
+        opposite: false,
+        events: {
+          setExtremes: props.zoomHandler
+        }
+      },
+      {
+        type: 'linear',
+        opposite: true,
+        gridLineWidth: 0,
+        width: '50%',
+        zIndex: -1
       },
     ],
     yAxis: [
-      {
-        labels: {
-          align: 'right',
-          x: -3
-        },
-        title: {
-          text: 'OHLC'
-        },
-        height: '70%',
-        lineWidth: 2,
-        resize: {
-          enabled: true
-        },
-        gridLineWidth: 0.2,
-        id: 'priceAxis',
-        crosshair: {
-          color: 'gray',
-          dashStyle: 'solid',
-          snap: false
-        },
-      },
+      props.priceAxis,
       {
         labels: {
           align: 'right',
@@ -260,21 +280,33 @@ function OhlcChart(props: OhlcChartProps) {
     },
     series: [
       {
-        data: props.data,
+        data: props.data['ohlc'],
         name: props.pair,
         type: 'ohlc',
         yAxis: 0,
       },
+      // {
+      //   data: volumeArray,
+      //   name: 'volume',
+      //   type: 'column',
+      //   yAxis: 1,
+      // },
       {
-        data: volumeArray,
-        name: 'volume',
-        type: 'column',
-        yAxis: 1,
+        data: props.data['publicTrades'].map(item => [item['amount'], item['price']]),
+        name: 'Volume Profile',
+        type: 'scatter',
+        categories: props.data['publicTrades'].map(item => [item['price']]),
+        grouping: false,
+        xAxis: 1,
+        yAxis: 0,
+        color: 'rgba(100,100,100,0.5)'
       }
     ],
-    chart: { backgroundColor: 'transparent', height: chartsHeight },
+    chart: {
+      backgroundColor: 'transparent',
+      height: chartsHeight + 55,
+    },
     credits: { enabled: false },
-    ...props.options,
   };
   return (
     <HighchartsReact
@@ -289,7 +321,11 @@ export function TradingChart() {
   const { tradingType, exchange, currency, asset } = useSelector((state: FilterState) => state);
   const pair = `${asset}/${currency}`;
   const [ohlcData, setOHLCData] = useState<OhlcData>([]);
+  const [minLowMaxHigh, setMinLowMaxHigh] = useState<[number, number]>([0, 0])
   const [orderBookData, setOrderBookData] = useState<OrderBookData>(emptyOrderBook);
+  const [publicTrades, setPublicTrades] = useState<Array<PublicTradeItem>>([]);
+  const [chartBoundaries, setChartBoundaries] = useState<[number, number]>([0, 0]);
+
   const [isLoading, setIsLoading] = useState(true);
 
   async function fetchOHLCData(pair: string) {
@@ -298,9 +334,8 @@ export function TradingChart() {
       const ohlc_response = await axios.get(
         `http://127.0.0.1:8000/ohlc/?exchange=${exchange}&pair=${pair}`
       );
-      // console.log('RAW OHLC');
-      // console.log(ohlc_response.data)
       setOHLCData(ohlc_response.data);
+      setMinLowMaxHigh(getMinLowMaxHigh(ohlc_response.data) as [number, number]);
     } catch (error) {
       setOHLCData([]);
       console.error('Error fetching OHLC data:', error);
@@ -314,34 +349,87 @@ export function TradingChart() {
       const orderBookResponse = await axios.get(
         `http://127.0.0.1:8000/order_book/?exchange=${exchange}&pair=${pair}`
       );
-      setOrderBookData(orderBookResponse.data);
+      const responseData = orderBookResponse.data;
+      const data = setOrderBookBoundaries(responseData, minLowMaxHigh)
+      setOrderBookData(data);
     } catch (error) {
       setOrderBookData(emptyOrderBook);
       console.error('Error fetching Order data:', error);
     }
-  }
+  };
+  async function fetchPublicTrades(pair: string) {
+    try {
+      const publicTradesResponse = await axios.get(
+        `http://127.0.0.1:8000/public_trades/?exchange=${exchange}&pair=${pair}`
+      );
+      setPublicTrades(publicTradesResponse.data);
+    } catch (error) {
+      setPublicTrades([]);
+      console.error('Error fetching Public Trades data:', error);
+    }
+  };
 
   useEffect(() => {
+    setChartBoundaries([minLowMaxHigh[0], minLowMaxHigh[1]]);
     fetchOHLCData(pair);
-    fetchOrderBookData(pair);
-    const orderBookInterval = setInterval(() => { fetchOrderBookData(pair) }, 5000);
+    // fetchOrderBookData(pair);
+    fetchPublicTrades(pair);
+    // setOrderBookData(emptyOrderBook);
+    const wsUrl = `ws://localhost:8765?exchange=${exchange}&pair=${pair}`
+    const socket = new WebSocket(wsUrl);
+    socket.onmessage = (event) => {
+      const newData = JSON.parse(event.data);
+      if (newData != undefined && Object.keys(newData).includes('bids')) { setOrderBookData(newData) }
+    };
+
+    // const orderBookInterval = setInterval(() => { fetchOrderBookData(pair) }, 5000);
     const ohlcInterval = setInterval(() => { fetchOHLCData(pair) }, 60000);
+    const publicTradesInterval = setInterval(() => { fetchPublicTrades(pair) }, 60000);
     // Cleanup the interval when component unmounts
     return () => {
-      clearInterval(orderBookInterval)
+      socket.close()
+      // clearInterval(orderBookInterval)
       clearInterval(ohlcInterval)
+      clearInterval(publicTradesInterval)
     }
   },
     [exchange, pair, tradingType]);
 
-  const minLowMaxHigh = findMinMaxHighLow(ohlcData) as [number, number];
-  // console.log(minLowMaxHigh)
   const orderBookChartData = buildCumulativeVolume(orderBookData, minLowMaxHigh);
-  // console.log('OHLC')
-  // console.log(ohlcData)
-  // console.log('Order Book')
-  // console.log(orderBookChartData)
+  const ohlcChartData = { 'ohlc': ohlcData, 'publicTrades': publicTrades }
 
+  const handleZoomChange = (event: Highcharts.AxisSetExtremesEventObject) => {
+    const boundaries = getChartBoundaries(event, ohlcData, orderBookChartData) as [number, number];
+    if (
+      (!(isNaN(boundaries[0])))
+      && (!(isNaN(boundaries[1])))
+      && (isFinite(boundaries[1]))
+    ) {
+      setChartBoundaries(boundaries)
+    }
+  };
+
+  const priceAxis = {
+    labels: {
+      align: 'left'
+    },
+    resize: {
+      enabled: true
+    },
+    title: {text: ''},
+    crosshair: {
+      color: 'gray',
+      dashStyle: 'solid',
+      snap: false
+    },
+    lineWidth: 2,
+    gridLineWidth: 0.2,
+    min: chartBoundaries[0],
+    max: chartBoundaries[1],
+    event: {
+      setExtremes: handleZoomChange
+    }
+  };
 
   return (
     <div style={{ height: chartsHeight }}>
@@ -353,10 +441,10 @@ export function TradingChart() {
       {ohlcData.length != 0 ?
         <Row style={{ height: chartsHeight }}>
           <Col sm={9} style={{ zIndex: 1 }}>
-            <OhlcChart data={ohlcData} exchange={exchange} pair={pair} options={{}} />
+            <OhlcChart data={ohlcChartData} exchange={exchange} pair={pair} zoomHandler={handleZoomChange} priceAxis={priceAxis} />
           </Col>
           <Col sm={2} style={{ marginLeft: '-50px', zIndex: 2 }}>
-            <OrderBookChart data={orderBookChartData} options={{}} minLowMaxHigh={minLowMaxHigh} />
+            <OrderBookChart data={orderBookChartData} zoomHandler={handleZoomChange} priceAxis={priceAxis} />
           </Col>
           <Col>
             <CreateOrderWidget />

@@ -23,7 +23,7 @@ from crypto_station_api.views import (
     get_ohlc,
     get_order_book,
     get_markets,
-    get_news,
+    get_news, get_public_trades,
 )
 
 # router = routers.DefaultRouter()
@@ -36,5 +36,6 @@ urlpatterns = [
     path("markets/", get_markets, name="all_markets"),
     path("ohlc/", get_ohlc, name="get_ohlc"),
     path("order_book/", get_order_book, name="order_book"),
+    path("public_trades/", get_public_trades, name="public_trades"),
     path("news/", get_news, name="news"),
 ]
