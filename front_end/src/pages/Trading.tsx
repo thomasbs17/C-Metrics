@@ -1,14 +1,17 @@
-import { Accordion, Col, Container, Dropdown, Placeholder, Row, Stack, Tab, Tabs } from 'react-bootstrap';
+import { Accordion, Col, Container, Dropdown, Placeholder, Row, Stack, Tab, Tabs, ThemeProvider } from 'react-bootstrap';
 import TradeHistory from '../components/Trading/TradeHistory';
 import Screening from '../components/Trading/Screening';
 import CreateOrderWidget from '../components/Trading/CreateOrder';
 import News from '../components/Trading/News';
 import { Filters } from '../components/Trading/Filters';
 import { Provider } from 'react-redux';
-import { filtersStore } from '../components/StateManagement';
 import { TradingChart } from '../components/Trading/Chart';
 import OpenOrders from '../components/Trading/OpenOrders';
 import Holdings from '../components/Trading/Holdings';
+import { filtersStore } from '../components/StateManagement';
+import { CssBaseline, createTheme } from '@mui/material';
+
+
 
 
 function BottomLeftContainer() {
@@ -35,7 +38,7 @@ function BottomLeftContainer() {
 
 function BottomRightContainer() {
     return (
-        <div className="border border-primary rounded-3 p-3" style={{ height: '300px', overflowY: 'scroll' }}>
+        <div className="border border-primary rounded-3 p-3" style={{ height: '300px', overflowY: 'hidden' }}>
             <Tabs
                 defaultActiveKey="news"
                 className="sm-3"
@@ -55,22 +58,20 @@ function BottomRightContainer() {
 
 function Trading() {
     return (
-        <div>
-            <Provider store={filtersStore}>
-                <Filters />
-                <Container fluid>
-                    <TradingChart />
-                    <Row>
-                        <Col>
-                            <BottomLeftContainer />
-                        </Col>
-                        <Col>
-                            <BottomRightContainer />
-                        </Col>
-                    </Row>
-                </Container>
-            </Provider>
-        </div>
+        <Provider store={filtersStore}>
+            <Filters />
+            <Container fluid>
+                <TradingChart />
+                <Row>
+                    <Col>
+                        <BottomLeftContainer />
+                    </Col>
+                    <Col>
+                        <BottomRightContainer />
+                    </Col>
+                </Row>
+            </Container>
+        </Provider>
     );
 }
 
