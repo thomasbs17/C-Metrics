@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { FilterState } from '../StateManagement';
-import { Table, Image, Spinner } from 'react-bootstrap';
+import { useDispatch, useSelector } from 'react-redux';
+import { FilterState, filterSlice } from '../StateManagement';
+import { Image, Spinner } from 'react-bootstrap';
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { Button, CircularProgress, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { TouchRippleActions } from '@mui/material/ButtonBase/TouchRipple';
 
 type NewsArticle = {
     date: string,
@@ -15,8 +18,7 @@ type NewsArticle = {
 
 
 function LoadNews() {
-    const { tradingType, exchange, currency, asset } = useSelector((state: FilterState) => state);
-    const pair = `${asset}/${currency}`
+    const pair = useSelector((state: { filters: FilterState }) => state.filters.pair);
     const [news, setNewsData] = useState<Array<NewsArticle>>([]);
     useEffect(() => {
         async function getNewsData() {
@@ -38,32 +40,39 @@ function LoadNews() {
 function News() {
     let news = LoadNews();
     news = news.sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
+    const dispatch = useDispatch();
+
     return (
         news.length === 0 ?
-            <Spinner style={{ marginLeft: '50%', marginTop: '10%' }}></Spinner>
+            <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
             :
-            <div style={{ height: '225px', overflowY: 'scroll' }}>
-                <Table striped bordered hover size="sm" responsive >
-                    <thead style={{position: 'sticky', top: 0 }}>
-                        <tr>
-                            <th>Date</th>
-                            <th>Title</th>
-                            <th>Media</th>
-                            <th>Image</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {news.map(article =>
-                            <tr>
-                                <td>{article.date}</td>
-                                <td><a href={`https:/${article.link}`} target="_blank">{article.title}</a></td>
-                                <td>{article.media}</td>
-                                <td><Image src={article.img} thumbnail /></td>
-                            </tr>
-                        )}
-                    </tbody>
+            <TableContainer sx={{ maxHeight: 230 }}>
+                <Table stickyHeader aria-label="sticky table">
+                    <TableHead>
+                        <TableRow>
+                            <TableCell align="center"><u>Date</u></TableCell>
+                            <TableCell align="center"><u>Media</u></TableCell>
+                            <TableCell align="center"><u>Title</u></TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {news.map((article: NewsArticle, index: number) => (
+                            <TableRow
+                                key={index}
+                                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                                hover
+                                onMouseEnter={() => dispatch(filterSlice.actions.setSelectedArticle([article.datetime, article.title]))}
+                                onMouseLeave={() => dispatch(filterSlice.actions.setSelectedArticle(['', '']))}
+                            >
+                                <TableCell align="center">{article.date}</TableCell>
+                                <TableCell align="center">{article.media}</TableCell>
+                                <TableCell align="center"><a href={`https://${article.link}`} target='_blank' rel="noreferrer">{article.title}</a></TableCell>
+                            </TableRow>
+                        ))
+                        }
+                    </TableBody>
                 </Table>
-            </div>
+            </TableContainer>
     );
 }
 

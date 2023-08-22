@@ -83,7 +83,7 @@ function CreateOrderWidget() {
         opacity: 0,
         transform: 'translateY(-50px)',
         transition: 'opacity 1s, transform 1s',
-        height: '500px'
+        height: '400px'
     };
 
     return (
