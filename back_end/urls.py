@@ -23,7 +23,8 @@ from crypto_station_api.views import (
     get_ohlc,
     get_order_book,
     get_markets,
-    get_news, get_public_trades,
+    get_news,
+    get_public_trades,
 )
 
 # router = routers.DefaultRouter()

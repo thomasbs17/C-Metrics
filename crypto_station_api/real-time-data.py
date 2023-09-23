@@ -3,9 +3,7 @@ from decimal import Decimal
 import json
 from datetime import datetime as dt
 from cryptofeed import FeedHandler
-from cryptofeed.defines import (
-    L2_BOOK,
-)
+from cryptofeed.defines import L2_BOOK
 from cryptofeed import exchanges
 import websockets
 
@@ -43,7 +41,9 @@ class RealTimeMarketData:
 
     async def send_to_clients(self, *args):
         batching_condition = (
-            True if (dt.now() - self.last_emission_tmstmp).microseconds > 500000  else False
+            True
+            if (dt.now() - self.last_emission_tmstmp).microseconds > 500000
+            else False
         )
         if self.data and self.clients and batching_condition:
             first_ask = float(list(self.data["asks"])[0])
@@ -100,8 +100,7 @@ class RealTimeMarketData:
         self.clients.add(websocket)
         try:
             await asyncio.gather(
-                websocket.recv(),
-                self.send_to_clients(),
+                websocket.recv(), self.send_to_clients(),
             )
         finally:
             pass
