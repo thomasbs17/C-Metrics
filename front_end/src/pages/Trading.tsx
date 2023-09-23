@@ -9,14 +9,13 @@ import { TradingChart } from '../components/Trading/Chart';
 import OpenOrders from '../components/Trading/OpenOrders';
 import Holdings from '../components/Trading/Holdings';
 import { filtersStore } from '../components/StateManagement';
-import { CssBaseline, createTheme } from '@mui/material';
 
 
 
 
 function BottomLeftContainer() {
     return (
-        <div className="border border-primary rounded-3 p-3" style={{ height: '300px' }}>
+        <div className="border border-primary rounded-3 p-3" style={{ height: '280px' }}>
             <Tabs
                 defaultActiveKey="open-orders"
                 className="sm-3"
@@ -31,6 +30,9 @@ function BottomLeftContainer() {
                 <Tab eventKey="trade-history" title="Trade History">
                     <TradeHistory />
                 </Tab>
+                <Tab eventKey="create-order" title="Create Order">
+                    <CreateOrderWidget />
+                </Tab>
             </Tabs>
         </div>
     )
@@ -38,7 +40,7 @@ function BottomLeftContainer() {
 
 function BottomRightContainer() {
     return (
-        <div className="border border-primary rounded-3 p-3" style={{ height: '300px', overflowY: 'hidden' }}>
+        <div className="border border-primary rounded-3 p-3" style={{ height: '280px', overflowY: 'hidden' }}>
             <Tabs
                 defaultActiveKey="news"
                 className="sm-3"
