@@ -53,7 +53,7 @@ function ExchangeFilter(props: FilterProps) {
             sx={{ width: 300 }}
             value={selectedValue != '' ? selectedValue : stateValue}
             onChange={handleSelect}
-            renderInput={(params) => <TextField {...params} label="Exchange" />}
+            renderInput={(params) => <TextField {...params} label={`Exchange (${props.data.length})`} />}
         />
     );
 }
@@ -61,7 +61,7 @@ function ExchangeFilter(props: FilterProps) {
 function PairFilter(props: FilterProps) {
     const dispatch = useDispatch();
     const [selectedValue, setSelectedValue] = useState('');
-    const stateValue = useSelector((state: { filters: FilterState }) => state.filters.pair);
+    const [exchange, stateValue] = useSelector((state: { filters: FilterState }) => [state.filters.exchange, state.filters.pair]);
     const handleSelectPair = (
         event: React.ChangeEvent<{}>,
         value: string | null
@@ -71,6 +71,10 @@ function PairFilter(props: FilterProps) {
             dispatch(filterSlice.actions.setPair(value));
         }
     };
+    useEffect(() => {
+        setSelectedValue(props.data[0])
+        dispatch(filterSlice.actions.setPair(props.data[0]));
+    }, [exchange, props.data, dispatch])
 
     return (
         <Autocomplete
@@ -159,7 +163,7 @@ export function Filters() {
                 </Col>
                 {Object.keys(markets).length != 0 &&
                     <Col>
-                        <PairFilter data={Object.keys(markets)} />
+                        <PairFilter data={Object.keys(markets).sort()} />
                     </Col>
                 }
             </Row>
