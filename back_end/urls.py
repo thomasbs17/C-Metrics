@@ -31,7 +31,6 @@ from crypto_station_api.views import (
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("json/", SimpleJSONView.as_view(), name="simple_json"),
     path("exchanges/", get_exchanges, name="all_exchanges"),
     path("markets/", get_markets, name="all_markets"),
     path("ohlc/", get_ohlc, name="get_ohlc"),
