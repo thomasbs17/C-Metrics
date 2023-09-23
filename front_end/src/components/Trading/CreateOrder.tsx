@@ -43,7 +43,7 @@ function OrderDetails({ orderDirection }: OrderDetailsProps) {
     };
 
     return (
-        <Form>
+        <Form style={{height: '180px', overflowY: 'scroll'}}>
             <OrderTypeFilter orderTypes={orderTypes} selectedOrderType={selectedOrderType} handleOrderTypeChange={handleOrderTypeChange} />
             {selectedOrderType === 'Limit' ?
                 <Form.Group controlId="limitPrice">
@@ -83,11 +83,11 @@ function CreateOrderWidget() {
         opacity: 0,
         transform: 'translateY(-50px)',
         transition: 'opacity 1s, transform 1s',
-        height: '400px'
+        height: '200px'
     };
 
     return (
-        <Stack className="border border-primary rounded-3 p-3" style={containerStyle} ref={containerRef}>
+        <Stack style={containerStyle} ref={containerRef}>
             <Tabs
                 defaultActiveKey="buy"
                 className="mb-3"
