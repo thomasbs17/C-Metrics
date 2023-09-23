@@ -12,7 +12,7 @@ export type FilterState = {
 const initialState: FilterState = {
     tradingType: 'Paper Trading',
     exchange: 'kraken',
-    pair: 'BTC/USD',
+    pair: '1INCH/EUR',
     selectedArticle: ['', '']
 };
 
