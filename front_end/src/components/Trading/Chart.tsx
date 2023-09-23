@@ -339,9 +339,7 @@ export function TradingChart() {
         setOHLCData([]);
         setOhlcFetchFailed(true)
         console.error('Error fetching OHLC data:', error);
-      } finally {
-        setIsLoading(false);
-      };
+      }
     };
     async function fetchPublicTrades(pair: string) {
       try {
@@ -367,6 +365,9 @@ export function TradingChart() {
         setBookFetchFailed(true);
         console.error('Error fetching Order Book data:', error);
       }
+      finally {
+        setIsLoading(false);
+      };
     };
     const wsUrl = `ws://localhost:8765?exchange=${exchange}&pair=${pair}`
     const socket = new WebSocket(wsUrl);
@@ -375,7 +376,6 @@ export function TradingChart() {
       console.warn(`Could not implement websocket connection for ${pair} on ${exchange}. Will default back to periodic API refresh.`);
       fetchOrderBookData(pair);
       setSynchCharts(false)
-
     }
     socket.onopen = () => {
       clearInterval(orderBookInterval)
