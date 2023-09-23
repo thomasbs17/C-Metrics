@@ -8,6 +8,8 @@
 /front_end/node_modules/
 /front_end/.pnp
 /front_end.pnp.js
+yarn.lock
+front_end/yarn.lock
 
 # testing
 /front_end/coverage
@@ -37,3 +39,6 @@ db.sqlite3
 /Notes.txt
 .idea/*
 venv/*
+
+
+
