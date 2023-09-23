@@ -50,9 +50,9 @@ function News() {
                 <Table stickyHeader aria-label="sticky table">
                     <TableHead>
                         <TableRow>
-                            <TableCell align="center"><u>Date</u></TableCell>
-                            <TableCell align="center"><u>Media</u></TableCell>
-                            <TableCell align="center"><u>Title</u></TableCell>
+                            <TableCell align="left"><u>Date</u></TableCell>
+                            <TableCell align="left"><u>Media</u></TableCell>
+                            <TableCell align="left"><u>Title</u></TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -64,9 +64,9 @@ function News() {
                                 onMouseEnter={() => dispatch(filterSlice.actions.setSelectedArticle([article.datetime, article.title]))}
                                 onMouseLeave={() => dispatch(filterSlice.actions.setSelectedArticle(['', '']))}
                             >
-                                <TableCell align="center">{article.date}</TableCell>
-                                <TableCell align="center">{article.media}</TableCell>
-                                <TableCell align="center"><a href={`https://${article.link}`} target='_blank' rel="noreferrer">{article.title}</a></TableCell>
+                                <TableCell align="left" width={120}>{article.date}</TableCell>
+                                <TableCell align="left" width={150}>{article.media}</TableCell>
+                                <TableCell align="left"><a href={`https://${article.link}`} target='_blank' rel="noreferrer">{article.title}</a></TableCell>
                             </TableRow>
                         ))
                         }
