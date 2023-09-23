@@ -23,7 +23,7 @@ def get_ohlc(request):
     pair = request.query_params.get("pair")
     exchange_class = getattr(ccxt, exchange)
     exchange = exchange_class()
-    ohlc_data = exchange.fetch_ohlcv(symbol=pair, timeframe="1h", limit=300)
+    ohlc_data = exchange.fetch_ohlcv(symbol=pair, timeframe="1d", limit=300)
     return JsonResponse(ohlc_data, safe=False)
 
 
