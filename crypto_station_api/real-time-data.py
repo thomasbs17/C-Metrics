@@ -16,13 +16,13 @@ class RealTimeMarketData:
     def __init__(self):
         self.clients = set()
         self.exchange = exchanges.Kraken
-        self.pair = "BTC-USD"
+        self.pair = "ETH-USD"
         self.config = {
             "log": {"filename": "demo.log", "level": "DEBUG", "disabled": False}
         }
         self.f = FeedHandler(config=self.config)
         self.add_feed(pair=self.pair, exchange=self.exchange)
-        self.data = dict(bids=[], asks=[])
+        self.data = None
         self.last_emission_tmstmp = dt.now()
 
     def add_feed(self, pair: str, exchange):
@@ -43,10 +43,12 @@ class RealTimeMarketData:
 
     async def send_to_clients(self, *args):
         batching_condition = (
-            True if (dt.now() - self.last_emission_tmstmp).seconds > 0 else False
+            True if (dt.now() - self.last_emission_tmstmp).microseconds > 500000  else False
         )
-        if self.clients and batching_condition and len(self.data['asks']) > 0:
-            print(f"Bid: {self.data['bids'][0]} / Ask: {self.data['asks'][0]}")
+        if self.data and self.clients and batching_condition:
+            first_ask = float(list(self.data["asks"])[0])
+            first_bid = float(list(self.data["bids"])[0])
+            print(f"Bid: {first_bid} / Ask: {first_ask}")
             self.last_emission_tmstmp = dt.now()
             await asyncio.wait(
                 [client.send(json.dumps(self.data)) for client in self.clients]
@@ -77,7 +79,7 @@ class RealTimeMarketData:
             exchange = exchange.capitalize()
             self.pair = pair
             self.exchange = exchange
-            self.data = dict(bids=[], asks=[])
+            self.data = None
             self.f = FeedHandler(config=self.config)
             self.clients = set()
             try:
@@ -90,7 +92,7 @@ class RealTimeMarketData:
                 self.f.feeds[0].start(loop)
                 print(f"Opened new websocket for {pair} on {exchange}")
             except Exception as e:
-                self.data = dict(bids=[], asks=[])
+                self.data = None
                 print(f"Could not open websocket: {e}")
 
     async def server(self, websocket):
@@ -106,17 +108,20 @@ class RealTimeMarketData:
 
     async def book(self, book, *args):
         if book.symbol == self.pair:
-            bids = [
-                [float(price), float(volume)]
-                for price, volume in book.book.bids.to_dict().items()
-            ]
-            asks = [
-                [float(price), float(volume)]
-                for price, volume in book.book.asks.to_dict().items()
-            ]
-            self.data = dict(bids=bids, asks=asks)
-            await self.send_to_clients({"type": "book", "data": self.data})
-
+            # self.data = dict(bids= dict(book.book.bids), asks= dict(book.book.asks))
+            if not self.data:
+                asks = {str(p): float(v) for p, v in dict(book.book.asks).items()}
+                bids = {str(p): float(v) for p, v in dict(book.book.bids).items()}
+                self.data = dict(bids=bids, asks=asks)
+            else:
+                for side in ("asks", "bids"):
+                    for item in book.raw[0].get(side[0], []):
+                        price = item[0]
+                        if float(item[1]) == 0:
+                            self.data[side].pop(price, None)
+                        else:
+                            self.data[side][price] = float(item[1])
+        await self.send_to_clients({"type": "book", "data": self.data})
 
     def run(self):
         asyncio.get_event_loop().run_until_complete(
