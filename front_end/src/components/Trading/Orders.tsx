@@ -1,6 +1,6 @@
 import React from 'react';
 
-function OpenOrders() {
+function Orders() {
     return (
         <div className="p-2" id='news'>
             Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
@@ -14,4 +14,4 @@ function OpenOrders() {
     );
 }
 
-export default OpenOrders;
+export default Orders;

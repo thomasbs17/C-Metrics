@@ -6,7 +6,7 @@ import News from '../components/Trading/News';
 import { Filters } from '../components/Trading/Filters';
 import { Provider } from 'react-redux';
 import { TradingChart } from '../components/Trading/Chart';
-import OpenOrders from '../components/Trading/OpenOrders';
+import Orders from '../components/Trading/Orders';
 import Holdings from '../components/Trading/Holdings';
 import { filtersStore } from '../components/StateManagement';
 
@@ -17,12 +17,12 @@ function BottomLeftContainer() {
     return (
         <div className="border border-primary rounded-3 p-3" style={{ height: '280px' }}>
             <Tabs
-                defaultActiveKey="open-orders"
+                defaultActiveKey="orders"
                 className="sm-3"
                 fill
             >
-                <Tab eventKey="open-orders" title="Open Orders">
-                    <OpenOrders />
+                <Tab eventKey="orders" title="Orders">
+                    <Orders />
                 </Tab>
                 <Tab eventKey="holdings" title="Holdings">
                     <Holdings />
