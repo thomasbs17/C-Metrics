@@ -202,6 +202,7 @@ function OrderBookChart(props: BookChartProps) {
 
 function OhlcChart(props: OhlcChartProps) {
   const selectedArticle = useSelector((state: { filters: FilterState }) => [state.filters.selectedArticle]);
+  const selectedOrder = useSelector((state: { filters: FilterState }) => [state.filters.selectedOrder]);
   const volumeArray = props.data['ohlc'].map(item => [item[0], item[5]]);
   const options = {
     plotOptions: {
@@ -225,11 +226,18 @@ function OhlcChart(props: OhlcChartProps) {
           }
         },
         opposite: false,
-        plotLines: [{
-          color: 'white',
-          width: 1,
-          value: new Date(selectedArticle[0][0]),
-        }]
+        plotLines: [
+          {
+            color: 'white',
+            width: 1,
+            value: new Date(selectedArticle[0][0]),
+          },
+          {
+            color: 'white',
+            width: 1,
+            value: new Date(selectedOrder[0][0]),
+          },
+        ]
       },
     ],
     yAxis: [
@@ -254,6 +262,13 @@ function OhlcChart(props: OhlcChartProps) {
         },
         lineWidth: 2,
         gridLineWidth: 0.2,
+        plotLines: [
+          {
+            color: 'white',
+            width: 1,
+            value: parseFloat(selectedOrder[0][1]),
+          },
+        ]
       },
       {
         title: {

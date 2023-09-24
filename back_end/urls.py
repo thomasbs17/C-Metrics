@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path
 
 from crypto_station_api.views import (
-    SimpleJSONView,
+    OrdersViewSet,
     get_exchanges,
     get_ohlc,
     get_order_book,
@@ -38,4 +38,5 @@ urlpatterns = [
     path("order_book/", get_order_book, name="order_book"),
     path("public_trades/", get_public_trades, name="public_trades"),
     path("news/", get_news, name="news"),
+    path("orders/", OrdersViewSet.as_view({'get': 'list'}), name="orders"),
 ]

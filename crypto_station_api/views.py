@@ -5,6 +5,10 @@ from rest_framework.decorators import api_view
 from rest_framework.parsers import JSONParser
 from rest_framework.renderers import JSONRenderer
 from rest_framework.views import APIView
+from rest_framework import viewsets
+
+from crypto_station_api.models import Orders
+from crypto_station_api.serializers import OrdersSerializer
 
 
 class SimpleJSONView(APIView):
@@ -62,3 +66,8 @@ def get_public_trades(request):
     exchange = exchange_class()
     data = exchange.fetch_trades(symbol=pair, limit=1000)
     return JsonResponse(data, safe=False)
+
+
+class OrdersViewSet(viewsets.ModelViewSet):
+    queryset = Orders.objects.all()
+    serializer_class = OrdersSerializer

@@ -6,14 +6,16 @@ export type FilterState = {
     tradingType: string;
     exchange: string;
     pair: string
-    selectedArticle: [string, string]
+    selectedArticle: [string, string],
+    selectedOrder: [string, string]
 };
 
 const initialState: FilterState = {
     tradingType: 'Paper Trading',
     exchange: 'kraken',
     pair: '1INCH/EUR',
-    selectedArticle: ['', '']
+    selectedArticle: ['', ''],
+    selectedOrder: ['', '']
 };
 
 export const filterSlice = createSlice({
@@ -31,6 +33,9 @@ export const filterSlice = createSlice({
         },
         setSelectedArticle: (state, action) => {
             state.selectedArticle = action.payload;
+        },
+        setSelectedOrder: (state, action) => {
+            state.selectedOrder = action.payload;
         },
     },
 });
