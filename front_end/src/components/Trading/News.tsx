@@ -47,7 +47,7 @@ function News() {
             <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
             :
             <TableContainer sx={{ maxHeight: 230 }}>
-                <Table stickyHeader aria-label="sticky table">
+                <Table stickyHeader aria-label="sticky table" size='small'>
                     <TableHead>
                         <TableRow>
                             <TableCell align="left"><u>Date</u></TableCell>
