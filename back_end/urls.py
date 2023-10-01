@@ -25,6 +25,7 @@ from crypto_station_api.views import (
     get_markets,
     get_news,
     get_public_trades,
+    post_new_order,
 )
 
 # router = routers.DefaultRouter()
@@ -38,5 +39,6 @@ urlpatterns = [
     path("order_book/", get_order_book, name="order_book"),
     path("public_trades/", get_public_trades, name="public_trades"),
     path("news/", get_news, name="news"),
-    path("orders/", OrdersViewSet.as_view({'get': 'list'}), name="orders"),
+    path("orders/", OrdersViewSet.as_view({"get": "list"}), name="orders"),
+    path("new_order/", post_new_order, name="new_order"),
 ]

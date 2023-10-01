@@ -1,13 +1,29 @@
 import { useSelector } from 'react-redux';
 import { AnyAction, configureStore, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
+export type Order = {
+    user_id: string;
+    order_id: string;
+    broker_id: string;
+    trading_env: string;
+    trading_type: string;
+    asset_id: string;
+    order_side: string;
+    order_type: string;
+    order_creation_tmstmp: string;
+    order_status: string;
+    fill_pct: number;
+    order_volume: number;
+    order_price: number;
+}
 
 export type FilterState = {
     tradingType: string;
     exchange: string;
     pair: string
     selectedArticle: [string, string],
-    selectedOrder: [string, string]
+    selectedOrder: [string, string],
+    ordersNeedReload: boolean
 };
 
 const initialState: FilterState = {
@@ -15,7 +31,8 @@ const initialState: FilterState = {
     exchange: 'kraken',
     pair: '1INCH/EUR',
     selectedArticle: ['', ''],
-    selectedOrder: ['', '']
+    selectedOrder: ['', ''],
+    ordersNeedReload: true
 };
 
 export const filterSlice = createSlice({
@@ -36,6 +53,9 @@ export const filterSlice = createSlice({
         },
         setSelectedOrder: (state, action) => {
             state.selectedOrder = action.payload;
+        },
+        setOrdersNeedReload: (state, action) => {
+            state.ordersNeedReload = action.payload;
         },
     },
 });

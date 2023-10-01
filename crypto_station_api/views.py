@@ -1,3 +1,5 @@
+import datetime
+import uuid
 import ccxt
 from GoogleNews import GoogleNews
 from django.http import JsonResponse
@@ -66,6 +68,29 @@ def get_public_trades(request):
     exchange = exchange_class()
     data = exchange.fetch_trades(symbol=pair, limit=1000)
     return JsonResponse(data, safe=False)
+
+
+@api_view(["POST"])
+def post_new_order(request):
+    new_order = Orders(
+        user_id=request.data["user_id"],
+        order_id=str(uuid.uuid4()),
+        broker_id=request.data["broker_id"],
+        trading_env=request.data["trading_env"],
+        trading_type=request.data["trading_type"],
+        asset_id=request.data["asset_id"],
+        order_side=request.data["order_side"],
+        order_type=request.data["order_type"],
+        order_creation_tmstmp=datetime.datetime.fromtimestamp(
+            float(request.data["order_creation_tmstmp"]) / 1000
+        ),
+        order_status=request.data["order_status"],
+        fill_pct=request.data["fill_pct"],
+        order_volume=request.data["order_volume"],
+        order_price= request.data["order_price"] if request.data["order_price"] else 1,
+    )
+    new_order.save()
+    return JsonResponse("success", safe=False)
 
 
 class OrdersViewSet(viewsets.ModelViewSet):

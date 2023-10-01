@@ -1,61 +1,46 @@
+import { Alert, Button, FormControlLabel, Radio, RadioGroup, Slide, Snackbar, TextField, SlideProps } from '@mui/material';
+import axios from 'axios';
 import React, { useEffect, useRef, useState } from 'react';
-import { Accordion, Button, ButtonGroup, Col, Container, Form, Row, Stack, Tab, Tabs, ToggleButton } from 'react-bootstrap';
+import { Col, Container, Row, Stack } from 'react-bootstrap';
+import { useDispatch, useSelector } from 'react-redux';
+import { FilterState, filterSlice } from '../StateManagement';
 
 type OrderTypeSideProps = {
-    selectedOrderSide: string;
     handleOrderSideChange: (radio: string) => void;
 };
 
 type OrderTypeFilterProps = {
-    orderTypes: Array<string>;
-    selectedOrderType: string;
     handleOrderTypeChange: (radio: string) => void;
 };
 
 
-function OrderSideFilter({ selectedOrderSide, handleOrderSideChange }: OrderTypeSideProps) {
+function OrderSideFilter({ handleOrderSideChange }: OrderTypeSideProps) {
     return (
-        <div>
-            {['Buy', 'Sell'].map((orderSide) => (
-                <div key={orderSide} className="mb-3" style={{ display: 'inline-block' }} id={`${orderSide}_filter`}>
-                    <Form.Check
-                        inline
-                        type={'radio'}
-                        id={orderSide}
-                        label={orderSide}
-                        checked={selectedOrderSide === orderSide}
-                        onChange={() => handleOrderSideChange(orderSide)}
-                    />
-                </div>
-            ))}
-        </div>
+        <RadioGroup row defaultValue="buy">
+            <FormControlLabel value="buy" control={<Radio />} label="Buy" onChange={() => handleOrderSideChange('buy')} />
+            <FormControlLabel value="sell" control={<Radio />} label="Sell" onChange={() => handleOrderSideChange('sell')} />
+        </RadioGroup>
     );
 }
 
-function OrderTypeFilter({ orderTypes, selectedOrderType, handleOrderTypeChange }: OrderTypeFilterProps) {
+function OrderTypeFilter({ handleOrderTypeChange }: OrderTypeFilterProps) {
     return (
-        <div>
-            {orderTypes.map((orderType) => (
-                <div key={orderType} className="mb-3" style={{ display: 'inline-block' }} id={`${orderType}_filter`}>
-                    <Form.Check
-                        inline
-                        type={'radio'}
-                        id={orderType}
-                        label={orderType}
-                        checked={selectedOrderType === orderType}
-                        onChange={() => handleOrderTypeChange(orderType)}
-                    />
-                </div>
-            ))}
-        </div>
-    );
-}
+        <RadioGroup row defaultValue="limit">
+            <FormControlLabel value="limit" control={<Radio />} label="Limit" onChange={() => handleOrderTypeChange('limit')} />
+            <FormControlLabel value="market" control={<Radio />} label="Market" onChange={() => handleOrderTypeChange('market')} />
+        </RadioGroup>
 
+    );
+};
 
 function OrderDetails() {
-    const orderTypes = ['Limit', 'Market'];
-    const [selectedOrderSide, setSelectedOrderSide] = useState<string>('Buy');
-    const [selectedOrderType, setSelectedOrderType] = useState<string>(orderTypes[0]);
+    const dispatch = useDispatch();
+    const [exchange, pair] = useSelector((state: { filters: FilterState }) => [state.filters.exchange, state.filters.pair]);
+    const [selectedOrderSide, setSelectedOrderSide] = useState<string>('buy');
+    const [selectedOrderType, setSelectedOrderType] = useState<string>('limit');
+    const [orderAmount, setOrderAmount] = useState<number | null>(null);
+    const [orderLimitPrice, setOrderLimitPrice] = useState<number | null>(null);
+    const [snackIsOpen, setSnackIsOpen] = useState<boolean>(false);
 
     const handleOrderSideChange = (radio: string) => {
         setSelectedOrderSide(radio);
@@ -65,44 +50,88 @@ function OrderDetails() {
         setSelectedOrderType(radio);
     };
 
+    function SubmitOrder() {
+
+        const endpoint = 'http://127.0.0.1:8000/new_order/';
+
+        const orderData = {
+            user_id: 'thomasbouamoud',
+            broker_id: exchange,
+            trading_env: 'paper_trading',
+            trading_type: 'spot',
+            asset_id: pair,
+            order_side: selectedOrderSide,
+            order_type: selectedOrderType,
+            order_creation_tmstmp: Date.now(),
+            order_status: selectedOrderType === 'limit' ? 'open' : 'executed',
+            fill_pct: selectedOrderType === 'limit' ? 0 : 1,
+            order_volume: orderAmount,
+            order_price: orderLimitPrice === undefined ? null : orderLimitPrice
+        };
+
+        axios.post(endpoint, orderData)
+            .then((response) => {
+                console.log('Response:', response.data);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        setOrderAmount(null);
+        setOrderLimitPrice(null);
+        setSnackIsOpen(true);
+        dispatch(filterSlice.actions.setOrdersNeedReload(true))
+    };
     return (
         <Container>
-            <Form style={{ height: '200px' }}>
-                <Row>
+            <Row style={{ marginLeft: '10%' }}>
+                <Col>
+                    <OrderSideFilter handleOrderSideChange={handleOrderSideChange} />
+                </Col>
+                <Col >
+                    <OrderTypeFilter handleOrderTypeChange={handleOrderTypeChange} />
+                </Col>
+            </Row>
+            <Row style={{ paddingTop: 20 }}>
+                {selectedOrderType === 'limit' &&
                     <Col>
-                        <OrderSideFilter selectedOrderSide={selectedOrderSide} handleOrderSideChange={handleOrderSideChange} />
+                        <TextField
+                            id="limit-price"
+                            label="Limit Price"
+                            type="number"
+                            value={orderLimitPrice === null ? '' : orderLimitPrice}
+                            onChange={(event) => setOrderLimitPrice(event.target.value === '' ? null : parseFloat(event.target.value))}
+                            sx={{ width: '100%' }}
+                        />
                     </Col>
-                    <Col xs={9}>
-                        <OrderTypeFilter orderTypes={orderTypes} selectedOrderType={selectedOrderType} handleOrderTypeChange={handleOrderTypeChange} />
-                    </Col>
-                </Row>
-                <Row>
-                    {selectedOrderType === 'Limit' &&
-                        <Col>
-                            <Form.Group controlId="limitPrice">
-                                <Form.Label>Limit Price:</Form.Label>
-                                <Form.Control
-                                    type="number"
-                                    min={0}
-                                />
-                            </Form.Group>
-                        </Col>
+                }
+                <Col>
+                    <TextField
+                        id="order-amount"
+                        label="Amount"
+                        type="number"
+                        value={orderAmount}
+                        onChange={(event) => setOrderAmount(event.target.value === '' ? null : parseFloat(event.target.value))}
+                        sx={{ width: '100%' }}
+                    />
+                </Col>
+            </Row>
+            <Row style={{ paddingTop: 20 }}>
+                <Button
+                    variant="contained"
+                    color={selectedOrderSide === 'buy' ? 'success' : 'error'}
+                    disabled={orderAmount === null || (selectedOrderType === "limit" && orderLimitPrice === null) ? true : false}
+                    onClick={() =>
+                        SubmitOrder()
                     }
-                    <Col>
-                        <Form.Group controlId="amount">
-                            <Form.Label>Order Amount:</Form.Label>
-                            <Form.Control
-                                type="number"
-                                min={0}
-                            />
-                        </Form.Group>
-                    </Col>
-                </Row>
-
-                <Form.Group controlId="amount" style={{ padding: '10px' }} >
-                    <Button variant={selectedOrderSide === 'Buy' ? 'success' : 'danger'} style={{ width: '100%' }}>{selectedOrderSide}</Button>
-                </Form.Group>
-            </Form>
+                    sx={{ width: '100%' }}>
+                    {selectedOrderSide}
+                </Button>
+            </Row>
+            <Snackbar open={snackIsOpen} autoHideDuration={2000} onClose={() => setSnackIsOpen(false)}>
+                <Alert severity="success" sx={{ width: '100%' }}>
+                    Order successfuly created!
+                </Alert>
+            </Snackbar>
         </Container>
     );
 
