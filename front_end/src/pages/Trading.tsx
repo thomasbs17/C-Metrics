@@ -15,7 +15,7 @@ import { filtersStore } from '../components/StateManagement';
 
 function BottomLeftContainer() {
     return (
-        <div className="border border-primary rounded-3 p-3" style={{ height: '280px' }}>
+        <div className="border border-primary rounded-3 p-3" style={{ height: '300px' }}>
             <Tabs
                 defaultActiveKey="orders"
                 className="sm-3"
@@ -40,7 +40,7 @@ function BottomLeftContainer() {
 
 function BottomRightContainer() {
     return (
-        <div className="border border-primary rounded-3 p-3" style={{ height: '280px', overflowY: 'hidden' }}>
+        <div className="border border-primary rounded-3 p-3" style={{ height: '300px', overflowY: 'hidden' }}>
             <Tabs
                 defaultActiveKey="news"
                 className="sm-3"

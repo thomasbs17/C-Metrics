@@ -187,9 +187,9 @@ function OrderBookChart(props: BookChartProps) {
     <div style={{ marginTop: '10px', marginLeft: '-40px' }}>
       <Typography display={'flex'} justifyContent={'center'}>
         <span style={{ color: 'green', fontSize: bidAskFontSize }}>{`Bid: ${bid}`}</span>
-        &nbsp;{'-'}&nbsp;
+        &nbsp;&nbsp;
         <span style={{ fontSize: bidAskFontSize }}>{`Spread: ${spread}%`}</span>
-        &nbsp;{'-'}&nbsp;
+        &nbsp;&nbsp;
         <span style={{ color: 'red', fontSize: bidAskFontSize }}>{`Ask: ${ask}`}</span>
       </Typography>
       <HighchartsReact
