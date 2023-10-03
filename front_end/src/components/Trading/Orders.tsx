@@ -90,15 +90,15 @@ function OrderTable({ openOnly, selectedPair, paper, live }: TableProps) {
                                 onMouseEnter={() => dispatch(filterSlice.actions.setSelectedOrder([order.order_creation_tmstmp, order.order_price]))}
                                 onMouseLeave={() => dispatch(filterSlice.actions.setSelectedOrder(['', '']))}
                             >
-                                <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red', fontSize: 12}}>{formatTimeStamp(order.order_creation_tmstmp)}</TableCell>
-                                <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red'}}>{order.trading_env}</TableCell>
-                                <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red'}}>{order.asset_id}</TableCell>
-                                <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red'}}>{order.order_side}</TableCell>
-                                <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red'}}>{order.order_type}</TableCell>
-                                <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red'}}>{order.order_status}</TableCell>
-                                <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red'}}>{order.fill_pct * 100}%</TableCell>
-                                <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red'}}>{order.order_volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red'}}>{order.order_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red', fontSize: 12 }}>{formatTimeStamp(order.order_creation_tmstmp)}</TableCell>
+                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.trading_env}</TableCell>
+                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.asset_id}</TableCell>
+                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.order_side}</TableCell>
+                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.order_type}</TableCell>
+                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.order_status}</TableCell>
+                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.fill_pct * 100}%</TableCell>
+                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.order_volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.order_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                             </TableRow>
                         ))
                         }
