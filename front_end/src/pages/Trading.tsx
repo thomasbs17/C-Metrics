@@ -1,4 +1,4 @@
-import { Accordion, Col, Container, Dropdown, Placeholder, Row, Stack, Tab, Tabs, ThemeProvider } from 'react-bootstrap';
+import { Col, Container, Row, Tab, Tabs } from 'react-bootstrap';
 import TradeHistory from '../components/Trading/TradeHistory';
 import Screening from '../components/Trading/Screening';
 import CreateOrderWidget from '../components/Trading/CreateOrder';
@@ -15,7 +15,7 @@ import { filtersStore } from '../components/StateManagement';
 
 function BottomLeftContainer() {
     return (
-        <div className="border border-primary rounded-3 p-3" style={{ height: '300px' }}>
+        <div className="border border-primary rounded-3 p-3" style={{ height: '280px' }}>
             <Tabs
                 defaultActiveKey="orders"
                 className="sm-3"
@@ -40,7 +40,7 @@ function BottomLeftContainer() {
 
 function BottomRightContainer() {
     return (
-        <div className="border border-primary rounded-3 p-3" style={{ height: '300px', overflowY: 'hidden' }}>
+        <div className="border border-primary rounded-3 p-3" style={{ height: '280px', overflowY: 'hidden' }}>
             <Tabs
                 defaultActiveKey="news"
                 className="sm-3"

@@ -1,4 +1,4 @@
-import { Alert, Button, FormControlLabel, Radio, RadioGroup, Slide, Snackbar, TextField, SlideProps } from '@mui/material';
+import { Alert, Button, FormControlLabel, Radio, RadioGroup, Snackbar, TextField } from '@mui/material';
 import axios from 'axios';
 import React, { useEffect, useRef, useState } from 'react';
 import { Col, Container, Row, Stack } from 'react-bootstrap';

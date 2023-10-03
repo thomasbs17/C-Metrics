@@ -66,7 +66,7 @@ function OrderTable({ openOnly, selectedPair, paper, live }: TableProps) {
         isLoading ?
             <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
             :
-            <TableContainer sx={{ maxHeight: 180 }}>
+            <TableContainer sx={{ maxHeight: 170 }}>
                 <Table stickyHeader size='small'>
                     <TableHead >
                         <TableRow >
@@ -90,7 +90,7 @@ function OrderTable({ openOnly, selectedPair, paper, live }: TableProps) {
                                 onMouseEnter={() => dispatch(filterSlice.actions.setSelectedOrder([order.order_creation_tmstmp, order.order_price]))}
                                 onMouseLeave={() => dispatch(filterSlice.actions.setSelectedOrder(['', '']))}
                             >
-                                <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red'}}>{formatTimeStamp(order.order_creation_tmstmp)}</TableCell>
+                                <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red', fontSize: 12}}>{formatTimeStamp(order.order_creation_tmstmp)}</TableCell>
                                 <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red'}}>{order.trading_env}</TableCell>
                                 <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red'}}>{order.asset_id}</TableCell>
                                 <TableCell align="left" sx={{color: order.order_side === 'buy' ? 'green' : 'red'}}>{order.order_side}</TableCell>

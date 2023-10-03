@@ -422,7 +422,7 @@ export function TradingChart() {
       setChartBoundaries([minLowMaxHigh[0], minLowMaxHigh[1]]);
     }
   },
-    [exchange, pair, ohlcData, synchCharts]);
+    [exchange, pair, ohlcData, synchCharts, minLowMaxHigh]);
 
   // const orderBookChartData = buildCumulativeVolume(orderBookData, minLowMaxHigh);
   const ohlcChartData = { 'ohlc': ohlcData, 'publicTrades': publicTrades }

@@ -1,5 +1,4 @@
-import { useSelector } from 'react-redux';
-import { AnyAction, configureStore, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { configureStore, createSlice } from '@reduxjs/toolkit';
 
 export type Order = {
     user_id: string;

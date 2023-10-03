@@ -28,8 +28,6 @@ from crypto_station_api.views import (
     post_new_order,
 )
 
-# router = routers.DefaultRouter()
-# router.register(r'ohlc', SimpleJSONView.OhlcView.as_view(), 'ohlc')
 
 urlpatterns = [
     path("admin/", admin.site.urls),
