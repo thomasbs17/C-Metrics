@@ -1,9 +1,17 @@
 import { useEffect, useRef, useState } from "react"
-import { ButtonGroup, Col, Container, Dropdown, Row, Spinner, ToggleButton } from "react-bootstrap"
+import { Col, Container,  Row, ToggleButton } from "react-bootstrap"
 import { useDispatch, useSelector } from 'react-redux';
 import { FilterState, filterSlice } from "../StateManagement";
 import { Autocomplete, CircularProgress, TextField, ToggleButtonGroup } from "@mui/material";
+import axios from "axios";
+import HighchartsReact from "highcharts-react-official";
+import Highcharts from 'highcharts';
+import HighchartsMore from 'highcharts/highcharts-more';
+import SolidGauge from 'highcharts/modules/solid-gauge';
 
+// Initialize the modules
+HighchartsMore(Highcharts);
+SolidGauge(Highcharts);
 
 type FilterProps = {
     data: Array<string>
@@ -143,7 +151,129 @@ const containerStyle: React.CSSProperties = {
     position: 'relative'
 };
 
-export function Filters() {
+
+function GreedAndFear() {
+    const [data, setData] = useState<any>({});
+    useEffect(() => {
+        async function fetchIndexData() {
+            const url = "https://api.alternative.me/fng/";
+            try {
+                const response = await axios.get(url);
+                setData(response.data);
+                console.log(data["data"][0]["value"])
+            } catch (error) {
+                console.error('Error fetching greed and fear index data:', error);
+            }
+        }
+        fetchIndexData();
+    }, []);
+    const options = {
+        credits: { enabled: false },
+        chart: {
+            type: 'gauge',
+            plotBackgroundColor: null,
+            plotBackgroundImage: null,
+            plotBorderWidth: 0,
+            backgroundColor: 'transparent',
+            plotShadow: false,
+            height: 110,
+            width: 200,
+            margin: 0
+        },
+
+        title: {
+            text: ''
+        },
+
+        pane: {
+            startAngle: -90,
+            endAngle: 89.9,
+            background: null,
+            center: ['50%', '75%'],
+        },
+
+        yAxis: {
+            min: 0,
+            max: 100,
+            tickPosition: 'inside',
+            tickLength: 20,
+            tickWidth: 2,
+            minorTickInterval: null,
+            labels: {
+                distance: 20,
+                style: {
+                    fontSize: '14px'
+                }
+            },
+            lineWidth: 0,
+            plotBands: [{
+                from: 0,
+                to: 24,
+                color: '#8B0000',
+                thickness: 20
+            }, {
+                from: 25,
+                to: 44,
+                color: '#FF0000',
+                thickness: 20
+            },
+            {
+                from: 45,
+                to: 55,
+                color: 'orange',
+                thickness: 20
+            }, {
+                from: 56,
+                to: 75,
+                color: '#008000',
+                thickness: 20
+            }, {
+                from: 76,
+                to: 100,
+                color: '#006400',
+                thickness: 20
+            }
+            ]
+        },
+
+        series: [{
+            name: '',
+            data: Object.keys(data).length !== 0 ? [parseInt(data["data"][0]["value"])] : [],
+            dataLabels: {
+                borderWidth: 0,
+                format:
+                    '<div style="text-align:center">' +
+                    `<span style="font-size:15px">{y} (${Object.keys(data).length !== 0 ? [data["data"][0]["value_classification"]] : ''})</span>` +
+                    '</div>',
+            },
+            dial: {
+                radius: '80%',
+                backgroundColor: 'rgb(50,50,50)',
+                baseWidth: 6,
+                baseLength: '0%',
+                rearLength: '0%'
+            },
+            pivot: {
+                backgroundColor: 'gray',
+                radius: 6
+            }
+
+        }]
+
+    }
+    return (
+        <div style={{ position: 'absolute', marginTop: -10 }}>
+            {Object.keys(data).length !== 0 &&
+                <HighchartsReact
+                    highcharts={Highcharts}
+                    options={options}
+                />
+            }
+        </div>
+    )
+};
+
+export function TopBar() {
     const exchange = useSelector((state: { filters: FilterState }) => state.filters.exchange);
     const containerRef = useRef<HTMLDivElement>(null);
     const markets = LoadMarkets(exchange);
@@ -166,6 +296,9 @@ export function Filters() {
                         <PairFilter data={Object.keys(markets).sort()} />
                     </Col>
                 }
+                <Col style={{ width: 300 }}>
+                    <GreedAndFear />
+                </Col>
             </Row>
         </Container>
     );

@@ -3,7 +3,6 @@ import TradeHistory from '../components/Trading/TradeHistory';
 import Screening from '../components/Trading/Screening';
 import CreateOrderWidget from '../components/Trading/CreateOrder';
 import News from '../components/Trading/News';
-import { Filters } from '../components/Trading/Filters';
 import { Provider, useDispatch } from 'react-redux';
 import { TradingChart } from '../components/Trading/Chart';
 import Orders from '../components/Trading/Orders';
@@ -11,6 +10,7 @@ import Holdings from '../components/Trading/Holdings';
 import { filterSlice, filtersStore } from '../components/StateManagement';
 import { Box, Tab, Tabs } from '@mui/material';
 import React from 'react';
+import { TopBar } from '../components/Trading/Filters';
 
 function BottomLeftContainer() {
     const dispatch = useDispatch();
@@ -66,7 +66,7 @@ function BottomRightContainer() {
                     aria-label="bottom-right-tab"
                     variant="fullWidth"
                 >
-                    <Tab value="news" label="News" sx={{ height: '30px' }}/>
+                    <Tab value="news" label="News" sx={{ height: '30px' }} />
                     <Tab value="screening" label="Screening" />
                 </Tabs>
                 {
@@ -85,7 +85,7 @@ function BottomRightContainer() {
 function Trading() {
     return (
         <Provider store={filtersStore}>
-            <Filters />
+            <TopBar />
             <Container fluid>
                 <TradingChart />
                 <Row>
