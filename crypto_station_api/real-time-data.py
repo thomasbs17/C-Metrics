@@ -1,11 +1,12 @@
 import asyncio
-from decimal import Decimal
 import json
 from datetime import datetime as dt
-from cryptofeed import FeedHandler
-from cryptofeed.defines import L2_BOOK
-from cryptofeed import exchanges
+
 import websockets
+from cryptofeed import FeedHandler
+from cryptofeed import exchanges
+from cryptofeed.defines import L2_BOOK
+
 
 # TODO: this is only meant to be used by one client for now
 
@@ -100,7 +101,8 @@ class RealTimeMarketData:
         self.clients.add(websocket)
         try:
             await asyncio.gather(
-                websocket.recv(), self.send_to_clients(),
+                websocket.recv(),
+                self.send_to_clients(),
             )
         finally:
             pass
