@@ -35,8 +35,8 @@ function TradingTypeFilter() {
             onChange={handleSelect}
             aria-label="Platform"
         >
-            <ToggleButton value="paper">Paper Trading</ToggleButton>
-            <ToggleButton disabled value="live">Live Trading</ToggleButton>
+            <ToggleButton value="paper" variant="success">Paper Trading</ToggleButton>
+            <ToggleButton disabled value="live" variant="error">Live Trading</ToggleButton>
         </ToggleButtonGroup>
     )
 }
@@ -68,8 +68,8 @@ function ExchangeFilter(props: FilterProps) {
 
 function PairFilter(props: FilterProps) {
     const dispatch = useDispatch();
-    const [selectedValue, setSelectedValue] = useState('');
     const [exchange, stateValue] = useSelector((state: { filters: FilterState }) => [state.filters.exchange, state.filters.pair]);
+    const [selectedValue, setSelectedValue] = useState(stateValue);
     const handleSelectPair = (
         event: React.ChangeEvent<{}>,
         value: string | null
@@ -80,16 +80,15 @@ function PairFilter(props: FilterProps) {
         }
     };
     useEffect(() => {
-        setSelectedValue(props.data[0])
-        dispatch(filterSlice.actions.setPair(props.data[0]));
-    }, [exchange, props.data, dispatch])
+        setSelectedValue(stateValue);
+    }, [stateValue, exchange, props.data])
 
     return (
         <Autocomplete
             clearIcon={false}
             options={props.data}
             sx={{ width: 300 }}
-            value={selectedValue != '' ? selectedValue : stateValue}
+            value={selectedValue !== '' ? selectedValue : stateValue}
             onChange={handleSelectPair}
             renderInput={(params) => <TextField {...params} label={`Pair (${props.data.length})`} />}
         />
@@ -160,7 +159,6 @@ function GreedAndFear() {
             try {
                 const response = await axios.get(url);
                 setData(response.data);
-                console.log(data["data"][0]["value"])
             } catch (error) {
                 console.error('Error fetching greed and fear index data:', error);
             }
@@ -243,7 +241,7 @@ function GreedAndFear() {
                 borderWidth: 0,
                 format:
                     '<div style="text-align:center">' +
-                    `<span style="font-size:15px">{y} (${Object.keys(data).length !== 0 ? [data["data"][0]["value_classification"]] : ''})</span>` +
+                    `<span style="font-size:12px">{y} (${Object.keys(data).length !== 0 ? [data["data"][0]["value_classification"]] : ''})</span>` +
                     '</div>',
             },
             dial: {

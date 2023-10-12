@@ -202,7 +202,7 @@ function OrderBookChart(props: BookChartProps) {
 
 function OhlcChart(props: OhlcChartProps) {
   const selectedArticle = useSelector((state: { filters: FilterState }) => [state.filters.selectedArticle]);
-  const selectedOrder = useSelector((state: { filters: FilterState }) => [state.filters.selectedOrder]);
+  const [selectedOrder, pairScoreDetails] = useSelector((state: { filters: FilterState }) => [state.filters.selectedOrder, state.filters.pairScoreDetails]);
   const volumeArray = props.data['ohlc'].map(item => [item[0], item[5]]);
   const options = {
     plotOptions: {
@@ -261,14 +261,57 @@ function OhlcChart(props: OhlcChartProps) {
           }
         },
         lineWidth: 2,
-        gridLineWidth: 0.2,
+        gridLineWidth: 0,
         plotLines: [
           {
             color: 'white',
             width: 1,
             value: parseFloat(selectedOrder[0][1]),
           },
-        ]
+          {
+            color: 'red',
+            width: 0.5,
+            value: Object.keys(pairScoreDetails).includes("next_support") ? pairScoreDetails["next_support"] : null,
+          },
+          {
+            color: 'green',
+            width: 0.5,
+            value: Object.keys(pairScoreDetails).includes("next_resistance") ? pairScoreDetails["next_resistance"] : null,
+          },
+        ],
+        top: '0%',
+        height: '60%',
+      },
+      {
+        title: {
+          text: ''
+        },
+        top: '60%',
+        height: '20%',
+        gridLineWidth: 0,
+        plotLines: [
+          {
+            color: 'red',
+            width: 0.5,
+            value: 30,
+          },
+          {
+            color: 'green',
+            width: 0.5,
+            value: 70,
+          },
+        ],
+        crosshair: {
+          color: 'gray',
+          dashStyle: 'solid',
+          snap: false,
+          label: {
+            enabled: true,
+            formatter: function (value: number) {
+              return value;
+            },
+          }
+        },
       },
       {
         title: {
@@ -277,7 +320,18 @@ function OhlcChart(props: OhlcChartProps) {
         top: '80%',
         height: '20%',
         gridLineWidth: 0,
-      }
+        crosshair: {
+          color: 'gray',
+          dashStyle: 'solid',
+          snap: false,
+          label: {
+            enabled: true,
+            formatter: function (value: number) {
+              return value;
+            },
+          }
+        },
+      },
     ],
     title: {
       text: ``
@@ -294,12 +348,25 @@ function OhlcChart(props: OhlcChartProps) {
         id: 'ohlc'
       },
       {
+        type: 'rsi',
+        name: 'rsi',
+        yAxis: 1,
+        linkedTo: 'ohlc'
+      },
+      {
         data: volumeArray,
         name: 'volume',
         type: 'column',
-        yAxis: 1,
+        yAxis: 2,
         opacity: 0.5
       },
+    //   {
+    //     type: 'bb',
+    //     linkedTo: 'ohlc',
+    //     opacity: 1,
+    //     lineWidth:0,
+    //     color:'blue'
+    // }
     ],
     chart: {
       backgroundColor: 'transparent',
@@ -317,7 +384,7 @@ function OhlcChart(props: OhlcChartProps) {
 };
 
 export function TradingChart() {
-  const [exchange, pair] = useSelector((state: { filters: FilterState }) => [state.filters.exchange, state.filters.pair]);
+  const [exchange, pair, pairScoreDetails] = useSelector((state: { filters: FilterState }) => [state.filters.exchange, state.filters.pair, state.filters.pairScoreDetails]);
   const [ohlcData, setOHLCData] = useState<OhlcData>([]);
   const [minLowMaxHigh, setMinLowMaxHigh] = useState<[number, number]>([0, 0])
   const [orderBookData, setOrderBookData] = useState<OrderBookData>({});
@@ -328,6 +395,7 @@ export function TradingChart() {
   const [animationData, setAnimationData] = useState(null);
   const [ohlcFecthFailed, setOhlcFetchFailed] = useState(false);
   const [bookFecthFailed, setBookFetchFailed] = useState(false);
+  const selectedOrder = useSelector((state: { filters: FilterState }) => [state.filters.selectedOrder]);
 
   useEffect(() => {
     async function fetchAnimationData() {
@@ -345,6 +413,7 @@ export function TradingChart() {
   useEffect(() => {
     async function fetchOHLCData(pair: string) {
       try {
+        setIsLoading(true);
         const ohlc_response = await axios.get(
           `http://127.0.0.1:8000/ohlc/?exchange=${exchange}&pair=${pair}`
         );
@@ -455,6 +524,23 @@ export function TradingChart() {
         enabled: false
       }
     },
+    plotLines: [
+      {
+        color: 'white',
+        width: 1,
+        value: parseFloat(selectedOrder[0][1]),
+      },
+      {
+        color: 'red',
+        width: 0.5,
+        value: Object.keys(pairScoreDetails).includes("next_support") ? pairScoreDetails["next_support"] : null,
+      },
+      {
+        color: 'green',
+        width: 0.5,
+        value: Object.keys(pairScoreDetails).includes("next_resistance") ? pairScoreDetails["next_resistance"] : null,
+      },
+    ],
     lineWidth: 2,
     gridLineWidth: 0,
     min: synchCharts ? chartBoundaries[0] : null,
@@ -466,32 +552,29 @@ export function TradingChart() {
 
   return (
     <div style={{ height: chartsHeight }}>
-      {isLoading ?
-        <CircularProgress style={{ position: 'absolute', top: '30%', left: '40%' }} />
+      {isLoading && <CircularProgress style={{ position: 'absolute', top: '30%', left: '40%' }} />}
+      {ohlcFecthFailed ?
+        <Lottie animationData={animationData} style={{ height: chartsHeight }} />
         :
-        ohlcFecthFailed ?
-          <Lottie animationData={animationData} style={{ height: chartsHeight }} />
-          :
-          <Row style={{ height: chartsHeight }}>
-            <Col sm={10} style={{ zIndex: 1 }}>
-              <OhlcChart data={ohlcChartData} exchange={exchange} pair={pair} zoomHandler={handleZoomChange} priceAxis={priceAxis} />
-            </Col>
-            <Col sm={2} style={{ zIndex: 2 }}>
-              {bookFecthFailed ?
-                <Alert style={{ marginTop: '50%', display: 'flex', justifyContent: 'center' }} severity="error">Error loading Order Book</Alert>
-                :
-                <>
-                  <OrderBookChart data={orderBookData} zoomHandler={handleZoomChange} priceAxis={priceAxis} synchCharts={synchCharts} />
-                  <FormControlLabel
-                    style={{ marginLeft: '50px' }}
-                    control={<Switch defaultChecked />}
-                    label={<Typography fontSize={'10px'}>Synchrnoize with main chart</Typography>}
-                    value={synchCharts}
-                    onChange={(e, checked) => setSynchCharts(checked)} />
-                </>
-              }
-            </Col>
-          </Row>
+        <Row style={{ height: chartsHeight }}>
+          <Col sm={10} style={{ zIndex: 1 }}>
+            <OhlcChart data={ohlcChartData} exchange={exchange} pair={pair} zoomHandler={handleZoomChange} priceAxis={priceAxis} />
+          </Col>
+          <Col sm={2} style={{ zIndex: 2 }}>
+            {bookFecthFailed && <Alert style={{ marginTop: '50%', display: 'flex', justifyContent: 'center' }} severity="error">Error loading Order Book</Alert>}
+            {Object.keys(orderBookData).includes('bids') && orderBookData['bids'].length > 0 &&
+              <>
+                <OrderBookChart data={orderBookData} zoomHandler={handleZoomChange} priceAxis={priceAxis} synchCharts={synchCharts} />
+                <FormControlLabel
+                  style={{ marginLeft: '50px' }}
+                  control={<Switch defaultChecked />}
+                  label={<Typography fontSize={'10px'}>Synchrnoize with main chart</Typography>}
+                  value={synchCharts}
+                  onChange={(e, checked) => setSynchCharts(checked)} />
+              </>
+            }
+          </Col>
+        </Row>
       }
     </div>
   )
