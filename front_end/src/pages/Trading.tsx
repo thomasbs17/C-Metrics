@@ -89,10 +89,10 @@ function Trading() {
             <Container fluid>
                 <TradingChart />
                 <Row>
-                    <Col>
+                    <Col style={{maxWidth: '50%'}}>
                         <BottomLeftContainer />
                     </Col>
-                    <Col>
+                    <Col style={{maxWidth: '50%'}}>
                         <BottomRightContainer />
                     </Col>
                 </Row>

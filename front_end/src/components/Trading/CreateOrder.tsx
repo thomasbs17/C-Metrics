@@ -1,4 +1,4 @@
-import { Alert, Button, FormControlLabel, Radio, RadioGroup, Snackbar, TextField } from '@mui/material';
+import { Alert, Button, CircularProgress, FormControlLabel, Radio, RadioGroup, Snackbar, TextField } from '@mui/material';
 import axios from 'axios';
 import React, { useEffect, useRef, useState } from 'react';
 import { Col, Container, Row, Stack } from 'react-bootstrap';
@@ -41,6 +41,7 @@ function OrderDetails() {
     const [orderAmount, setOrderAmount] = useState<number | null>(null);
     const [orderLimitPrice, setOrderLimitPrice] = useState<number | null>(null);
     const [snackIsOpen, setSnackIsOpen] = useState<boolean>(false);
+    const [isLoading, seIsLoading] = useState<boolean>(false);
 
     const handleOrderSideChange = (radio: string) => {
         setSelectedOrderSide(radio);
@@ -51,7 +52,7 @@ function OrderDetails() {
     };
 
     function SubmitOrder() {
-
+        seIsLoading(true);
         const endpoint = 'http://127.0.0.1:8000/new_order/';
 
         const orderData = {
@@ -72,8 +73,10 @@ function OrderDetails() {
         axios.post(endpoint, orderData)
             .then((response) => {
                 console.log('Response:', response.data);
+                seIsLoading(false);
             })
             .catch((error) => {
+                seIsLoading(false);
                 console.error('Error:', error);
             });
         setOrderAmount(null);
@@ -116,16 +119,20 @@ function OrderDetails() {
                 </Col>
             </Row>
             <Row style={{ paddingTop: 20 }}>
-                <Button
-                    variant="contained"
-                    color={selectedOrderSide === 'buy' ? 'success' : 'error'}
-                    disabled={orderAmount === null || (selectedOrderType === "limit" && orderLimitPrice === null) ? true : false}
-                    onClick={() =>
-                        SubmitOrder()
-                    }
-                    sx={{ width: '100%' }}>
-                    {selectedOrderSide}
-                </Button>
+                {isLoading ?
+                    <CircularProgress style={{ marginLeft: '50%' }} />
+                    :
+                    <Button
+                        variant="contained"
+                        color={selectedOrderSide === 'buy' ? 'success' : 'error'}
+                        disabled={orderAmount === null || (selectedOrderType === "limit" && orderLimitPrice === null) ? true : false}
+                        onClick={() =>
+                            SubmitOrder()
+                        }
+                        sx={{ width: '100%' }}>
+                        {selectedOrderSide}
+                    </Button>
+                }
             </Row>
             <Snackbar open={snackIsOpen} autoHideDuration={2000} onClose={() => setSnackIsOpen(false)}>
                 <Alert severity="success" sx={{ width: '100%' }}>

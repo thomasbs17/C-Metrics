@@ -6,6 +6,7 @@ django-cors-headers==4.2.0
 ccxt==4.0.50
 GoogleNews==1.6.9
 cryptofeed==2.3.2
+pandas==2.1.1
 
 # POSTGRES
 #If running on Linux, the below commands must be entered first

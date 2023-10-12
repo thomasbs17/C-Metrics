@@ -28,7 +28,6 @@ from crypto_station_api.views import (
     post_new_order,
 )
 
-
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("exchanges/", get_exchanges, name="all_exchanges"),

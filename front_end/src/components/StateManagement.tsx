@@ -22,7 +22,8 @@ export type FilterState = {
     pair: string
     selectedArticle: [string, string],
     selectedOrder: [string, string],
-    ordersNeedReload: boolean
+    ordersNeedReload: boolean,
+    pairScoreDetails: any
 };
 
 const initialState: FilterState = {
@@ -31,7 +32,8 @@ const initialState: FilterState = {
     pair: '1INCH/EUR',
     selectedArticle: ['', ''],
     selectedOrder: ['', ''],
-    ordersNeedReload: true
+    ordersNeedReload: true,
+    pairScoreDetails: {}
 };
 
 export const filterSlice = createSlice({
@@ -55,6 +57,9 @@ export const filterSlice = createSlice({
         },
         setOrdersNeedReload: (state, action) => {
             state.ordersNeedReload = action.payload;
+        },
+        setPairScoreDetails: (state, action) => {
+            state.pairScoreDetails = action.payload;
         },
     },
 });
