@@ -1,13 +1,14 @@
 import datetime
 import uuid
+
 import ccxt
 from GoogleNews import GoogleNews
 from django.http import JsonResponse
+from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.parsers import JSONParser
 from rest_framework.renderers import JSONRenderer
 from rest_framework.views import APIView
-from rest_framework import viewsets
 
 from crypto_station_api.models import Orders
 from crypto_station_api.serializers import OrdersSerializer
@@ -87,7 +88,7 @@ def post_new_order(request):
         order_status=request.data["order_status"],
         fill_pct=request.data["fill_pct"],
         order_volume=request.data["order_volume"],
-        order_price= request.data["order_price"] if request.data["order_price"] else 1,
+        order_price=request.data["order_price"] if request.data["order_price"] else 1,
     )
     new_order.save()
     return JsonResponse("success", safe=False)
