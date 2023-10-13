@@ -10,7 +10,7 @@ import pandas as pd
 import pandas_ta as ta
 import websockets
 
-from crypto_station_api.screening.indicators.technicals import FractalCandlestickPattern
+from indicators.technicals import FractalCandlestickPattern
 
 
 class Screener:
@@ -99,7 +99,7 @@ class Screener:
                 self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][key] = func(
                     ohlc["close"], length=period
                 )
-        bbands_df = ta.bbands(ohlc["close"], length=20)
+        bbands_df = ta.bbands(ohlc["close"])
         columns = [column for column in bbands_df.columns]
         self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][columns] = bbands_df
         self.data["exchanges"][exchange.name][pair]["data"]["ohlc"]["rsi"] = ta.rsi(
