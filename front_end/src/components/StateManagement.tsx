@@ -21,7 +21,7 @@ export type FilterState = {
     exchange: string;
     pair: string
     selectedArticle: [string, string],
-    selectedOrder: [string, string],
+    selectedOrder: [string, string, string],
     ordersNeedReload: boolean,
     pairScoreDetails: any
 };
@@ -31,7 +31,7 @@ const initialState: FilterState = {
     exchange: 'kraken',
     pair: '1INCH/EUR',
     selectedArticle: ['', ''],
-    selectedOrder: ['', ''],
+    selectedOrder: ['', '', ''],
     ordersNeedReload: true,
     pairScoreDetails: {}
 };

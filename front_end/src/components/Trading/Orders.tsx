@@ -22,7 +22,7 @@ function formatTimeStamp(originalDate: any) {
 
 function OrderTable({ openOnly, selectedPair, paper, live }: TableProps) {
     const dispatch = useDispatch();
-    const pair = useSelector((state: { filters: FilterState }) => state.filters.pair);
+    const [pair, selectedOrder] = useSelector((state: { filters: FilterState }) => [state.filters.pair, state.filters.selectedOrder]);
     const ordersNeedReload = useSelector((state: { filters: FilterState }) => state.filters.ordersNeedReload);
     const [orders, setOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true)
@@ -41,6 +41,43 @@ function OrderTable({ openOnly, selectedPair, paper, live }: TableProps) {
             new Date(b.order_creation_tmstmp).getTime() - new Date(a.order_creation_tmstmp).getTime());
         return filteredOrders
     }
+
+    function rowBackGroundColor(order: Order) {
+        if (order.order_id === selectedOrder[2]) {
+            if (order.order_side === 'buy') {
+                return 'green'
+            }
+            else {
+                return 'red'
+            }
+        }
+        else {
+            return 'transparent'
+        }
+    };
+
+    function rowFontColor(order: Order) {
+        if (order.order_id === selectedOrder[2]) {
+            return 'white'
+        }
+        else {
+            if (order.order_side === 'buy') {
+                return 'green'
+            }
+            else {
+                return 'red'
+            }
+        }
+    };
+
+    const handleClick = (order: Order) => {
+        if (order.order_id !== selectedOrder[2]) {
+            dispatch(filterSlice.actions.setPair(order.asset_id));
+            dispatch(filterSlice.actions.setSelectedOrder([order.order_creation_tmstmp, order.order_price, order.order_id]))
+        } else {
+            dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
+        }
+    };
 
     useEffect(() => {
         async function fetchOrders() {
@@ -70,7 +107,7 @@ function OrderTable({ openOnly, selectedPair, paper, live }: TableProps) {
                 <Table stickyHeader size='small'>
                     <TableHead >
                         <TableRow >
-                            <TableCell align="left" ><u>Creation Date</u></TableCell>
+                            <TableCell align="left" sx={{fontSize: 11}}><u>Creation Date</u></TableCell>
                             <TableCell align="left" ><u>Environment</u></TableCell>
                             <TableCell align="left" ><u>Asset</u></TableCell>
                             <TableCell align="left" ><u>Side</u></TableCell>
@@ -85,20 +122,19 @@ function OrderTable({ openOnly, selectedPair, paper, live }: TableProps) {
                         {filteredOrders.map((order: Order, index: number) => (
                             <TableRow
                                 key={index}
-                                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                                sx={{ '&:last-child td, &:last-child th': { border: 0 }, cursor: 'pointer' }}
                                 hover
-                                onMouseEnter={() => dispatch(filterSlice.actions.setSelectedOrder([order.order_creation_tmstmp, order.order_price]))}
-                                onMouseLeave={() => dispatch(filterSlice.actions.setSelectedOrder(['', '']))}
+                                onClick={() => handleClick(order)}
                             >
-                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red', fontSize: 12 }}>{formatTimeStamp(order.order_creation_tmstmp)}</TableCell>
-                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.trading_env}</TableCell>
-                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.asset_id}</TableCell>
-                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.order_side}</TableCell>
-                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.order_type}</TableCell>
-                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.order_status}</TableCell>
-                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.fill_pct * 100}%</TableCell>
-                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.order_volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                <TableCell align="left" sx={{ color: order.order_side === 'buy' ? 'green' : 'red' }}>{order.order_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell align="left" sx={{ color: rowFontColor(order), backgroundColor: rowBackGroundColor(order), fontSize: 11 }}>{formatTimeStamp(order.order_creation_tmstmp)}</TableCell>
+                                <TableCell align="left" sx={{ color: rowFontColor(order), backgroundColor: rowBackGroundColor(order) }}>{order.trading_env}</TableCell>
+                                <TableCell align="left" sx={{ color: rowFontColor(order), backgroundColor: rowBackGroundColor(order) }}>{order.asset_id}</TableCell>
+                                <TableCell align="left" sx={{ color: rowFontColor(order), backgroundColor: rowBackGroundColor(order) }}>{order.order_side}</TableCell>
+                                <TableCell align="left" sx={{ color: rowFontColor(order), backgroundColor: rowBackGroundColor(order) }}>{order.order_type}</TableCell>
+                                <TableCell align="left" sx={{ color: rowFontColor(order), backgroundColor: rowBackGroundColor(order) }}>{order.order_status}</TableCell>
+                                <TableCell align="left" sx={{ color: rowFontColor(order), backgroundColor: rowBackGroundColor(order) }}>{order.fill_pct * 100}%</TableCell>
+                                <TableCell align="left" sx={{ color: rowFontColor(order), backgroundColor: rowBackGroundColor(order) }}>{order.order_volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell align="left" sx={{ color: rowFontColor(order), backgroundColor: rowBackGroundColor(order) }}>{order.order_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                             </TableRow>
                         ))
                         }

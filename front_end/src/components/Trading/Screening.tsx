@@ -63,7 +63,7 @@ function Screening() {
                                 <TableCell align="left" sx={{fontSize: 11}} >{pairDetails['pair']}</TableCell>
                                 <TableCell align="left" sx={{fontSize: 11}}>{pairDetails['next_support']}</TableCell>
                                 <TableCell align="left" sx={{fontSize: 11}}>{pairDetails['next_resistance']}</TableCell>
-                                <TableCell align="left" sx={{fontSize: 11}}>{displayAsPercent(pairDetails['distance_to_next_supprt'] - 1)}</TableCell>
+                                <TableCell align="left" sx={{fontSize: 11}}>{displayAsPercent(pairDetails['distance_to_next_support'] - 1)}</TableCell>
                                 <TableCell align="left" sx={{fontSize: 11}}>{displayAsPercent(pairDetails['distance_to_rsi'] - 1)}</TableCell>
                                 <TableCell align="left" sx={{fontSize: 11}}>{(displayAsPercent(pairDetails['distance_to_lower_bollinger'] - 1))}</TableCell>
                                 <TableCell align="left" sx={{fontSize: 11}}>{pairDetails['book_score'].toFixed(2)}</TableCell>
