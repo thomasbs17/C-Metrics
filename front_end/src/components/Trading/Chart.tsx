@@ -9,7 +9,12 @@ import Lottie from 'lottie-react';
 import HighchartsBoost from "highcharts/modules/boost";
 import { Alert, CircularProgress, FormControlLabel, Switch, Typography } from '@mui/material';
 import IndicatorsAll from 'highcharts/indicators/indicators-all';
+import exportData from "highcharts/modules/export-data";
+import exporting from "highcharts/modules/exporting";
 
+
+// exporting(Highcharts);
+// exportData(Highcharts);
 IndicatorsAll(Highcharts);
 HighchartsBoost(Highcharts);
 const chartsHeight = 500;
@@ -177,6 +182,11 @@ function OrderBookChart(props: BookChartProps) {
       panning: true,
       panKey: 'shift'
     },
+    exporting: {
+      enabled: true,
+      menuItemDefinitions: {"viewFullscreen": {}},
+      buttons: {contextButton:{text: 'te'}}
+    },
     credits: { enabled: false },
   };
   const bidAskFontSize = '13px'
@@ -208,18 +218,20 @@ function OhlcChart(props: OhlcChartProps) {
     plotOptions: {
       ohlc: {
         color: 'red',
-        upColor: 'green'
+        upColor: 'green',
       }
     },
     xAxis: [
       {
         type: 'datetime',
+        gridLineWidth: 0.05,
         crosshair: {
           color: 'gray',
           width: 1,
           snap: false,
           label: {
             enabled: true,
+            backgroundColor: 'transparent',
             formatter: function (value: number) {
               return Highcharts.dateFormat('%Y-%m-%d', value);
             }
@@ -235,7 +247,7 @@ function OhlcChart(props: OhlcChartProps) {
           {
             color: 'white',
             width: 1,
-            value: new Date(selectedOrder[0][0]),
+            value: new Date(selectedOrder[0]),
           },
         ]
       },
@@ -255,18 +267,19 @@ function OhlcChart(props: OhlcChartProps) {
           snap: false,
           label: {
             enabled: true,
+            backgroundColor: 'transparent',
             formatter: function (value: number) {
-              return value;
+              return value.toLocaleString();
             },
           }
         },
         lineWidth: 2,
-        gridLineWidth: 0,
+        gridLineWidth: 0.05,
         plotLines: [
           {
             color: 'white',
             width: 1,
-            value: parseFloat(selectedOrder[0][1]),
+            value: parseFloat(selectedOrder[1]),
           },
           {
             color: 'red',
@@ -280,14 +293,14 @@ function OhlcChart(props: OhlcChartProps) {
           },
         ],
         top: '0%',
-        height: '60%',
+        height: '80%',
       },
       {
         title: {
           text: ''
         },
-        top: '60%',
-        height: '20%',
+        top: '80%',
+        height: '10%',
         gridLineWidth: 0,
         plotLines: [
           {
@@ -307,8 +320,9 @@ function OhlcChart(props: OhlcChartProps) {
           snap: false,
           label: {
             enabled: true,
+            backgroundColor: 'transparent',
             formatter: function (value: number) {
-              return value;
+              return value.toFixed(0);
             },
           }
         },
@@ -317,8 +331,8 @@ function OhlcChart(props: OhlcChartProps) {
         title: {
           text: ''
         },
-        top: '80%',
-        height: '20%',
+        top: '90%',
+        height: '10%',
         gridLineWidth: 0,
         crosshair: {
           color: 'gray',
@@ -326,8 +340,9 @@ function OhlcChart(props: OhlcChartProps) {
           snap: false,
           label: {
             enabled: true,
+            backgroundColor: 'transparent',
             formatter: function (value: number) {
-              return value;
+              return value.toFixed(2);
             },
           }
         },
@@ -351,14 +366,16 @@ function OhlcChart(props: OhlcChartProps) {
         type: 'rsi',
         name: 'rsi',
         yAxis: 1,
-        linkedTo: 'ohlc'
+        linkedTo: 'ohlc',
+        marker: {
+          enabled: false
+      },
       },
       {
         data: volumeArray,
         name: 'volume',
         type: 'column',
         yAxis: 2,
-        opacity: 0.5
       },
     //   {
     //     type: 'bb',
@@ -371,6 +388,20 @@ function OhlcChart(props: OhlcChartProps) {
     chart: {
       backgroundColor: 'transparent',
       height: chartsHeight,
+    },
+    exporting: {
+      enabled: true,
+      buttons: {
+        menuItems: [
+          "viewFullscreen",
+          "printChart",
+          "separator",
+          "downloadPNG",
+          "downloadJPEG",
+          "downloadPDF",
+          "downloadSVG"
+        ]
+      }
     },
     credits: { enabled: false },
   };
