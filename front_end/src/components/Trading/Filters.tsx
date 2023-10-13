@@ -8,6 +8,7 @@ import HighchartsReact from "highcharts-react-official";
 import Highcharts from 'highcharts';
 import HighchartsMore from 'highcharts/highcharts-more';
 import SolidGauge from 'highcharts/modules/solid-gauge';
+import { useNavigate } from 'react-router';
 
 // Initialize the modules
 HighchartsMore(Highcharts);
@@ -43,8 +44,10 @@ function TradingTypeFilter() {
 
 function ExchangeFilter(props: FilterProps) {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const [selectedValue, setSelectedValue] = useState('');
     const stateValue = useSelector((state: { filters: FilterState }) => state.filters.exchange);
+    const pair = useSelector((state: { filters: FilterState }) =>  state.filters.pair);
     const handleSelect = (
         event: React.ChangeEvent<{}>,
         value: string | null,
@@ -52,6 +55,7 @@ function ExchangeFilter(props: FilterProps) {
         if (value !== null) {
             setSelectedValue(value)
             dispatch(filterSlice.actions.setExchange(value));
+            navigate(`/trading?exchange=${value}&pair=${pair}`)
         }
     };
     return (
@@ -68,6 +72,7 @@ function ExchangeFilter(props: FilterProps) {
 
 function PairFilter(props: FilterProps) {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const [exchange, stateValue] = useSelector((state: { filters: FilterState }) => [state.filters.exchange, state.filters.pair]);
     const [selectedValue, setSelectedValue] = useState(stateValue);
     const handleSelectPair = (
@@ -77,10 +82,12 @@ function PairFilter(props: FilterProps) {
         if (value !== null) {
             setSelectedValue(value);
             dispatch(filterSlice.actions.setPair(value));
+            navigate(`/trading?exchange=${exchange}&pair=${value}`)
         }
     };
     useEffect(() => {
         setSelectedValue(stateValue);
+        navigate(`/trading?exchange=${exchange}&pair=${stateValue}`)
     }, [stateValue, exchange, props.data])
 
     return (
@@ -233,7 +240,6 @@ function GreedAndFear() {
             }
             ]
         },
-
         series: [{
             name: '',
             data: Object.keys(data).length !== 0 ? [parseInt(data["data"][0]["value"])] : [],
