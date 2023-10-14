@@ -6,6 +6,7 @@
     "@mui/material": "^5.14.5",
     "@mui/x-data-grid": "^6.11.2",
     "@reduxjs/toolkit": "^1.9.5",
+    "prettier": "^3.0.3",
     "react-router-dom": "^6.16.0"
   }
 }
