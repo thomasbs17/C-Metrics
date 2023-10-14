@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { Col, Container, Row, ToggleButton } from "react-bootstrap"
 import { useDispatch, useSelector } from 'react-redux';
 import { FilterState, filterSlice } from "../StateManagement";
-import { Autocomplete, CircularProgress, TextField, ToggleButtonGroup } from "@mui/material";
+import { Autocomplete, TextField, ToggleButtonGroup } from "@mui/material";
 import axios from "axios";
 import HighchartsReact from "highcharts-react-official";
 import Highcharts from 'highcharts';
@@ -220,37 +220,30 @@ function GreedAndFear() {
         credits: { enabled: false },
         chart: {
             inverted: true,
-            backgroundColor: '50transparent',
-            height: 50,
-            width: 300,
+            backgroundColor: 'transparent',
+            height: 100,
+            width: 250,
         },
         title: {
-            text: "Greed & Fear"
+            text: "Greed & Fear",
+            verticalAlign: 'bottom',
+            y: 0
         },
         xAxis: {
-            lineColor: "#C0C0C0",
             labels: {
                 enabled: false
             },
-            tickLength: 0
+            tickLength: true
         },
         yAxis: {
             min: 0,
             max: 100,
-            tickLength: 5,
-            tickWidth: 1,
-            tickColor: "#C0C0C0",
-            gridLineColor: "#C0C0C0",
-            gridLineWidth: 1,
-            minorTickInterval: 5,
-            minorTickWidth: 1,
-            minorTickLength: 5,
+            gridLineWidth: 0,
+            minorTickInterval: 25,
+            minorTickWidth: 0,
+            minorTickLength: 1,
             minorGridLineWidth: 0,
-
             title: null,
-            labels: {
-                format: "{value}%"
-            },
             plotBands: [
                 {
                     from: 0,
@@ -279,20 +272,27 @@ function GreedAndFear() {
         legend: {
             enabled: false
         },
+        tooltip: {enabled: false},
         series: [
             {
                 type: "lineargauge",
                 data: Object.keys(data).length !== 0 ? [parseInt(data["data"][0]["value"])] : [],
-                color: "#000000",
+                color: "white",
                 dataLabels: {
                     enabled: true,
                     align: "center",
-                }
+                    verticalAlign: 'bottom',
+                    y: 2,
+                    style: {
+                      fontSize: 12,
+                    },
+                    format: Object.keys(data).length !== 0 ? `{y} (${data["data"][0]["value_classification"]})` : null
+                },
             }
         ] as any
     };
     return (
-        <div style={{ position: 'absolute' }}>
+        <div style={{ position: 'absolute', overflow: 'visible' }}>
             {Object.keys(data).length !== 0 &&
                 <HighchartsReact
                     highcharts={Highcharts}
