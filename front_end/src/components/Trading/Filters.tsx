@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Col, Container,  Row, ToggleButton } from "react-bootstrap"
+import { Col, Container, Row, ToggleButton } from "react-bootstrap"
 import { useDispatch, useSelector } from 'react-redux';
 import { FilterState, filterSlice } from "../StateManagement";
 import { Autocomplete, CircularProgress, TextField, ToggleButtonGroup } from "@mui/material";
@@ -13,6 +13,50 @@ import { useNavigate } from 'react-router';
 // Initialize the modules
 HighchartsMore(Highcharts);
 SolidGauge(Highcharts);
+
+function LinearGauge(H: any) {
+    H.seriesType('lineargauge', 'column', null, {
+        setVisible: function () {
+            H.seriesTypes.column.prototype.setVisible.apply(this, arguments);
+            if (this.markLine) {
+                this.markLine[this.visible ? 'show' : 'hide']();
+            }
+        },
+        drawPoints: function () {
+            // Draw the Column like always
+            H.seriesTypes.column.prototype.drawPoints.apply(this, arguments);
+
+            // Add a Marker
+            var series = this,
+                chart = this.chart,
+                inverted = chart.inverted,
+                xAxis = this.xAxis,
+                yAxis = this.yAxis,
+                point = this.points[0], // we know there is only 1 point
+                markLine = this.markLine,
+                ani = markLine ? 'animate' : 'attr';
+
+            // Hide column
+            point.graphic.hide();
+
+            if (!markLine) {
+                var path = inverted ? ['M', 0, 0, 'L', -5, -5, 'L', 5, -5, 'L', 0, 0, 'L', 0, 0 + xAxis.len] : ['M', 0, 0, 'L', -5, -5, 'L', -5, 5, 'L', 0, 0, 'L', xAxis.len, 0];
+                markLine = this.markLine = chart.renderer.path(path)
+                    .attr({
+                        fill: series.color,
+                        stroke: series.color,
+                        'stroke-width': 1
+                    }).add();
+            }
+            markLine[ani]({
+                translateX: inverted ? xAxis.left + yAxis.translate(point.y) : xAxis.left,
+                translateY: inverted ? xAxis.top : yAxis.top + yAxis.len - yAxis.translate(point.y)
+            });
+        }
+    });
+}
+
+LinearGauge(Highcharts);
 
 type FilterProps = {
     data: Array<string>
@@ -47,7 +91,7 @@ function ExchangeFilter(props: FilterProps) {
     const navigate = useNavigate();
     const [selectedValue, setSelectedValue] = useState('');
     const stateValue = useSelector((state: { filters: FilterState }) => state.filters.exchange);
-    const pair = useSelector((state: { filters: FilterState }) =>  state.filters.pair);
+    const pair = useSelector((state: { filters: FilterState }) => state.filters.pair);
     const handleSelect = (
         event: React.ChangeEvent<{}>,
         value: string | null,
@@ -175,102 +219,85 @@ function GreedAndFear() {
     const options = {
         credits: { enabled: false },
         chart: {
-            type: 'gauge',
-            plotBackgroundColor: null,
-            plotBackgroundImage: null,
-            plotBorderWidth: 0,
-            backgroundColor: 'transparent',
-            plotShadow: false,
-            height: 110,
-            width: 200,
-            margin: 0
+            inverted: true,
+            backgroundColor: '50transparent',
+            height: 50,
+            width: 300,
         },
-
         title: {
-            text: ''
+            text: "Greed & Fear"
         },
-
-        pane: {
-            startAngle: -90,
-            endAngle: 89.9,
-            background: null,
-            center: ['50%', '75%'],
+        xAxis: {
+            lineColor: "#C0C0C0",
+            labels: {
+                enabled: false
+            },
+            tickLength: 0
         },
-
         yAxis: {
             min: 0,
             max: 100,
-            tickPosition: 'inside',
-            tickLength: 20,
-            tickWidth: 2,
-            minorTickInterval: null,
+            tickLength: 5,
+            tickWidth: 1,
+            tickColor: "#C0C0C0",
+            gridLineColor: "#C0C0C0",
+            gridLineWidth: 1,
+            minorTickInterval: 5,
+            minorTickWidth: 1,
+            minorTickLength: 5,
+            minorGridLineWidth: 0,
+
+            title: null,
             labels: {
-                distance: 20,
-                style: {
-                    fontSize: '14px'
+                format: "{value}%"
+            },
+            plotBands: [
+                {
+                    from: 0,
+                    to: 24,
+                    color: '#8B0000',
+                }, {
+                    from: 25,
+                    to: 44,
+                    color: '#FF0000',
+                },
+                {
+                    from: 45,
+                    to: 55,
+                    color: 'orange',
+                }, {
+                    from: 56,
+                    to: 75,
+                    color: '#008000',
+                }, {
+                    from: 76,
+                    to: 100,
+                    color: '#006400',
                 }
-            },
-            lineWidth: 0,
-            plotBands: [{
-                from: 0,
-                to: 24,
-                color: '#8B0000',
-                thickness: 20
-            }, {
-                from: 25,
-                to: 44,
-                color: '#FF0000',
-                thickness: 20
-            },
-            {
-                from: 45,
-                to: 55,
-                color: 'orange',
-                thickness: 20
-            }, {
-                from: 56,
-                to: 75,
-                color: '#008000',
-                thickness: 20
-            }, {
-                from: 76,
-                to: 100,
-                color: '#006400',
-                thickness: 20
-            }
             ]
         },
-        series: [{
-            name: '',
-            data: Object.keys(data).length !== 0 ? [parseInt(data["data"][0]["value"])] : [],
-            dataLabels: {
-                borderWidth: 0,
-                format:
-                    '<div style="text-align:center">' +
-                    `<span style="font-size:12px">{y} (${Object.keys(data).length !== 0 ? [data["data"][0]["value_classification"]] : ''})</span>` +
-                    '</div>',
-            },
-            dial: {
-                radius: '80%',
-                backgroundColor: 'rgb(50,50,50)',
-                baseWidth: 6,
-                baseLength: '0%',
-                rearLength: '0%'
-            },
-            pivot: {
-                backgroundColor: 'gray',
-                radius: 6
+        legend: {
+            enabled: false
+        },
+        series: [
+            {
+                type: "lineargauge",
+                data: Object.keys(data).length !== 0 ? [parseInt(data["data"][0]["value"])] : [],
+                color: "#000000",
+                dataLabels: {
+                    enabled: true,
+                    align: "center",
+                }
             }
-
-        }]
-
-    }
+        ] as any
+    };
     return (
-        <div style={{ position: 'absolute', marginTop: -10 }}>
+        <div style={{ position: 'absolute' }}>
             {Object.keys(data).length !== 0 &&
                 <HighchartsReact
                     highcharts={Highcharts}
                     options={options}
+                    type="lineargauge"
                 />
             }
         </div>
@@ -300,7 +327,7 @@ export function TopBar() {
                         <PairFilter data={Object.keys(markets).sort()} />
                     </Col>
                 }
-                <Col style={{ width: 300 }}>
+                <Col style={{ width: 320 }}>
                     <GreedAndFear />
                 </Col>
             </Row>
