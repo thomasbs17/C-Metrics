@@ -11,6 +11,7 @@ import { filterSlice, filtersStore } from '../components/StateManagement';
 import { Box, Tab, Tabs } from '@mui/material';
 import React from 'react';
 import { TopBar } from '../components/Trading/Filters';
+import EconomicCalendar from '../components/Trading/EconomicCalendar';
 
 function BottomLeftContainer() {
     const dispatch = useDispatch();
@@ -68,12 +69,16 @@ function BottomRightContainer() {
                 >
                     <Tab value="news" label="News" sx={{ height: '30px' }} />
                     <Tab value="screening" label="Screening" />
+                    <Tab value="economic-calendar" label="Economic Calendar" />
                 </Tabs>
                 {
                     value === "news" && <News />
                 }
                 {
                     value === "screening" && <Screening />
+                }
+                {
+                    value === "economic-calendar" && <EconomicCalendar />
                 }
 
             </Box>
@@ -89,10 +94,10 @@ function Trading() {
             <Container fluid>
                 <TradingChart />
                 <Row>
-                    <Col style={{maxWidth: '50%'}}>
+                    <Col style={{ maxWidth: '50%' }}>
                         <BottomLeftContainer />
                     </Col>
-                    <Col style={{maxWidth: '50%'}}>
+                    <Col style={{ maxWidth: '50%' }}>
                         <BottomRightContainer />
                     </Col>
                 </Row>
