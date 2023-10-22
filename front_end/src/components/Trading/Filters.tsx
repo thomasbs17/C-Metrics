@@ -1,67 +1,32 @@
-import { useEffect, useRef, useState } from 'react'
-import { Col, Container, Row, ToggleButton } from 'react-bootstrap'
-import { useDispatch, useSelector } from 'react-redux'
-import { FilterState, filterSlice } from '../StateManagement'
 import {
   Autocomplete,
+  Button,
   CircularProgress,
+  FormControl,
+  InputLabel,
+  Link,
+  Menu,
+  MenuItem,
+  Select,
+  SelectChangeEvent,
   TextField,
   ToggleButtonGroup,
 } from '@mui/material'
-import axios from 'axios'
-import HighchartsReact from 'highcharts-react-official'
 import Highcharts from 'highcharts'
 import HighchartsMore from 'highcharts/highcharts-more'
 import SolidGauge from 'highcharts/modules/solid-gauge'
+import { useEffect, useRef, useState } from 'react'
+import { Col, Container, Row, ToggleButton } from 'react-bootstrap'
+import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router'
+import { tradingDataDef } from '../DataManagement'
+import { FilterState, filterSlice } from '../StateManagement'
 
 // Initialize the modules
 HighchartsMore(Highcharts)
 SolidGauge(Highcharts)
 
-function LinearGauge(H: any) {
-    H.seriesType('lineargauge', 'column', null, {
-        setVisible: function () {
-            H.seriesTypes.column.prototype.setVisible.apply(this, arguments);
-            if (this.markLine) {
-                this.markLine[this.visible ? 'show' : 'hide']();
-            }
-        },
-        drawPoints: function () {
-            // Draw the Column like always
-            H.seriesTypes.column.prototype.drawPoints.apply(this, arguments);
 
-            // Add a Marker
-            var series = this,
-                chart = this.chart,
-                inverted = chart.inverted,
-                xAxis = this.xAxis,
-                yAxis = this.yAxis,
-                point = this.points[0], // we know there is only 1 point
-                markLine = this.markLine,
-                ani = markLine ? 'animate' : 'attr';
-
-            // Hide column
-            point.graphic.hide();
-
-            if (!markLine) {
-                var path = inverted ? ['M', 0, 0, 'L', -5, -5, 'L', 5, -5, 'L', 0, 0, 'L', 0, 0 + xAxis.len] : ['M', 0, 0, 'L', -5, -5, 'L', -5, 5, 'L', 0, 0, 'L', xAxis.len, 0];
-                markLine = this.markLine = chart.renderer.path(path)
-                    .attr({
-                        fill: series.color,
-                        stroke: series.color,
-                        'stroke-width': 1
-                    }).add();
-            }
-            markLine[ani]({
-                translateX: inverted ? xAxis.left + yAxis.translate(point.y) : xAxis.left,
-                translateY: inverted ? xAxis.top : yAxis.top + yAxis.len - yAxis.translate(point.y)
-            });
-        }
-    });
-}
-
-LinearGauge(Highcharts);
 
 type FilterProps = {
   data: Array<string>
@@ -81,19 +46,68 @@ function TradingTypeFilter() {
   return (
     <ToggleButtonGroup
       color="primary"
-      style={{ padding: '10px' }}
       value={selectedValue}
       exclusive
       onChange={handleSelect}
       aria-label="Platform"
     >
       <ToggleButton value="paper" variant="success">
-        Paper Trading
+        Paper
       </ToggleButton>
       <ToggleButton disabled value="live" variant="error">
-        Live Trading
+        Live
       </ToggleButton>
     </ToggleButtonGroup>
+  )
+}
+
+
+function OhlcPeriodsFilter() {
+  const [ohlcPeriod, setOhlcPeriod] = useState('1d');
+  const dispatch = useDispatch();
+
+  const handleSelect = (event: SelectChangeEvent) => {
+    if (event.target.value !== null) {
+      setOhlcPeriod(event.target.value)
+      dispatch(filterSlice.actions.setOhlcPeriod(event.target.value))
+    }
+  };
+  const timeFrames = {
+    '1s': '1s',
+    '1m': '1m',
+    '3m': '3m',
+    '5m': '5m',
+    '15m': '15m',
+    '30m': '30m',
+    '1h': '1h',
+    '2h': '2h',
+    '4h': '4h',
+    '6h': '6h',
+    '8h': '8h',
+    '12h': '12h',
+    '1d': '1d',
+    '3d': '3d',
+    '1w': '1w',
+    '1M': '1M',
+  };
+
+  return (
+    <FormControl fullWidth>
+      <InputLabel id="ohlc-period-time-label">Time</InputLabel>
+      <Select
+        id="ohlc-period-time"
+        value={ohlcPeriod}
+        label="Age"
+        onChange={handleSelect}
+        size="small"
+      >
+        {Object.entries(timeFrames).map(([value, label]) => (
+          <MenuItem key={value} value={value}>
+            {label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
   )
 }
 
@@ -111,6 +125,8 @@ function ExchangeFilter(props: FilterProps) {
     if (value !== null) {
       setSelectedValue(value)
       dispatch(filterSlice.actions.setExchange(value))
+      dispatch(filterSlice.actions.setPairScoreDetails({}));
+      dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
       navigate(`/trading?exchange=${value}&pair=${pair}`)
     }
   }
@@ -118,7 +134,8 @@ function ExchangeFilter(props: FilterProps) {
     <Autocomplete
       clearIcon={false}
       options={props.data}
-      sx={{ width: 300 }}
+      size="small"
+      sx={{ width: 200 }}
       value={selectedValue != '' ? selectedValue : stateValue}
       onChange={handleSelect}
       renderInput={(params) => (
@@ -142,7 +159,7 @@ function PairFilter(props: FilterProps) {
     event: React.ChangeEvent<{}>,
     value: string | null,
   ) => {
-    if (value !== null) {
+    if (value !== null && value !== undefined) {
       setSelectedValue(value)
       dispatch(filterSlice.actions.setPair(value))
       navigate(`/trading?exchange=${exchange}&pair=${value}`)
@@ -151,59 +168,37 @@ function PairFilter(props: FilterProps) {
   useEffect(() => {
     setSelectedValue(stateValue)
     navigate(`/trading?exchange=${exchange}&pair=${stateValue}`)
-  }, [stateValue, exchange, props.data])
+  }, [stateValue, props.data]);
+
+  useEffect(() => {
+    if (!props.data.includes(stateValue) && props.data.length > 0) {
+      setSelectedValue(props.data[0])
+      dispatch(filterSlice.actions.setPair(props.data[0]))
+      dispatch(filterSlice.actions.setPairScoreDetails({}));
+      dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
+      navigate(`/trading?exchange=${exchange}&pair=${props.data[0]}`)
+    }
+  }, [exchange, props.data])
 
   return (
-    <Autocomplete
-      clearIcon={false}
-      options={props.data}
-      sx={{ width: 300 }}
-      value={selectedValue !== '' ? selectedValue : stateValue}
-      onChange={handleSelectPair}
-      renderInput={(params) => (
-        <TextField {...params} label={`Pair (${props.data.length})`} />
-      )}
-    />
+    <div>
+      {
+        props.data.length === 0 ?
+          <CircularProgress /> :
+          <Autocomplete
+            clearIcon={false}
+            options={props.data}
+            size="small"
+            sx={{ width: 200 }}
+            value={selectedValue !== '' ? selectedValue : stateValue}
+            onChange={handleSelectPair}
+            renderInput={(params) => (
+              <TextField {...params} label={`Pair (${props.data.length})`} />
+            )}
+          />
+      }
+    </div>
   )
-}
-
-function LoadExchanges() {
-  const [exchanges, setExchanges] = useState<Array<string>>([])
-  useEffect(() => {
-    async function getExchangesData() {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/exchanges/')
-        const data = await response.json()
-        if (data.length > 0) {
-          setExchanges(data)
-        }
-      } catch (error) {
-        console.error('Error fetching exchanges:', error)
-      }
-    }
-    getExchangesData()
-  }, [])
-  return exchanges
-}
-
-function LoadMarkets(exchange: string) {
-  const [markets, setMarkets] = useState({})
-  useEffect(() => {
-    async function getMarketsData() {
-      try {
-        const response = await fetch(
-          `http://127.0.0.1:8000/markets/?exchange=${exchange}`,
-        )
-        const data = await response.json()
-        setMarkets(data)
-      } catch (error) {
-        setMarkets({})
-        console.error('Error fetching markets:', error)
-      }
-    }
-    getMarketsData()
-  }, [exchange])
-  return markets
 }
 
 function filtersSideAnimation(
@@ -211,7 +206,7 @@ function filtersSideAnimation(
   markets: any,
 ) {
   const container = containerRef.current
-  if (container && Object.keys(markets).length != 0) {
+  if (container) {
     container.style.opacity = '1'
     container.style.transform = 'translateX(0)'
   }
@@ -227,137 +222,78 @@ const containerStyle: React.CSSProperties = {
   position: 'relative',
 }
 
-function GreedAndFear() {
-    const [data, setData] = useState<any>({});
-    useEffect(() => {
-        async function fetchIndexData() {
-            const url = "https://api.alternative.me/fng/";
-            try {
-                const response = await axios.get(url);
-                setData(response.data);
-            } catch (error) {
-                console.error('Error fetching greed and fear index data:', error);
-            }
-        }
-        fetchIndexData();
-    }, []);
-    const options = {
-        credits: { enabled: false },
-        chart: {
-            inverted: true,
-            backgroundColor: 'transparent',
-            height: 100,
-            width: 250,
-        },
-        title: {
-            text: "Greed & Fear",
-            verticalAlign: 'bottom',
-            y: 0
-        },
-        xAxis: {
-            labels: {
-                enabled: false
-            },
-            tickLength: true
-        },
-        yAxis: {
-            min: 0,
-            max: 100,
-            gridLineWidth: 0,
-            minorTickInterval: 25,
-            minorTickWidth: 0,
-            minorTickLength: 1,
-            minorGridLineWidth: 0,
-            title: null,
-            plotBands: [
-                {
-                    from: 0,
-                    to: 24,
-                    color: '#8B0000',
-                }, {
-                    from: 25,
-                    to: 44,
-                    color: '#FF0000',
-                },
-                {
-                    from: 45,
-                    to: 55,
-                    color: 'orange',
-                }, {
-                    from: 56,
-                    to: 75,
-                    color: '#008000',
-                }, {
-                    from: 76,
-                    to: 100,
-                    color: '#006400',
-                }
-            ]
-        },
-        legend: {
-            enabled: false
-        },
-        tooltip: {enabled: false},
-        series: [
-            {
-                type: "lineargauge",
-                data: Object.keys(data).length !== 0 ? [parseInt(data["data"][0]["value"])] : [],
-                color: "white",
-                dataLabels: {
-                    enabled: true,
-                    align: "center",
-                    verticalAlign: 'bottom',
-                    y: 2,
-                    style: {
-                      fontSize: 12,
-                    },
-                    format: Object.keys(data).length !== 0 ? `{y} (${data["data"][0]["value_classification"]})` : null
-                },
-            }
-        ] as any
-    };
-    return (
-        <div style={{ position: 'absolute', overflow: 'visible' }}>
-            {Object.keys(data).length !== 0 &&
-                <HighchartsReact
-                    highcharts={Highcharts}
-                    options={options}
-                    type="lineargauge"
-                />
-            }
-        </div>
-    )
-};
 
+function NavigationMenu() {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
 
-export function TopBar() {
-  const exchange = useSelector(
-    (state: { filters: FilterState }) => state.filters.exchange,
+  const pages: any = { 'Home': '', 'Trading': 'trading', 'Portfolio': 'portfolio', 'Sign Up': 'registration' }
+
+  return (
+    <div>
+      <Button
+        id="menu-button"
+        aria-controls={open ? 'basic-menu' : undefined}
+        aria-haspopup="true"
+        aria-expanded={open ? 'true' : undefined}
+        onClick={handleClick}
+      >
+        Menu
+      </Button>
+      <Menu
+        id="basic-menu"
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+        sx={{ backgroundColor: 'rgba(0,0,0,0.8)' }}
+        MenuListProps={{
+          'aria-labelledby': 'basic-button',
+        }}
+      >
+        {Object.keys(pages).map((page: string) => (
+          <Link href={`/${[pages[page]]}`} sx={{ textDecoration: 'none', color: 'white', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <MenuItem
+              component={Link}
+              onClick={handleClose}
+            >
+              {page}
+            </MenuItem>
+          </Link>
+        ))}
+      </Menu>
+    </div >
   )
+}
+
+
+export function TopBar(data: { tradingData: tradingDataDef }) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const markets = LoadMarkets(exchange)
-  const exchanges = LoadExchanges()
   useEffect(() => {
-    filtersSideAnimation(containerRef, markets)
-  })
-
-
+    filtersSideAnimation(containerRef, data.tradingData.markets)
+  }, [data.tradingData.markets]);
   return (
     <Container fluid ref={containerRef} style={containerStyle}>
       <Row style={{ padding: '10px' }}>
+        <Col style={{ maxWidth: 100 }}>
+          <NavigationMenu />
+        </Col>
         <Col>
           <TradingTypeFilter />
         </Col>
         <Col>
-          <ExchangeFilter data={exchanges} />
+          <OhlcPeriodsFilter />
         </Col>
-        {Object.keys(markets).length != 0 && (
-          <Col>
-            <PairFilter data={Object.keys(markets).sort()} />
-          </Col>
-        )}
-        <Col style={{ width: 300 }}>
-          <GreedAndFear />
+        <Col>
+          <ExchangeFilter data={data.tradingData.exchanges} />
+        </Col>
+        <Col>
+          <PairFilter data={Object.keys(data.tradingData.markets).sort()} />
         </Col>
       </Row>
     </Container>

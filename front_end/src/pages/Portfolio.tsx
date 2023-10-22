@@ -1,5 +1,7 @@
+import NavBar from "../components/Navbar"
+
 function Portfolio() {
-  return <p>Portfolio</p>
+  return <><NavBar /><p>Portfolio</p></>
 }
 
 export default Portfolio

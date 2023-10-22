@@ -1,23 +1,10 @@
 import { configureStore, createSlice } from '@reduxjs/toolkit'
 
-export type Order = {
-  user_id: string
-  order_id: string
-  broker_id: string
-  trading_env: string
-  trading_type: string
-  asset_id: string
-  order_side: string
-  order_type: string
-  order_creation_tmstmp: string
-  order_status: string
-  fill_pct: number
-  order_volume: number
-  order_price: number
-}
+
 
 export type FilterState = {
   tradingType: string
+  ohlcPeriod: string,
   exchange: string
   pair: string
   selectedArticle: [string, string]
@@ -28,8 +15,9 @@ export type FilterState = {
 
 const initialState: FilterState = {
   tradingType: 'Paper Trading',
+  ohlcPeriod: '1d',
   exchange: 'kraken',
-  pair: '1INCH/EUR',
+  pair: 'BTC/USD',
   selectedArticle: ['', ''],
   selectedOrder: ['', '', ''],
   ordersNeedReload: true,
@@ -42,6 +30,9 @@ export const filterSlice = createSlice({
   reducers: {
     setTradingType: (state, action) => {
       state.tradingType = action.payload
+    },
+    setOhlcPeriod: (state, action) => {
+      state.ohlcPeriod = action.payload
     },
     setExchange: (state, action) => {
       state.exchange = action.payload

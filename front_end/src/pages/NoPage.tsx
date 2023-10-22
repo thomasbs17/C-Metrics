@@ -1,5 +1,7 @@
+import NavBar from "../components/Navbar"
+
 function NoPage() {
-  return <p>Oops, looks like this page doesn't exist!</p>
+  return <><NavBar /><p>Oops, looks like this page doesn't exist!</p></>
 }
 
 export default NoPage

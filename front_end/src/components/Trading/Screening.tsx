@@ -7,41 +7,25 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material'
-import { useEffect, useRef, useState } from 'react'
-import { Accordion } from 'react-bootstrap'
-import { FilterState, filterSlice } from '../StateManagement'
+import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { FilterState, filterSlice } from '../StateManagement'
 
 function displayAsPercent(raw_number: number) {
   return (raw_number * 100).toFixed(2) + '%'
 }
 
-function Screening() {
-  const dispatch = useDispatch()
+function Screening(data: any) {
+  const dispatch = useDispatch();
+  const screeningData = data.screeningData;
   const selectedPair = useSelector(
     (state: { filters: FilterState }) => state.filters.pair,
   )
-  const [screeningData, setScreeningData] = useState<any>([])
-  useEffect(() => {
-    const wsUrl = `ws://localhost:8766`
-    const socket = new WebSocket(wsUrl)
-    socket.onerror = () => {
-      console.error('Error with screening service')
-    }
-    socket.onopen = () => {
-      console.log('Connected to screening service')
-    }
-    socket.onmessage = (event) => {
-      setScreeningData(JSON.parse(event.data))
-    }
-    return () => {
-      socket.close()
-    }
-  }, [])
 
   const handleClick = (pairDetails: any) => {
     dispatch(filterSlice.actions.setPair(pairDetails.pair))
     dispatch(filterSlice.actions.setPairScoreDetails(pairDetails))
+    dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
   }
 
   return screeningData.length === 0 ? (

@@ -13,7 +13,7 @@ import Tooltip from '@mui/material/Tooltip'
 import MenuItem from '@mui/material/MenuItem'
 import AdbIcon from '@mui/icons-material/Adb'
 
-const pages = ['Home', 'Trading', 'Portfolio']
+const pages: any = {'Home': 'home', 'Trading': 'trading', 'Portfolio': 'portfolio', 'Sign Up': 'registration'}
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout']
 
 function NavBar() {
@@ -60,11 +60,11 @@ function NavBar() {
             Crypto Station
           </Typography>
           <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
-            {pages.map((page) => (
+            {Object.keys(pages).map((page: string) => (
               <Button
                 key={page}
                 onClick={handleCloseNavMenu}
-                href={`/${[page.toLowerCase()]}`}
+                href={`/${[pages[page]]}`}
                 sx={{ my: 2, color: 'white', display: 'block' }}
               >
                 {page}

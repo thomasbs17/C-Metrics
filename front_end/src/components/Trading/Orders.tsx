@@ -13,14 +13,16 @@ import {
 import React, { useEffect, useState } from 'react'
 import { Col, Container, Row } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
-import { FilterState, Order, filterSlice } from '../StateManagement'
+import { FilterState, filterSlice } from '../StateManagement'
 import axios from 'axios'
+import { Order, tradingDataDef } from '../DataManagement'
 
 interface TableProps {
   openOnly: boolean
   selectedPair: boolean
   paper: boolean
-  live: boolean
+  live: boolean,
+  orders: Order[]
 }
 
 function formatTimeStamp(originalDate: any) {
@@ -29,7 +31,7 @@ function formatTimeStamp(originalDate: any) {
   return formattedDate
 }
 
-function OrderTable({ openOnly, selectedPair, paper, live }: TableProps) {
+function OrderTable({ openOnly, selectedPair, paper, live, orders}: TableProps) {
   const dispatch = useDispatch()
   const [pair, selectedOrder] = useSelector(
     (state: { filters: FilterState }) => [
@@ -37,11 +39,6 @@ function OrderTable({ openOnly, selectedPair, paper, live }: TableProps) {
       state.filters.selectedOrder,
     ],
   )
-  const ordersNeedReload = useSelector(
-    (state: { filters: FilterState }) => state.filters.ordersNeedReload,
-  )
-  const [orders, setOrders] = useState<Order[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(true)
 
   function getFilteredOrders() {
     let filteredOrders = orders.filter((order: Order) => {
@@ -90,6 +87,7 @@ function OrderTable({ openOnly, selectedPair, paper, live }: TableProps) {
 
   const handleClick = (order: Order) => {
     if (order.order_id !== selectedOrder[2]) {
+      dispatch(filterSlice.actions.setPairScoreDetails({}));
       dispatch(filterSlice.actions.setPair(order.asset_id))
       dispatch(
         filterSlice.actions.setSelectedOrder([
@@ -103,26 +101,9 @@ function OrderTable({ openOnly, selectedPair, paper, live }: TableProps) {
     }
   }
 
-  useEffect(() => {
-    async function fetchOrders() {
-      const ordersEndPoint = 'http://127.0.0.1:8000/orders/?format=json'
-      try {
-        const response = await axios.get(ordersEndPoint)
-        setOrders(response.data)
-        dispatch(filterSlice.actions.setOrdersNeedReload(false))
-        setIsLoading(false)
-      } catch (error) {
-        console.error('Error fetching orders data:', error)
-      }
-    }
-    if (ordersNeedReload) {
-      fetchOrders()
-    }
-  }, [dispatch, ordersNeedReload])
-
   const filteredOrders = getFilteredOrders()
 
-  return isLoading ? (
+  return orders.length === 0 ? (
     <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
   ) : (
     <TableContainer sx={{ maxHeight: 170 }}>
@@ -265,7 +246,7 @@ function OrderTable({ openOnly, selectedPair, paper, live }: TableProps) {
   )
 }
 
-function Orders() {
+function Orders(data: { tradingData: tradingDataDef }) {
   const [openOnly, setOpenOnly] = useState(true)
   const [selectedPair, setSelectedPair] = useState(true)
   const [paper, setPaper] = useState(true)
@@ -317,6 +298,7 @@ function Orders() {
         selectedPair={selectedPair}
         paper={paper}
         live={live}
+        orders={data.tradingData.orders}
       />
     </Container>
   )

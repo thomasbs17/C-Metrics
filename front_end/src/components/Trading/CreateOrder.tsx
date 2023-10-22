@@ -103,7 +103,6 @@ function OrderDetails() {
     axios
       .post(endpoint, orderData)
       .then((response) => {
-        console.log('Response:', response.data)
         seIsLoading(false)
       })
       .catch((error) => {

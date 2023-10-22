@@ -1,10 +1,4 @@
-import React, { useEffect, useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
-import { FilterState, filterSlice } from '../StateManagement'
-import { Image, Spinner } from 'react-bootstrap'
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
 import {
-  Button,
   CircularProgress,
   Table,
   TableBody,
@@ -13,42 +7,15 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material'
-import { TouchRippleActions } from '@mui/material/ButtonBase/TouchRipple'
+import { useDispatch } from 'react-redux'
+import { NewsArticle, tradingDataDef } from '../DataManagement'
+import { filterSlice } from '../StateManagement'
 
-type NewsArticle = {
-  date: string
-  title: string
-  media: string
-  img: string
-  link: string
-  datetime: string
-}
 
-function LoadNews() {
-  const pair = useSelector(
-    (state: { filters: FilterState }) => state.filters.pair,
-  )
-  const [news, setNewsData] = useState<Array<NewsArticle>>([])
-  useEffect(() => {
-    async function getNewsData() {
-      setNewsData([])
-      try {
-        const response = await fetch(`http://127.0.0.1:8000/news/?pair=${pair}`)
-        const data = await response.json()
-        setNewsData(data)
-      } catch (error) {
-        setNewsData([])
-        console.error('Error fetching news:', error)
-      }
-    }
-    getNewsData()
-  }, [pair])
-  return news
-}
 
-function News() {
-  let news = LoadNews()
-  news = news.sort(
+
+function News(data: { tradingData: tradingDataDef }) {
+  const news = data.tradingData.news.sort(
     (a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime(),
   )
   const dispatch = useDispatch()

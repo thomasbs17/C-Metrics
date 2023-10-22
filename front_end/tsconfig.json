@@ -20,6 +20,10 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
+  "organizeImports": {
+    "sortImports": true,
+    "removeUnusedImports": true
+  },
   "include": [
     "src"
   ]

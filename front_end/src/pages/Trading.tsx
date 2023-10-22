@@ -1,19 +1,20 @@
-import { Col, Container, Row } from 'react-bootstrap'
-import TradeHistory from '../components/Trading/TradeHistory'
-import Screening from '../components/Trading/Screening'
-import CreateOrderWidget from '../components/Trading/CreateOrder'
-import News from '../components/Trading/News'
-import { Provider, useDispatch } from 'react-redux'
-import { TradingChart } from '../components/Trading/Chart'
-import Orders from '../components/Trading/Orders'
-import Holdings from '../components/Trading/Holdings'
-import { filterSlice, filtersStore } from '../components/StateManagement'
 import { Box, Tab, Tabs } from '@mui/material'
 import React from 'react'
-import { TopBar } from '../components/Trading/Filters'
+import { Col, Container, Row } from 'react-bootstrap'
+import { useDispatch } from 'react-redux'
+import { GetTradingData, tradingDataDef } from '../components/DataManagement'
+import { filterSlice } from '../components/StateManagement'
+import { TradingChart } from '../components/Trading/Chart'
+import CreateOrderWidget from '../components/Trading/CreateOrder'
 import EconomicCalendar from '../components/Trading/EconomicCalendar'
+import { TopBar } from '../components/Trading/Filters'
+import Holdings from '../components/Trading/Holdings'
+import News from '../components/Trading/News'
+import Orders from '../components/Trading/Orders'
+import Screening from '../components/Trading/Screening'
+import TradeHistory from '../components/Trading/TradeHistory'
 
-function BottomLeftContainer() {
+function BottomLeftContainer(data: { tradingData: tradingDataDef }) {
   const dispatch = useDispatch()
   const [value, setValue] = React.useState('orders')
 
@@ -38,7 +39,7 @@ function BottomLeftContainer() {
           <Tab value="trade-history" label="Trade History" />
           <Tab value="create-order" label="Create Order" />
         </Tabs>
-        {value === 'orders' && <Orders />}
+        {value === 'orders' && <Orders tradingData={data.tradingData} />}
         {value === 'holdings' && <Holdings />}
         {value === 'trade-history' && <TradeHistory />}
         {value === 'create-order' && <CreateOrderWidget />}
@@ -47,7 +48,7 @@ function BottomLeftContainer() {
   )
 }
 
-function BottomRightContainer() {
+function BottomRightContainer(data: { tradingData: tradingDataDef }) {
   const [value, setValue] = React.useState('news')
 
   const handleChange = (event: React.SyntheticEvent, newValue: string) => {
@@ -69,8 +70,8 @@ function BottomRightContainer() {
           <Tab value="screening" label="Screening" />
           <Tab value="economic-calendar" label="Economic Calendar" />
         </Tabs>
-        {value === 'news' && <News />}
-        {value === 'screening' && <Screening />}
+        {value === 'news' && <News tradingData={data.tradingData} />}
+        {value === 'screening' && <Screening screeningData={data.tradingData.screeningData} />}
         {value === 'economic-calendar' && <EconomicCalendar />}
       </Box>
     </div>
@@ -78,21 +79,23 @@ function BottomRightContainer() {
 }
 
 function Trading() {
+  const tradingData: tradingDataDef = GetTradingData();
+
   return (
-    <Provider store={filtersStore}>
-      <TopBar />
+    <div>
+      <TopBar tradingData={tradingData} />
       <Container fluid>
-        <TradingChart />
+        <TradingChart tradingData={tradingData} />
         <Row>
           <Col style={{ maxWidth: '50%' }}>
-            <BottomLeftContainer />
+            <BottomLeftContainer tradingData={tradingData} />
           </Col>
           <Col style={{ maxWidth: '50%' }}>
-            <BottomRightContainer />
+            <BottomRightContainer tradingData={tradingData} />
           </Col>
         </Row>
       </Container>
-    </Provider>
+    </div>
   )
 }
 
