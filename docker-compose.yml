@@ -1,0 +1,25 @@
+version: '3'
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: front_end/Dockerfile
+    ports:
+      - "3000:3000"
+  database:
+    image: postgres:13
+    env_file:
+      - .env
+    volumes:
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d  # Mount the directory
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      - database
+    env_file:
+      - .env
+    working_dir: /app
