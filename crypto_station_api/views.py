@@ -16,6 +16,7 @@ from crypto_station_api.serializers import OrdersSerializer
 
 coinmarketcap = CoinMarketCap()
 
+
 class SimpleJSONView(APIView):
     parser_classes = [JSONParser]
     renderer_classes = [JSONRenderer]
@@ -46,13 +47,19 @@ def get_order_book(request):
     order_book_data = exchange.fetch_order_book(symbol=pair, limit=1000)
     return JsonResponse(order_book_data, safe=False)
 
+
 @api_view(["GET"])
 def get_asset_coinmarketcap_mapping(request):
-    return JsonResponse(coinmarketcap.get_endpoint(api_version=1, category="cryptocurrency", endpoint="map"), safe=False)
+    return JsonResponse(
+        coinmarketcap.get_endpoint(
+            api_version=1, category="cryptocurrency", endpoint="map"
+        ),
+        safe=False,
+    )
 
 
 @api_view(["GET"])
-def get_markets(request):
+def get_exchange_markets(request):
     exchange = request.query_params.get("exchange")
     exchange_class = getattr(ccxt, exchange)
     exchange = exchange_class()

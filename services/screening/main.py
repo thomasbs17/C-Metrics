@@ -232,7 +232,9 @@ class Screener:
                 await self.daily_refresh(exchange_object, symbols)
                 await self.live_refresh(exchange_object, symbols)
                 if self.verbose:
-                    print(f"Next iteration in {self.live_refresh_second_frequency} seconds")
+                    print(
+                        f"Next iteration in {self.live_refresh_second_frequency} seconds"
+                    )
                     await self.print_scores(exchange_object.name)
                 if websocket:
                     ws_data = self.data["exchanges"][exchange_object.name][
@@ -245,6 +247,7 @@ class Screener:
         # Your logic to send updates to clients
         scores_data = self.data["exchanges"][exchange_name].get("scores", "")
         await websocket.send(scores_data)
+
 
 def run_websocket():
     screener = Screener(exchange_list=["kraken"], verbose=False)
