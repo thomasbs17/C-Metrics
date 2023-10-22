@@ -1,11 +1,14 @@
 import os
 from pathlib import Path
-
 import msgpack
 import pandas as pd
 import psycopg2
 import redis
 from dotenv import load_dotenv
+
+from cryptofeed import FeedHandler
+from cryptofeed.defines import TRADES
+from cryptofeed.exchanges import Kraken
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 ENV_PATH = BASE_DIR / ".env"
@@ -32,6 +35,10 @@ class OrderExecutionService:
         self.db = get_db_connection()
         db = self.retrieve_from_db()
         self.pairs = db["asset_id"].unique().tolist()
+        self.initialize_websocket()
+
+    def handle_ws_message():
+        print()
 
     def retrieve_from_db(self) -> pd.DataFrame:
         query = "select * from crypto_station.public.crypto_station_api_orders where order_status = 'open'"
@@ -49,6 +56,18 @@ class OrderExecutionService:
 
     def initialize_websocket(self):
         f = FeedHandler(config=self.config)
+        f.add_feed(
+            Kraken(
+                channels=[TRADES],
+                symbols=self.pairs,
+                callbacks={
+                    TRADES: self.handle_ws_message,
+                },
+            )
+        )
+
+        f.run()
+
 
 def run_service():
     while True:
