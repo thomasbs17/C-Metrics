@@ -7,6 +7,8 @@ ccxt==4.0.50
 GoogleNews==1.6.9
 cryptofeed==2.3.2
 pandas==2.1.1
+redis==5.0.1
+msgpack==1.0.7
 
 # POSTGRES
 #If running on Linux, the below commands must be entered first

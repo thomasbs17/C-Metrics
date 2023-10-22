@@ -10,9 +10,11 @@ from rest_framework.parsers import JSONParser
 from rest_framework.renderers import JSONRenderer
 from rest_framework.views import APIView
 
+from crypto_station_api.data_sources.coinmarketcap import CoinMarketCap
 from crypto_station_api.models import Orders
 from crypto_station_api.serializers import OrdersSerializer
 
+coinmarketcap = CoinMarketCap()
 
 class SimpleJSONView(APIView):
     parser_classes = [JSONParser]
@@ -27,10 +29,11 @@ def get_exchanges(request):
 @api_view(["GET"])
 def get_ohlc(request):
     exchange = request.query_params.get("exchange")
+    timeframe = request.query_params.get("timeframe")
     pair = request.query_params.get("pair")
     exchange_class = getattr(ccxt, exchange)
     exchange = exchange_class()
-    ohlc_data = exchange.fetch_ohlcv(symbol=pair, timeframe="1d", limit=300)
+    ohlc_data = exchange.fetch_ohlcv(symbol=pair, timeframe=timeframe, limit=300)
     return JsonResponse(ohlc_data, safe=False)
 
 
@@ -43,6 +46,10 @@ def get_order_book(request):
     order_book_data = exchange.fetch_order_book(symbol=pair, limit=1000)
     return JsonResponse(order_book_data, safe=False)
 
+@api_view(["GET"])
+def get_asset_coinmarketcap_mapping(request):
+    return JsonResponse(coinmarketcap.get_endpoint(api_version=1, category="cryptocurrency", endpoint="map"), safe=False)
+
 
 @api_view(["GET"])
 def get_markets(request):
@@ -54,7 +61,7 @@ def get_markets(request):
 
 @api_view(["GET"])
 def get_news(request):
-    pair = request.query_params.get("pair")
+    pair = request.query_params.get("search_term")
     googlenews = GoogleNews()
     googlenews.get_news(pair)
     data = googlenews.results()
