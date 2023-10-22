@@ -1,9 +1,12 @@
+import json
 import os
 from pathlib import Path
 import msgpack
 import pandas as pd
 import psycopg2
 import redis
+from cryptofeed import FeedHandler, exchanges
+from cryptofeed.defines import L2_BOOK
 from dotenv import load_dotenv
 
 from cryptofeed import FeedHandler
@@ -27,6 +30,7 @@ def get_db_connection() -> psycopg2:
 
 class OrderExecutionService:
     def __init__(self):
+        self.users = None
         redis_host = "localhost"
         redis_port = 6379
         self.redis_client = redis.StrictRedis(
@@ -35,10 +39,6 @@ class OrderExecutionService:
         self.db = get_db_connection()
         db = self.retrieve_from_db()
         self.pairs = db["asset_id"].unique().tolist()
-        self.initialize_websocket()
-
-    def handle_ws_message():
-        print()
 
     def retrieve_from_db(self) -> pd.DataFrame:
         query = "select * from crypto_station.public.crypto_station_api_orders where order_status = 'open'"
@@ -46,27 +46,31 @@ class OrderExecutionService:
         df["order_creation_tmstmp"] = (
             df["order_creation_tmstmp"].astype("int64").astype("int32") // 10**9
         )
-        users = df["user_id"].unique().tolist()
-        for user in users:
-            serialized_data = msgpack.packb(
-                df.to_dict(orient="records"), use_bin_type=True
-            )
-            self.redis_client.set(user, serialized_data)
         return df
 
-    def initialize_websocket(self):
-        f = FeedHandler(config=self.config)
-        f.add_feed(
-            Kraken(
-                channels=[TRADES],
-                symbols=self.pairs,
-                callbacks={
-                    TRADES: self.handle_ws_message,
-                },
-            )
-        )
+    def add_user_channels(self):
+        df = self.retrieve_from_db()
+        self.users = df["user_id"].unique().tolist()
+        for user in self.users:
+            user_df = df[df["user_id"] == user]
+            self.redis_client.delete(user)
+            self.redis_client.set(user, json.dumps(user_df.to_dict(orient="records")))
 
-        f.run()
+
+    def retrieve_from_redis(self) -> pd.DataFrame:
+        all_data = dict()
+        for user in self.users:
+            all_data[user] = self.redis_client.get(user)
+        return pd.DataFrame(all_data)
+
+
+    def initialize_websocket(self):
+        redis_data = self.retrieve_from_redis()
+        brokers = redis_data["broker_id"].unique().tolist()
+        for broker in brokers:
+            broker_df = redis_data[redis_data["broker_id"] == broker]
+            assets = broker_df["asset_id"].unique().tolist()
+            f = FeedHandler(config=self.config)
 
 
 def run_service():
