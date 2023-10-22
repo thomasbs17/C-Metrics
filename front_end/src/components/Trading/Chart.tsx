@@ -213,7 +213,7 @@ function OrderBookChart(props: BookChartProps) {
           {
             color: 'red',
             width: 0.5,
-            label: { text: 'support', align:'right',style: { color: 'red' } },
+            label: { text: 'support', align: 'right', style: { color: 'red' } },
             id: 'supportLine',
             value: Object.keys(props.pairScoreDetails).includes('next_support')
               ? props.pairScoreDetails['next_support']
@@ -224,7 +224,7 @@ function OrderBookChart(props: BookChartProps) {
           {
             color: 'green',
             width: 0.5,
-            label: { text: 'resistance', align:'right', style: { color: 'green' } },
+            label: { text: 'resistance', align: 'right', style: { color: 'green' } },
             id: 'resistanceLine',
             value: Object.keys(props.pairScoreDetails).includes('next_resistance')
               ? props.pairScoreDetails['next_resistance']
@@ -655,21 +655,21 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
   return (
     <div style={{ height: CHART_HEIGHT }}>
       <Row style={{ height: CHART_HEIGHT }}>
-        {
-          data.tradingData.ohlcvData.length === 0 ?
-            <CircularProgress
-              style={{ position: 'absolute', top: '30%', left: '40%' }}
-            />
-            :
-            <Col sm={10} style={{ zIndex: 1 }}>
-              {cryptoInfo !== undefined &&
-                <div style={{ position: 'absolute', marginTop: 40, marginLeft: 5 }}>
-                  <Typography variant="h5">
-                    {cryptoInfo.name}
-                  </Typography>
-                  {cryptoInfo.platform !== null && `Network: ${cryptoInfo.platform.name}`}
-                </div>
-              }
+        <Col sm={10} style={{ zIndex: 1 }}>
+          {cryptoInfo !== undefined && Object.keys(cryptoInfo).length > 0 &&
+            <div style={{ position: 'absolute', marginTop: 40, marginLeft: 5 }}>
+              <Typography variant="h5">
+                {cryptoInfo.name}
+              </Typography>
+              {cryptoInfo.platform !== null && `Network: ${cryptoInfo.platform.name}`}
+            </div>
+          }
+          {
+            data.tradingData.ohlcvData.length === 0 ?
+              <CircularProgress
+                style={{ position: 'absolute', top: '30%', left: '40%' }}
+              />
+              :
               <OhlcChart
                 data={data.tradingData.ohlcvData}
                 exchange={exchange as string}
@@ -679,8 +679,8 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
                 pairScoreDetails={pairScoreDetails}
                 volumeArray={volumeArray}
               />
-            </Col>
-        }
+          }
+        </Col>
         <Col sm={2} style={{ zIndex: 2 }}>
           {
             ((Object.keys(data.tradingData.orderBookData).includes('bids')) &&

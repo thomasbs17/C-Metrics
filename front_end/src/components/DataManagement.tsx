@@ -78,7 +78,7 @@ function LoadStaticData(endpoint: string) {
 }
 
 function LoadMarkets() {
-  const [data, setData] = useState<any>([]);
+  const [data, setData] = useState<any>({});
   const exchange = useSelector(
     (state: { filters: FilterState }) => state.filters.exchange,
   );
