@@ -25,12 +25,13 @@ from crypto_station_api.views import (
     get_markets,
     get_news,
     get_public_trades,
-    post_new_order,
+    post_new_order, get_asset_coinmarketcap_mapping,
 )
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("exchanges/", get_exchanges, name="all_exchanges"),
+    path("coinmarketcap_info/", get_asset_coinmarketcap_mapping, name="coin_market_cap_info"),
     path("markets/", get_markets, name="all_markets"),
     path("ohlc/", get_ohlc, name="get_ohlc"),
     path("order_book/", get_order_book, name="order_book"),

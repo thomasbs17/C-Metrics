@@ -231,8 +231,9 @@ class Screener:
                     self.data["exchanges"][exchange_object.name] = dict()
                 await self.daily_refresh(exchange_object, symbols)
                 await self.live_refresh(exchange_object, symbols)
-                print(f"Next iteration in {self.live_refresh_second_frequency} seconds")
-                await self.print_scores(exchange_object.name)
+                if self.verbose:
+                    print(f"Next iteration in {self.live_refresh_second_frequency} seconds")
+                    await self.print_scores(exchange_object.name)
                 if websocket:
                     ws_data = self.data["exchanges"][exchange_object.name][
                         "scores"
@@ -245,22 +246,8 @@ class Screener:
         scores_data = self.data["exchanges"][exchange_name].get("scores", "")
         await websocket.send(scores_data)
 
-    def test_screening(self):
-        while True:
-            for exchange in self.exchange_list:
-                exchange_object = getattr(ccxt, exchange)()
-                symbols = exchange_object.load_markets()
-                if exchange_object.name not in self.data["exchanges"]:
-                    self.data["exchanges"][exchange_object.name] = dict()
-                self.daily_refresh(exchange_object, symbols)
-                self.live_refresh(exchange_object, symbols)
-                print(f"Next iteration in {self.live_refresh_second_frequency} seconds")
-                self.print_scores(exchange_object.name)
-                time.sleep(10)
-
-
 def run_websocket():
-    screener = Screener(exchange_list=["kraken"], verbose=True)
+    screener = Screener(exchange_list=["kraken"], verbose=False)
     start_server = websockets.serve(screener.run_screening, "localhost", 8766)
     asyncio.get_event_loop().run_until_complete(start_server)
     asyncio.get_event_loop().run_forever()
