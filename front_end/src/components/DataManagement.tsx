@@ -159,7 +159,7 @@ function LoadScreeningData() {
   )
   const [screeningData, setScreeningData] = useState<any>([])
   useEffect(() => {
-    const wsUrl = `ws://localhost:8766`
+    const wsUrl = `ws://localhost:8767`
     const socket = new WebSocket(wsUrl)
     socket.onerror = () => {
       console.error('Error with screening service')
@@ -285,7 +285,7 @@ function LoadOrderBook() {
       }
     };
 
-    const wsUrl = `ws://localhost:8765?exchange=${exchange}&pair=${pair}`
+    const wsUrl = `ws://localhost:8768?exchange=${exchange}&pair=${pair}`
     const socket = new WebSocket(wsUrl);
 
     socket.onerror = () => {

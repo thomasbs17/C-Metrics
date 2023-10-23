@@ -126,7 +126,7 @@ class RealTimeMarketData:
 
     def run(self):
         asyncio.get_event_loop().run_until_complete(
-            websockets.serve(self.server, "localhost", 8765)
+            websockets.serve(self.server, "localhost", 8768)
         )
         self.f.run()
 
