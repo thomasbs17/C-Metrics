@@ -13,7 +13,12 @@ import Tooltip from '@mui/material/Tooltip'
 import MenuItem from '@mui/material/MenuItem'
 import AdbIcon from '@mui/icons-material/Adb'
 
-const pages: any = {'Home': 'home', 'Trading': 'trading', 'Portfolio': 'portfolio', 'Sign Up': 'registration'}
+const pages: any = {
+  Home: 'home',
+  Trading: 'trading',
+  Portfolio: 'portfolio',
+  'Sign Up': 'registration',
+}
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout']
 
 function NavBar() {

@@ -2,37 +2,43 @@ import {
   CircularProgress,
   FormControlLabel,
   Switch,
-  Typography
+  Typography,
 } from '@mui/material'
-import HighchartsReact, { HighchartsReactRefObject } from 'highcharts-react-official'
+import HighchartsReact, {
+  HighchartsReactRefObject,
+} from 'highcharts-react-official'
 import Highcharts from 'highcharts/highstock'
 import IndicatorsAll from 'highcharts/indicators/indicators-all'
 import HighchartsBoost from 'highcharts/modules/boost'
 import { useEffect, useRef, useState } from 'react'
 import { Col, Row } from 'react-bootstrap'
 import { useSelector } from 'react-redux'
-import { OhlcData, OrderBookData, retrieveInfoFromCoinMarketCap, tradingDataDef } from '../DataManagement'
+import {
+  OhlcData,
+  OrderBookData,
+  retrieveInfoFromCoinMarketCap,
+  tradingDataDef,
+} from '../DataManagement'
 import { FilterState } from '../StateManagement'
 
 const CHART_HEIGHT = 600
 
 // exporting(Highcharts);
 // exportData(Highcharts);
-LinearGauge(Highcharts);
+LinearGauge(Highcharts)
 IndicatorsAll(Highcharts)
 HighchartsBoost(Highcharts)
-
 
 function LinearGauge(H: any) {
   H.seriesType('lineargauge', 'column', null, {
     setVisible: function () {
-      H.seriesTypes.column.prototype.setVisible.apply(this, arguments);
+      H.seriesTypes.column.prototype.setVisible.apply(this, arguments)
       if (this.markLine) {
-        this.markLine[this.visible ? 'show' : 'hide']();
+        this.markLine[this.visible ? 'show' : 'hide']()
       }
     },
     drawPoints: function () {
-      H.seriesTypes.column.prototype.drawPoints.apply(this, arguments);
+      H.seriesTypes.column.prototype.drawPoints.apply(this, arguments)
       var series = this,
         chart = this.chart,
         inverted = chart.inverted,
@@ -40,26 +46,49 @@ function LinearGauge(H: any) {
         yAxis = this.yAxis,
         point = this.points[0],
         markLine = this.markLine,
-        ani = markLine ? 'animate' : 'attr';
-      point.graphic.hide();
+        ani = markLine ? 'animate' : 'attr'
+      point.graphic.hide()
 
       if (!markLine) {
-        var path = inverted ? ['M', 0, 0, 'L', -5, -5, 'L', 5, -5, 'L', 0, 0, 'L', 0, 0 + xAxis.len] : ['M', 0, 0, 'L', -5, -5, 'L', -5, 5, 'L', 0, 0, 'L', xAxis.len, 0];
-        markLine = this.markLine = chart.renderer.path(path)
+        var path = inverted
+          ? [
+              'M',
+              0,
+              0,
+              'L',
+              -5,
+              -5,
+              'L',
+              5,
+              -5,
+              'L',
+              0,
+              0,
+              'L',
+              0,
+              0 + xAxis.len,
+            ]
+          : ['M', 0, 0, 'L', -5, -5, 'L', -5, 5, 'L', 0, 0, 'L', xAxis.len, 0]
+        markLine = this.markLine = chart.renderer
+          .path(path)
           .attr({
             fill: series.color,
             stroke: series.color,
-            'stroke-width': 1
-          }).add();
+            'stroke-width': 1,
+          })
+          .add()
       }
       markLine[ani]({
-        translateX: inverted ? xAxis.left + yAxis.translate(point.y) : xAxis.left,
-        translateY: inverted ? xAxis.top : yAxis.top + yAxis.len - yAxis.translate(point.y)
-      });
-    }
-  });
+        translateX: inverted
+          ? xAxis.left + yAxis.translate(point.y)
+          : xAxis.left,
+        translateY: inverted
+          ? xAxis.top
+          : yAxis.top + yAxis.len - yAxis.translate(point.y),
+      })
+    },
+  })
 }
-
 
 interface BookChartProps {
   data: OrderBookData
@@ -74,14 +103,13 @@ interface OhlcChartProps {
   pair: string
   selectedArticle: [string, string]
   selectedOrder: [string, number, string]
-  pairScoreDetails: any,
+  pairScoreDetails: any
   volumeArray: number[][]
 }
 
 interface GreedAndFearChartProps {
   data: any
 }
-
 
 function getSpread(bookData: OrderBookData) {
   let spread = 'N/A'
@@ -96,8 +124,7 @@ function getSpread(bookData: OrderBookData) {
 }
 
 function OrderBookChart(props: BookChartProps) {
-
-  const orderBookChartRef = useRef<HighchartsReactRefObject>(null);
+  const orderBookChartRef = useRef<HighchartsReactRefObject>(null)
   const bidAskFontSize = '13px'
   const spread = getSpread(props.data)
   const bid = props.data.bids[0][1].toLocaleString()
@@ -109,7 +136,7 @@ function OrderBookChart(props: BookChartProps) {
     },
     tooltip: {
       enabled: true,
-      split: false
+      split: false,
     },
     xAxis: [
       {
@@ -119,27 +146,29 @@ function OrderBookChart(props: BookChartProps) {
         labels: { enabled: false },
         snap: false,
         events: {
-          afterSetExtremes
+          afterSetExtremes,
         },
       },
     ],
-    yAxis: [{
-      visible: true,
-      labels: {
-        enabled: false,
+    yAxis: [
+      {
+        visible: true,
+        labels: {
+          enabled: false,
+        },
+        resize: {
+          enabled: true,
+        },
+        title: { text: '' },
+        lineWidth: 0,
+        gridLineWidth: 0,
       },
-      resize: {
-        enabled: true,
-      },
-      title: { text: '' },
-      lineWidth: 0,
-      gridLineWidth: 0,
-    }],
+    ],
     title: {
       text: `order book`,
       style: {
-        fontSize: 0
-      }
+        fontSize: 0,
+      },
     },
     series: [
       {
@@ -182,7 +211,7 @@ function OrderBookChart(props: BookChartProps) {
       buttons: { contextButton: { text: 'te' } },
     },
     legend: {
-      enabled: false
+      enabled: false,
     },
     credits: { enabled: false },
   })
@@ -192,67 +221,67 @@ function OrderBookChart(props: BookChartProps) {
       orderBookChartRef.current.chart.series[0].setData(props.data.bids)
       orderBookChartRef.current.chart.series[1].setData(props.data.asks)
     }
-  }, [props.data]);
+  }, [props.data])
 
   useEffect(() => {
     if (orderBookChartRef.current && orderBookChartRef.current.chart) {
       orderBookChartRef.current.chart.series.forEach((HighchartSeries: any) => {
-        HighchartSeries.yAxis.removePlotLine('selectedOrderPrice');
-        HighchartSeries.yAxis.removePlotLine('supportLine');
-        HighchartSeries.yAxis.removePlotLine('resistanceLine');
-        HighchartSeries.yAxis.addPlotLine(
-          {
-            color: 'white',
-            width: 1,
-            dashStyle: 'Dot',
-            value: props.selectedOrder[1],
-            id: 'selectedOrderPrice'
-          }
-        );
-        HighchartSeries.yAxis.addPlotLine(
-          {
-            color: 'red',
-            width: 0.5,
-            label: { text: 'support', align: 'right', style: { color: 'red' } },
-            id: 'supportLine',
-            value: Object.keys(props.pairScoreDetails).includes('next_support')
-              ? props.pairScoreDetails['next_support']
-              : null,
-          }
-        );
-        HighchartSeries.yAxis.addPlotLine(
-          {
-            color: 'green',
-            width: 0.5,
-            label: { text: 'resistance', align: 'right', style: { color: 'green' } },
-            id: 'resistanceLine',
-            value: Object.keys(props.pairScoreDetails).includes('next_resistance')
-              ? props.pairScoreDetails['next_resistance']
-              : null,
-          }
-        );
+        HighchartSeries.yAxis.removePlotLine('selectedOrderPrice')
+        HighchartSeries.yAxis.removePlotLine('supportLine')
+        HighchartSeries.yAxis.removePlotLine('resistanceLine')
+        HighchartSeries.yAxis.addPlotLine({
+          color: 'white',
+          width: 1,
+          dashStyle: 'Dot',
+          value: props.selectedOrder[1],
+          id: 'selectedOrderPrice',
+        })
+        HighchartSeries.yAxis.addPlotLine({
+          color: 'red',
+          width: 0.5,
+          label: { text: 'support', align: 'right', style: { color: 'red' } },
+          id: 'supportLine',
+          value: Object.keys(props.pairScoreDetails).includes('next_support')
+            ? props.pairScoreDetails['next_support']
+            : null,
+        })
+        HighchartSeries.yAxis.addPlotLine({
+          color: 'green',
+          width: 0.5,
+          label: {
+            text: 'resistance',
+            align: 'right',
+            style: { color: 'green' },
+          },
+          id: 'resistanceLine',
+          value: Object.keys(props.pairScoreDetails).includes('next_resistance')
+            ? props.pairScoreDetails['next_resistance']
+            : null,
+        })
       })
-
     }
   }, [props.pairScoreDetails, props.selectedOrder])
 
   function afterSetExtremes(this: any, e: any) {
-    this.setExtremes(0, this.max);
-    const charts = Highcharts.charts;
-    let orderBookChart: any = undefined;
+    this.setExtremes(0, this.max)
+    const charts = Highcharts.charts
+    let orderBookChart: any = undefined
     charts.forEach((chart: any) => {
       if (chart !== undefined) {
         if (chart.title.textStr === 'order book') {
           orderBookChart = chart
         }
       }
-    });
+    })
     charts.forEach((chart: any) => {
       if (chart !== undefined) {
         if (synchCharts) {
           if (chart.title.textStr === 'ohlc') {
             if (synchCharts) {
-              chart.yAxis[0].setExtremes(orderBookChart.yAxis[0].dataMin, orderBookChart.yAxis[0].dataMax)
+              chart.yAxis[0].setExtremes(
+                orderBookChart.yAxis[0].dataMin,
+                orderBookChart.yAxis[0].dataMax,
+              )
             }
           }
         }
@@ -273,14 +302,16 @@ function OrderBookChart(props: BookChartProps) {
           style={{ color: 'red', fontSize: bidAskFontSize }}
         >{`Ask: ${ask}`}</span>
       </Typography>
-      <HighchartsReact highcharts={Highcharts} options={chartOptions} ref={orderBookChartRef} />
+      <HighchartsReact
+        highcharts={Highcharts}
+        options={chartOptions}
+        ref={orderBookChartRef}
+      />
       <FormControlLabel
         style={{ marginLeft: '50px' }}
         control={<Switch />}
         label={
-          <Typography fontSize={'10px'}>
-            Synchrnoize with main chart
-          </Typography>
+          <Typography fontSize={'10px'}>Synchrnoize with main chart</Typography>
         }
         value={synchCharts}
         onChange={(e, checked) => setSynchCharts(checked)}
@@ -290,160 +321,158 @@ function OrderBookChart(props: BookChartProps) {
 }
 
 function OhlcChart(props: OhlcChartProps) {
-  const chartRef = useRef<HighchartsReactRefObject>(null);
-  const [chartOptions] = useState<any>(
-    {
-      plotOptions: {
-        ohlc: {
-          color: 'red',
-          upColor: 'green',
-        },
+  const chartRef = useRef<HighchartsReactRefObject>(null)
+  const [chartOptions] = useState<any>({
+    plotOptions: {
+      ohlc: {
+        color: 'red',
+        upColor: 'green',
       },
-      xAxis: [
-        {
-          type: 'datetime',
-          gridLineWidth: 0.05,
-          crosshair: {
-            color: 'gray',
-            width: 1,
-            snap: false,
-            label: {
-              enabled: true,
-              backgroundColor: 'transparent',
-              formatter: function (value: number) {
-                return Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', value)
-              },
-            },
-          },
-          opposite: false,
-        },
-      ],
-      yAxis: [
-        {
-          lineWidth: 0,
-          minorGridLineWidth: 0,
-          lineColor: 'transparent',
-          minorTickLength: 0,
-          tickLength: 0,
-          labels: {
-            enabled: false,
-          },
-          resize: {
+    },
+    xAxis: [
+      {
+        type: 'datetime',
+        gridLineWidth: 0.05,
+        crosshair: {
+          color: 'gray',
+          width: 1,
+          snap: false,
+          label: {
             enabled: true,
-          },
-          title: { text: '' },
-          crosshair: {
-            color: 'gray',
-            dashStyle: 'solid',
-            snap: false,
-            label: {
-              enabled: true,
-              backgroundColor: 'transparent',
-              formatter: function (value: number) {
-                return value.toLocaleString()
-              },
-            },
-          },
-          gridLineWidth: 0.05,
-          top: '0%',
-          height: '80%',
-        },
-        {
-          title: {
-            text: '',
-          },
-          top: '70%',
-          height: '10%',
-          gridLineWidth: 0,
-          crosshair: {
-            color: 'gray',
-            dashStyle: 'solid',
-            snap: false,
-            label: {
-              enabled: true,
-              backgroundColor: 'transparent',
-              formatter: function (value: number) {
-                return value.toFixed(2)
-              },
+            backgroundColor: 'transparent',
+            formatter: function (value: number) {
+              return Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', value)
             },
           },
         },
-        {
-          title: {
-            text: '',
-          },
-          top: '80%',
-          height: '20%',
-          gridLineWidth: 0,
-          plotLines: [
-            {
-              color: 'red',
-              width: 0.5,
-              value: 30,
-            },
-            {
-              color: 'green',
-              width: 0.5,
-              value: 70,
-            },
-          ],
-          crosshair: {
-            color: 'gray',
-            dashStyle: 'solid',
-            snap: false,
-            label: {
-              enabled: true,
-              backgroundColor: 'transparent',
-              formatter: function (value: number) {
-                return value.toFixed(0)
-              },
-            },
-          },
-        },
-      ],
-      title: {
-        text: `ohlc`,
-        style: {
-          fontSize: 0
-        }
+        opposite: false,
       },
-      tooltip: {
-        enabled: false,
-      },
-      series: [
-        {
-          data: [],
-          name: props.pair,
-          type: 'ohlc',
-          yAxis: 0,
-          id: 'ohlc',
-          point: {
-            events: {
-              mouseOver: () => console.log('test')
-            }
-          }
+    ],
+    yAxis: [
+      {
+        lineWidth: 0,
+        minorGridLineWidth: 0,
+        lineColor: 'transparent',
+        minorTickLength: 0,
+        tickLength: 0,
+        labels: {
+          enabled: false,
         },
-        {
-          data: [],
-          name: 'volume',
-          type: 'column',
-          yAxis: 1,
+        resize: {
+          enabled: true,
         },
-        // {
-        //   type: 'bb',
-        //   linkedTo: 'ohlc',
-        //   opacity: 1,
-        //   lineWidth: 0,
-        //   color: 'blue'
-        // }
-      ],
-      chart: {
-        backgroundColor: 'transparent',
-        height: CHART_HEIGHT,
+        title: { text: '' },
+        crosshair: {
+          color: 'gray',
+          dashStyle: 'solid',
+          snap: false,
+          label: {
+            enabled: true,
+            backgroundColor: 'transparent',
+            formatter: function (value: number) {
+              return value.toLocaleString()
+            },
+          },
+        },
+        gridLineWidth: 0.05,
+        top: '0%',
+        height: '80%',
       },
-      credits: { enabled: false },
-    }
-  )
+      {
+        title: {
+          text: '',
+        },
+        top: '70%',
+        height: '10%',
+        gridLineWidth: 0,
+        crosshair: {
+          color: 'gray',
+          dashStyle: 'solid',
+          snap: false,
+          label: {
+            enabled: true,
+            backgroundColor: 'transparent',
+            formatter: function (value: number) {
+              return value.toFixed(2)
+            },
+          },
+        },
+      },
+      {
+        title: {
+          text: '',
+        },
+        top: '80%',
+        height: '20%',
+        gridLineWidth: 0,
+        plotLines: [
+          {
+            color: 'red',
+            width: 0.5,
+            value: 30,
+          },
+          {
+            color: 'green',
+            width: 0.5,
+            value: 70,
+          },
+        ],
+        crosshair: {
+          color: 'gray',
+          dashStyle: 'solid',
+          snap: false,
+          label: {
+            enabled: true,
+            backgroundColor: 'transparent',
+            formatter: function (value: number) {
+              return value.toFixed(0)
+            },
+          },
+        },
+      },
+    ],
+    title: {
+      text: `ohlc`,
+      style: {
+        fontSize: 0,
+      },
+    },
+    tooltip: {
+      enabled: false,
+    },
+    series: [
+      {
+        data: [],
+        name: props.pair,
+        type: 'ohlc',
+        yAxis: 0,
+        id: 'ohlc',
+        point: {
+          events: {
+            mouseOver: () => console.log('test'),
+          },
+        },
+      },
+      {
+        data: [],
+        name: 'volume',
+        type: 'column',
+        yAxis: 1,
+      },
+      // {
+      //   type: 'bb',
+      //   linkedTo: 'ohlc',
+      //   opacity: 1,
+      //   lineWidth: 0,
+      //   color: 'blue'
+      // }
+    ],
+    chart: {
+      backgroundColor: 'transparent',
+      height: CHART_HEIGHT,
+    },
+    credits: { enabled: false },
+  })
 
   useEffect(() => {
     if (chartRef.current && chartRef.current.chart) {
@@ -456,74 +485,72 @@ function OhlcChart(props: OhlcChartProps) {
         linkedTo: 'ohlc',
         marker: {
           enabled: false,
-        }
+        },
       })
     }
-  }, [props.data, props.volumeArray]);
+  }, [props.data, props.volumeArray])
 
   useEffect(() => {
     if (chartRef.current && chartRef.current.chart) {
-      const yAxisPlotLinesId = ['selectedOrderPrice', 'supportLine', 'resistanceLine'];
+      const yAxisPlotLinesId = [
+        'selectedOrderPrice',
+        'supportLine',
+        'resistanceLine',
+      ]
       yAxisPlotLinesId.forEach((id: string) => {
         chartRef.current?.chart.series[0].yAxis.removePlotLine(id)
       })
-      const xAxisPlotLinesId = ['selectedArticleDate', 'selectedOrderDate'];
+      const xAxisPlotLinesId = ['selectedArticleDate', 'selectedOrderDate']
       xAxisPlotLinesId.forEach((id: string) => {
         chartRef.current?.chart.series[0].xAxis.removePlotLine(id)
       })
 
-      chartRef.current.chart.series[0].yAxis.addPlotLine(
-        {
-          color: 'white',
-          width: 0.7,
-          dashStyle: 'Dot',
-          value: props.selectedOrder[1],
-          id: 'selectedOrderPrice'
-        }
-      );
-      chartRef.current.chart.series[0].yAxis.addPlotLine(
-        {
-          color: 'red',
-          width: 0.5,
-          label: { text: 'support', style: { color: 'red' } },
-          id: 'supportLine',
-          value: Object.keys(props.pairScoreDetails).includes('next_support')
-            ? props.pairScoreDetails['next_support']
-            : null,
-        }
-      );
-      chartRef.current.chart.series[0].yAxis.addPlotLine(
-        {
-          color: 'green',
-          width: 0.5,
-          label: { text: 'resistance', style: { color: 'green' } },
-          id: 'resistanceLine',
-          value: Object.keys(props.pairScoreDetails).includes('next_resistance')
-            ? props.pairScoreDetails['next_resistance']
-            : null,
-        }
-      );
-      chartRef.current.chart.series[0].xAxis.addPlotLine(
-        {
-          color: 'white',
-          width: 0.7,
-          dashStyle: 'Dot',
-          id: 'selectedArticleDate',
-          value: new Date(props.selectedArticle[0]).getTime(),
-        }
-      );
-      chartRef.current.chart.series[0].xAxis.addPlotLine(
-        {
-          color: 'white',
-          width: 0.7,
-          dashStyle: 'Dot',
-          id: 'selectedOrderDate',
-          value: new Date(props.selectedOrder[0]).getTime(),
-        },
-      )
+      chartRef.current.chart.series[0].yAxis.addPlotLine({
+        color: 'white',
+        width: 0.7,
+        dashStyle: 'Dot',
+        value: props.selectedOrder[1],
+        id: 'selectedOrderPrice',
+      })
+      chartRef.current.chart.series[0].yAxis.addPlotLine({
+        color: 'red',
+        width: 0.5,
+        label: { text: 'support', style: { color: 'red' } },
+        id: 'supportLine',
+        value: Object.keys(props.pairScoreDetails).includes('next_support')
+          ? props.pairScoreDetails['next_support']
+          : null,
+      })
+      chartRef.current.chart.series[0].yAxis.addPlotLine({
+        color: 'green',
+        width: 0.5,
+        label: { text: 'resistance', style: { color: 'green' } },
+        id: 'resistanceLine',
+        value: Object.keys(props.pairScoreDetails).includes('next_resistance')
+          ? props.pairScoreDetails['next_resistance']
+          : null,
+      })
+      chartRef.current.chart.series[0].xAxis.addPlotLine({
+        color: 'white',
+        width: 0.7,
+        dashStyle: 'Dot',
+        id: 'selectedArticleDate',
+        value: new Date(props.selectedArticle[0]).getTime(),
+      })
+      chartRef.current.chart.series[0].xAxis.addPlotLine({
+        color: 'white',
+        width: 0.7,
+        dashStyle: 'Dot',
+        id: 'selectedOrderDate',
+        value: new Date(props.selectedOrder[0]).getTime(),
+      })
     }
-  }, [props.pair, props.pairScoreDetails, props.selectedArticle, props.selectedOrder]);
-
+  }, [
+    props.pair,
+    props.pairScoreDetails,
+    props.selectedArticle,
+    props.selectedOrder,
+  ])
 
   return (
     <HighchartsReact
@@ -536,7 +563,7 @@ function OhlcChart(props: OhlcChartProps) {
 }
 
 function GreedAndFear(props: GreedAndFearChartProps) {
-  const chartRef = useRef<HighchartsReactRefObject>(null);
+  const chartRef = useRef<HighchartsReactRefObject>(null)
   const [chartOptions] = useState<any>({
     credits: { enabled: false },
     chart: {
@@ -546,13 +573,13 @@ function GreedAndFear(props: GreedAndFearChartProps) {
       width: 250,
     },
     title: {
-      text: "",
+      text: '',
     },
     xAxis: {
       labels: {
-        enabled: false
+        enabled: false,
       },
-      tickLength: true
+      tickLength: true,
     },
     yAxis: {
       min: 0,
@@ -568,7 +595,8 @@ function GreedAndFear(props: GreedAndFearChartProps) {
           from: 0,
           to: 24,
           color: '#8B0000',
-        }, {
+        },
+        {
           from: 25,
           to: 44,
           color: '#FF0000',
@@ -577,78 +605,90 @@ function GreedAndFear(props: GreedAndFearChartProps) {
           from: 45,
           to: 55,
           color: 'orange',
-        }, {
+        },
+        {
           from: 56,
           to: 75,
           color: '#008000',
-        }, {
+        },
+        {
           from: 76,
           to: 100,
           color: '#006400',
-        }
-      ]
+        },
+      ],
     },
     legend: {
-      enabled: false
+      enabled: false,
     },
     tooltip: { enabled: false },
     series: [
       {
-        type: "lineargauge",
-        data: Object.keys(props.data).length !== 0 ?
-          [parseInt(props.data["data"][0]["value"])]
-          :
-          [],
-        color: "white",
-      }
-    ] as any
+        type: 'lineargauge',
+        data:
+          Object.keys(props.data).length !== 0
+            ? [parseInt(props.data['data'][0]['value'])]
+            : [],
+        color: 'white',
+      },
+    ] as any,
   })
 
   return (
-    <div style={{ textAlign: 'center', width: 250, position: 'absolute', padding: 10 }}>
-      <span >
-        Greed & Fear:
-      </span>
+    <div
+      style={{
+        textAlign: 'center',
+        width: 250,
+        position: 'absolute',
+        padding: 10,
+      }}
+    >
+      <span>Greed & Fear:</span>
       <span style={{ color: 'red' }}>
-        {Object.keys(props.data).length !== 0 && ` ${props.data["data"][0]["value"]} (${props.data["data"][0]["value_classification"]})`}
+        {Object.keys(props.data).length !== 0 &&
+          ` ${props.data['data'][0]['value']} (${props.data['data'][0]['value_classification']})`}
       </span>
       <div style={{ position: 'absolute', overflow: 'visible' }}>
-        {Object.keys(props.data).length !== 0 &&
+        {Object.keys(props.data).length !== 0 && (
           <HighchartsReact
             highcharts={Highcharts}
             options={chartOptions}
             type="lineargauge"
             ref={chartRef}
           />
-        }
+        )}
       </div>
-    </div >
+    </div>
   )
-};
-
+}
 
 export function TradingChart(data: { tradingData: tradingDataDef }) {
-  const [exchange, pair, selectedOrder, pairScoreDetails, selectedArticle] = useSelector(
-    (state: { filters: FilterState }) => [
+  const [exchange, pair, selectedOrder, pairScoreDetails, selectedArticle] =
+    useSelector((state: { filters: FilterState }) => [
       state.filters.exchange,
       state.filters.pair,
       state.filters.selectedOrder,
       state.filters.pairScoreDetails,
-      state.filters.selectedArticle
-    ],
-  );
+      state.filters.selectedArticle,
+    ])
 
   const [cryptoInfo, setCryptoInfo] = useState<any>({})
   const [volumeArray, setVolumeArray] = useState<number[][]>([])
 
   useEffect(() => {
     setCryptoInfo(
-      retrieveInfoFromCoinMarketCap(pair as string, data.tradingData.coinMarketCapMapping)
+      retrieveInfoFromCoinMarketCap(
+        pair as string,
+        data.tradingData.coinMarketCapMapping,
+      ),
     )
   }, [pair, data.tradingData.coinMarketCapMapping])
 
   useEffect(() => {
-    const volumeArrayData = data.tradingData.ohlcvData.map((item) => [item[0], item[5]])
+    const volumeArrayData = data.tradingData.ohlcvData.map((item) => [
+      item[0],
+      item[5],
+    ])
     setVolumeArray(volumeArrayData)
   }, [data.tradingData.ohlcvData])
 
@@ -656,48 +696,44 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
     <div style={{ height: CHART_HEIGHT }}>
       <Row style={{ height: CHART_HEIGHT }}>
         <Col sm={10} style={{ zIndex: 1 }}>
-          {cryptoInfo !== undefined && Object.keys(cryptoInfo).length > 0 &&
+          {cryptoInfo !== undefined && Object.keys(cryptoInfo).length > 0 && (
             <div style={{ position: 'absolute', marginTop: 40, marginLeft: 5 }}>
-              <Typography variant="h5">
-                {cryptoInfo.name}
-              </Typography>
-              {cryptoInfo.platform !== null && `Network: ${cryptoInfo.platform.name}`}
+              <Typography variant="h5">{cryptoInfo.name}</Typography>
+              {cryptoInfo.platform !== null &&
+                `Network: ${cryptoInfo.platform.name}`}
             </div>
-          }
-          {
-            data.tradingData.ohlcvData.length === 0 ?
-              <CircularProgress
-                style={{ position: 'absolute', top: '30%', left: '40%' }}
-              />
-              :
-              <OhlcChart
-                data={data.tradingData.ohlcvData}
-                exchange={exchange as string}
-                pair={pair as string}
-                selectedArticle={selectedArticle}
-                selectedOrder={selectedOrder}
-                pairScoreDetails={pairScoreDetails}
-                volumeArray={volumeArray}
-              />
-          }
-        </Col>
-        <Col sm={2} style={{ zIndex: 2 }}>
-          {
-            ((Object.keys(data.tradingData.orderBookData).includes('bids')) &&
-              (data.tradingData.orderBookData.bids.length !== 0))
-            &&
-            <OrderBookChart
-              data={data.tradingData.orderBookData}
-              pair={pair}
+          )}
+          {data.tradingData.ohlcvData.length === 0 ? (
+            <CircularProgress
+              style={{ position: 'absolute', top: '30%', left: '40%' }}
+            />
+          ) : (
+            <OhlcChart
+              data={data.tradingData.ohlcvData}
+              exchange={exchange as string}
+              pair={pair as string}
+              selectedArticle={selectedArticle}
               selectedOrder={selectedOrder}
               pairScoreDetails={pairScoreDetails}
+              volumeArray={volumeArray}
             />
-          }
-          {Object.keys(data.tradingData.greedAndFearData).length !== 0 &&
+          )}
+        </Col>
+        <Col sm={2} style={{ zIndex: 2 }}>
+          {Object.keys(data.tradingData.orderBookData).includes('bids') &&
+            data.tradingData.orderBookData.bids.length !== 0 && (
+              <OrderBookChart
+                data={data.tradingData.orderBookData}
+                pair={pair}
+                selectedOrder={selectedOrder}
+                pairScoreDetails={pairScoreDetails}
+              />
+            )}
+          {Object.keys(data.tradingData.greedAndFearData).length !== 0 && (
             <GreedAndFear data={data.tradingData.greedAndFearData} />
-          }
+          )}
         </Col>
       </Row>
-    </div >
+    </div>
   )
 }

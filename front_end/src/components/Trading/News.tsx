@@ -11,9 +11,6 @@ import { useDispatch } from 'react-redux'
 import { NewsArticle, tradingDataDef } from '../DataManagement'
 import { filterSlice } from '../StateManagement'
 
-
-
-
 function News(data: { tradingData: tradingDataDef }) {
   const news = data.tradingData.news.sort(
     (a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime(),

@@ -16,8 +16,8 @@ function displayAsPercent(raw_number: number) {
 }
 
 function Screening(data: any) {
-  const dispatch = useDispatch();
-  const screeningData = data.screeningData;
+  const dispatch = useDispatch()
+  const screeningData = data.screeningData
   const selectedPair = useSelector(
     (state: { filters: FilterState }) => state.filters.pair,
   )

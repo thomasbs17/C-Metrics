@@ -71,7 +71,9 @@ function BottomRightContainer(data: { tradingData: tradingDataDef }) {
           <Tab value="economic-calendar" label="Economic Calendar" />
         </Tabs>
         {value === 'news' && <News tradingData={data.tradingData} />}
-        {value === 'screening' && <Screening screeningData={data.tradingData.screeningData} />}
+        {value === 'screening' && (
+          <Screening screeningData={data.tradingData.screeningData} />
+        )}
         {value === 'economic-calendar' && <EconomicCalendar />}
       </Box>
     </div>
@@ -79,7 +81,7 @@ function BottomRightContainer(data: { tradingData: tradingDataDef }) {
 }
 
 function Trading() {
-  const tradingData: tradingDataDef = GetTradingData();
+  const tradingData: tradingDataDef = GetTradingData()
 
   return (
     <div>

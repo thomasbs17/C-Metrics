@@ -21,7 +21,7 @@ interface TableProps {
   openOnly: boolean
   selectedPair: boolean
   paper: boolean
-  live: boolean,
+  live: boolean
   orders: Order[]
 }
 
@@ -31,7 +31,13 @@ function formatTimeStamp(originalDate: any) {
   return formattedDate
 }
 
-function OrderTable({ openOnly, selectedPair, paper, live, orders}: TableProps) {
+function OrderTable({
+  openOnly,
+  selectedPair,
+  paper,
+  live,
+  orders,
+}: TableProps) {
   const dispatch = useDispatch()
   const [pair, selectedOrder] = useSelector(
     (state: { filters: FilterState }) => [
@@ -87,7 +93,7 @@ function OrderTable({ openOnly, selectedPair, paper, live, orders}: TableProps) 
 
   const handleClick = (order: Order) => {
     if (order.order_id !== selectedOrder[2]) {
-      dispatch(filterSlice.actions.setPairScoreDetails({}));
+      dispatch(filterSlice.actions.setPairScoreDetails({}))
       dispatch(filterSlice.actions.setPair(order.asset_id))
       dispatch(
         filterSlice.actions.setSelectedOrder([

@@ -1,25 +1,25 @@
-import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { FilterState, filterSlice } from "./StateManagement";
+import { useEffect, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { FilterState, filterSlice } from './StateManagement'
 
 export type tradingDataDef = {
-  coinMarketCapMapping: any,
-  exchanges: any,
-  markets: any,
-  news: NewsArticle[],
-  orders: Order[],
-  screeningData: any,
-  noDataAnimation: any,
-  ohlcvData: OhlcData,
-  orderBookData: any,
+  coinMarketCapMapping: any
+  exchanges: any
+  markets: any
+  news: NewsArticle[]
+  orders: Order[]
+  screeningData: any
+  noDataAnimation: any
+  ohlcvData: OhlcData
+  orderBookData: any
   greedAndFearData: any
 }
 
-export type OhlcData = number[][];
+export type OhlcData = number[][]
 
 export type OrderBookData = {
   [key: string]: Array<[number, number]>
-};
+}
 
 export type NewsArticle = {
   date: string
@@ -46,25 +46,28 @@ export type Order = {
   order_price: number
 }
 
-export function retrieveInfoFromCoinMarketCap(pair: string, coinMarketCapMapping: any): any {
-  const base = pair.slice(0, pair.search('/'));
-  let assetInfo = undefined;
+export function retrieveInfoFromCoinMarketCap(
+  pair: string,
+  coinMarketCapMapping: any,
+): any {
+  const base = pair.slice(0, pair.search('/'))
+  let assetInfo = undefined
   if (Object.keys(coinMarketCapMapping).length > 0) {
     coinMarketCapMapping.data.forEach((element: any) => {
       if (element.symbol === base) {
         assetInfo = element
       }
-    });
+    })
   }
   return assetInfo
 }
 
 function LoadStaticData(endpoint: string) {
-  const [data, setData] = useState<any>([]);
+  const [data, setData] = useState<any>([])
   useEffect(() => {
     async function getData() {
       try {
-        let url = `http://127.0.0.1:8000/${endpoint}/`;
+        let url = `http://127.0.0.1:8000/${endpoint}/`
         const response = await fetch(url)
         const responseData = await response.json()
         setData(responseData)
@@ -78,15 +81,15 @@ function LoadStaticData(endpoint: string) {
 }
 
 function LoadMarkets() {
-  const [data, setData] = useState<any>({});
+  const [data, setData] = useState<any>({})
   const exchange = useSelector(
     (state: { filters: FilterState }) => state.filters.exchange,
-  );
+  )
   useEffect(() => {
     async function getMarkets() {
       try {
-        setData([]);
-        let url = `http://127.0.0.1:8000/markets/?exchange=${exchange}`;
+        setData([])
+        let url = `http://127.0.0.1:8000/markets/?exchange=${exchange}`
         const response = await fetch(url)
         const responseData = await response.json()
         setData(responseData)
@@ -101,14 +104,13 @@ function LoadMarkets() {
 
 function LoadOrders() {
   const dispatch = useDispatch()
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>([])
   const [pair, ordersNeedReload] = useSelector(
     (state: { filters: FilterState }) => [
       state.filters.pair,
-      state.filters.ordersNeedReload
+      state.filters.ordersNeedReload,
     ],
-
-  );
+  )
   useEffect(() => {
     async function fetchOrders() {
       const ordersEndPoint = 'http://127.0.0.1:8000/orders/?format=json'
@@ -132,12 +134,17 @@ function LoadNews(coinMarketCapMapping: any) {
   const [news, setNewsData] = useState<Array<NewsArticle>>([])
   useEffect(() => {
     async function getNewsData() {
-      setNewsData([]);
-      const cryptoInfo = retrieveInfoFromCoinMarketCap(pair, coinMarketCapMapping);
+      setNewsData([])
+      const cryptoInfo = retrieveInfoFromCoinMarketCap(
+        pair,
+        coinMarketCapMapping,
+      )
       try {
         if (cryptoInfo !== undefined) {
-          const searchTerm = `${cryptoInfo.name} crypto`;
-          const response = await fetch(`http://127.0.0.1:8000/news/?search_term=${searchTerm}`)
+          const searchTerm = `${cryptoInfo.name} crypto`
+          const response = await fetch(
+            `http://127.0.0.1:8000/news/?search_term=${searchTerm}`,
+          )
           const data = await response.json()
           setNewsData(data)
         }
@@ -174,7 +181,7 @@ function LoadScreeningData() {
         if (pairDetails.pair === selectedPair) {
           dispatch(filterSlice.actions.setPairScoreDetails(pairDetails))
         }
-      });
+      })
     }
     return () => {
       socket.close()
@@ -206,7 +213,7 @@ function LoadOhlcvData() {
     (state: { filters: FilterState }) => [
       state.filters.exchange,
       state.filters.pair,
-      state.filters.ohlcPeriod
+      state.filters.ohlcPeriod,
     ],
   )
   const [ohlcData, setOHLCData] = useState<OhlcData>([])
@@ -221,55 +228,53 @@ function LoadOhlcvData() {
         setOHLCData([])
         console.error('Error fetching OHLC data:', error)
       }
-    };
+    }
     const ohlcInterval = setInterval(() => {
       fetchOHLCData()
-    }, 60000);
-    fetchOHLCData();
+    }, 60000)
+    fetchOHLCData()
     return () => {
       clearInterval(ohlcInterval)
     }
-  }, [exchange, ohlcPeriod, pair]);
+  }, [exchange, ohlcPeriod, pair])
   return ohlcData
-};
+}
 
 function formatOrderBook(rawOrderBook: any, isWebSocketFeed: boolean) {
   let formattedBook: OrderBookData = { bids: [], asks: [] }
-    ;['bids', 'asks'].forEach((side: string) => {
-      let cumulativeVolume = 0
-      if (isWebSocketFeed) {
-        const sortedPrices =
-          side === 'bids'
-            ? Object.keys(rawOrderBook[side]).sort(
+  ;['bids', 'asks'].forEach((side: string) => {
+    let cumulativeVolume = 0
+    if (isWebSocketFeed) {
+      const sortedPrices =
+        side === 'bids'
+          ? Object.keys(rawOrderBook[side]).sort(
               (a, b) => parseFloat(b) - parseFloat(a),
             )
-            : Object.keys(rawOrderBook[side]).sort(
+          : Object.keys(rawOrderBook[side]).sort(
               (a, b) => parseFloat(a) - parseFloat(b),
             )
-        formattedBook[side].push([0, parseFloat(sortedPrices[0])])
-        sortedPrices.forEach((price: string) => {
-          cumulativeVolume += rawOrderBook[side][price]
-          formattedBook[side].push([cumulativeVolume, parseFloat(price)])
-        })
-      } else {
-        formattedBook[side].push([0, rawOrderBook[side][0][0]])
-        rawOrderBook[side].forEach((level: [number, number, number]) => {
-          cumulativeVolume += level[1]
-          formattedBook[side].push([cumulativeVolume, level[0]])
-        })
-      }
-    })
+      formattedBook[side].push([0, parseFloat(sortedPrices[0])])
+      sortedPrices.forEach((price: string) => {
+        cumulativeVolume += rawOrderBook[side][price]
+        formattedBook[side].push([cumulativeVolume, parseFloat(price)])
+      })
+    } else {
+      formattedBook[side].push([0, rawOrderBook[side][0][0]])
+      rawOrderBook[side].forEach((level: [number, number, number]) => {
+        cumulativeVolume += level[1]
+        formattedBook[side].push([cumulativeVolume, level[0]])
+      })
+    }
+  })
   return formattedBook
-};
+}
 
 function LoadOrderBook() {
-  const [exchange, pair] = useSelector(
-    (state: { filters: FilterState }) => [
-      state.filters.exchange,
-      state.filters.pair,
-    ],
-  );
-  const [orderBookData, setOrderBookData] = useState<OrderBookData>({});
+  const [exchange, pair] = useSelector((state: { filters: FilterState }) => [
+    state.filters.exchange,
+    state.filters.pair,
+  ])
+  const [orderBookData, setOrderBookData] = useState<OrderBookData>({})
 
   useEffect(() => {
     async function fetchOrderBookData() {
@@ -283,33 +288,33 @@ function LoadOrderBook() {
         setOrderBookData({})
         console.error('Error fetching Order Book data:', error)
       }
-    };
+    }
 
     const wsUrl = `ws://localhost:8768?exchange=${exchange}&pair=${pair}`
-    const socket = new WebSocket(wsUrl);
+    const socket = new WebSocket(wsUrl)
 
     socket.onerror = () => {
       console.warn(
         `Could not implement websocket connection for ${pair} on ${exchange}. Will default back to periodic API refresh.`,
       )
       fetchOrderBookData()
-    };
+    }
     socket.onopen = () => {
       clearInterval(orderBookInterval)
-    };
+    }
     socket.onmessage = (event) => {
       const newData = JSON.parse(event.data)
       if (newData !== undefined && Object.keys(newData).includes('bids')) {
         setOrderBookData(formatOrderBook(newData, true))
       }
-    };
+    }
 
     const orderBookInterval = setInterval(() => {
       fetchOrderBookData()
     }, 5000)
-    fetchOrderBookData();
+    fetchOrderBookData()
     return () => {
-      socket.close();
+      socket.close()
       clearInterval(orderBookInterval)
     }
   }, [exchange, pair])
@@ -317,32 +322,31 @@ function LoadOrderBook() {
 }
 
 function LoadGreedAndFear() {
-  const [data, setData] = useState<any>({});
+  const [data, setData] = useState<any>({})
   useEffect(() => {
     async function fetchIndexData() {
-      const url = "https://api.alternative.me/fng/";
+      const url = 'https://api.alternative.me/fng/'
       try {
-        const response = await fetch(url);
-        setData(await response.json());
+        const response = await fetch(url)
+        setData(await response.json())
       } catch (error) {
-        console.error('Error fetching greed and fear index data:', error);
+        console.error('Error fetching greed and fear index data:', error)
       }
     }
-    fetchIndexData();
-  }, []);
+    fetchIndexData()
+  }, [])
   return data
 }
 
-
 export function GetTradingData() {
-  const coinMarketCapMapping = LoadStaticData('coinmarketcap_info');
-  const exchanges = LoadStaticData('exchanges');
+  const coinMarketCapMapping = LoadStaticData('coinmarketcap_info')
+  const exchanges = LoadStaticData('exchanges')
   const markets = LoadMarkets()
-  const news = LoadNews(coinMarketCapMapping);
-  const orders = LoadOrders();
+  const news = LoadNews(coinMarketCapMapping)
+  const orders = LoadOrders()
   const screeningData = LoadScreeningData()
   const noDataAnimation = LoadNoDataAnimation()
-  const ohlcvData = LoadOhlcvData();
+  const ohlcvData = LoadOhlcvData()
   const orderBookData = LoadOrderBook()
   const greedAndFearData = LoadGreedAndFear()
 
@@ -356,7 +360,6 @@ export function GetTradingData() {
     noDataAnimation: noDataAnimation,
     ohlcvData: ohlcvData,
     orderBookData: orderBookData,
-    greedAndFearData: greedAndFearData
+    greedAndFearData: greedAndFearData,
   }
 }
-
