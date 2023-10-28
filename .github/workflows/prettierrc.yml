@@ -16,4 +16,5 @@ jobs:
       - name: Prettify code
         uses: creyD/prettier_action@v4.3
         with:
-          file_pattern: '**/*.{js,ts,jsx,tsx}'
+          file_pattern: '**/*.{ts}'
+          working_directory: ./front_end/
