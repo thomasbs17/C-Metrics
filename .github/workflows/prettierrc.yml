@@ -19,4 +19,4 @@ jobs:
         run: npm install
 
       - name: Run Prettier
-        run: npx prettier --write 'front_end/src/**/*.tsx''
+        run: npx prettier --write 'front_end/'
