@@ -9,6 +9,7 @@ cryptofeed==2.3.2
 pandas==2.1.1
 redis==5.0.1
 msgpack==1.0.7
+pandas-ta==0.3.14b
 
 # POSTGRES
 #If running on Linux, the below commands must be entered first
