@@ -10,18 +10,17 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material'
-import React, { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Col, Container, Row } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
-import { FilterState, filterSlice } from '../StateManagement'
-import axios from 'axios'
 import { Order, tradingDataDef } from '../DataManagement'
+import { FilterState, filterSlice } from '../StateManagement'
 
 interface TableProps {
   openOnly: boolean
   selectedPair: boolean
   paper: boolean
-  live: boolean,
+  live: boolean
   orders: Order[]
 }
 
@@ -31,13 +30,20 @@ function formatTimeStamp(originalDate: any) {
   return formattedDate
 }
 
-function OrderTable({ openOnly, selectedPair, paper, live, orders}: TableProps) {
+function OrderTable({
+  openOnly,
+  selectedPair,
+  paper,
+  live,
+  orders,
+}: TableProps) {
   const dispatch = useDispatch()
-  const [pair, selectedOrder] = useSelector(
-    (state: { filters: FilterState }) => [
-      state.filters.pair,
-      state.filters.selectedOrder,
-    ],
+  const filterState = useSelector(
+    (state: { filters: FilterState }) => state.filters,
+  )
+  const [pair, selectedOrder] = useMemo(
+    () => [filterState.pair, filterState.selectedOrder],
+    [filterState.pair, filterState.selectedOrder],
   )
 
   function getFilteredOrders() {
@@ -87,7 +93,7 @@ function OrderTable({ openOnly, selectedPair, paper, live, orders}: TableProps) 
 
   const handleClick = (order: Order) => {
     if (order.order_id !== selectedOrder[2]) {
-      dispatch(filterSlice.actions.setPairScoreDetails({}));
+      dispatch(filterSlice.actions.setPairScoreDetails({}))
       dispatch(filterSlice.actions.setPair(order.asset_id))
       dispatch(
         filterSlice.actions.setSelectedOrder([

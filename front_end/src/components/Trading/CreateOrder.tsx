@@ -9,7 +9,7 @@ import {
   TextField,
 } from '@mui/material'
 import axios from 'axios'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Container, Row, Stack } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
 import { FilterState, filterSlice } from '../StateManagement'
@@ -62,10 +62,14 @@ function OrderTypeFilter({ handleOrderTypeChange }: OrderTypeFilterProps) {
 
 function OrderDetails() {
   const dispatch = useDispatch()
-  const [exchange, pair] = useSelector((state: { filters: FilterState }) => [
-    state.filters.exchange,
-    state.filters.pair,
-  ])
+  const filterState = useSelector(
+    (state: { filters: FilterState }) => state.filters,
+  )
+  const [exchange, pair] = useMemo(
+    () => [filterState.exchange, filterState.pair],
+    [filterState.exchange, filterState.pair],
+  )
+
   const [selectedOrderSide, setSelectedOrderSide] = useState<string>('buy')
   const [selectedOrderType, setSelectedOrderType] = useState<string>('limit')
   const [orderAmount, setOrderAmount] = useState<number | null>(null)
