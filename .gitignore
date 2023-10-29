@@ -39,3 +39,5 @@ db.sqlite3
 /Notes.txt
 .idea/*
 venv/*
+front_end/package-lock.json
+front_end/yarn.lock
