@@ -297,7 +297,7 @@ function LoadOrderBook() {
       }
     }
 
-    const wsUrl = `ws://localhost:8765?exchange=${exchange}&pair=${pair}`
+    const wsUrl = `ws://localhost:8768?exchange=${exchange}&pair=${pair}`
     const socket = new WebSocket(wsUrl)
 
     socket.onerror = () => {
