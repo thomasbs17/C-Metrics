@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { FilterState, filterSlice } from './StateManagement'
 
@@ -76,7 +76,7 @@ function LoadStaticData(endpoint: string) {
       }
     }
     getData()
-  }, [])
+  }, [endpoint])
   return data
 }
 
@@ -105,11 +105,13 @@ function LoadMarkets() {
 function LoadOrders() {
   const dispatch = useDispatch()
   const [orders, setOrders] = useState<Order[]>([])
-  const [pair, ordersNeedReload] = useSelector(
-    (state: { filters: FilterState }) => [
-      state.filters.pair,
-      state.filters.ordersNeedReload,
-    ],
+  const filterState = useSelector(
+    (state: { filters: FilterState }) => state.filters,
+  )
+
+  const [pair, ordersNeedReload] = useMemo(
+    () => [filterState.pair, filterState.ordersNeedReload],
+    [filterState.pair, filterState.ordersNeedReload],
   )
   useEffect(() => {
     async function fetchOrders() {
@@ -209,12 +211,13 @@ function LoadNoDataAnimation() {
 }
 
 function LoadOhlcvData() {
-  const [exchange, pair, ohlcPeriod] = useSelector(
-    (state: { filters: FilterState }) => [
-      state.filters.exchange,
-      state.filters.pair,
-      state.filters.ohlcPeriod,
-    ],
+  const filterState = useSelector(
+    (state: { filters: FilterState }) => state.filters,
+  )
+
+  const [exchange, pair, ohlcPeriod] = useMemo(
+    () => [filterState.exchange, filterState.pair, filterState.ohlcPeriod],
+    [filterState.exchange, filterState.pair, filterState.ohlcPeriod],
   )
   const [ohlcData, setOHLCData] = useState<OhlcData>([])
   useEffect(() => {
@@ -270,10 +273,14 @@ function formatOrderBook(rawOrderBook: any, isWebSocketFeed: boolean) {
 }
 
 function LoadOrderBook() {
-  const [exchange, pair] = useSelector((state: { filters: FilterState }) => [
-    state.filters.exchange,
-    state.filters.pair,
-  ])
+  const filterState = useSelector(
+    (state: { filters: FilterState }) => state.filters,
+  )
+
+  const [exchange, pair] = useMemo(
+    () => [filterState.exchange, filterState.pair],
+    [filterState.exchange, filterState.pair],
+  )
   const [orderBookData, setOrderBookData] = useState<OrderBookData>({})
 
   useEffect(() => {
@@ -290,7 +297,7 @@ function LoadOrderBook() {
       }
     }
 
-    const wsUrl = `ws://localhost:8768?exchange=${exchange}&pair=${pair}`
+    const wsUrl = `ws://localhost:8765?exchange=${exchange}&pair=${pair}`
     const socket = new WebSocket(wsUrl)
 
     socket.onerror = () => {

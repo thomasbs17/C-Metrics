@@ -10,7 +10,7 @@ import HighchartsReact, {
 import Highcharts from 'highcharts/highstock'
 import IndicatorsAll from 'highcharts/indicators/indicators-all'
 import HighchartsBoost from 'highcharts/modules/boost'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Row } from 'react-bootstrap'
 import { useSelector } from 'react-redux'
 import {
@@ -93,7 +93,7 @@ function LinearGauge(H: any) {
 interface BookChartProps {
   data: OrderBookData
   pair: string
-  selectedOrder: [string, number, string]
+  selectedOrder: [string, string, string]
   pairScoreDetails: any
 }
 
@@ -102,7 +102,7 @@ interface OhlcChartProps {
   exchange: string
   pair: string
   selectedArticle: [string, string]
-  selectedOrder: [string, number, string]
+  selectedOrder: [string, string, string]
   pairScoreDetails: any
   volumeArray: number[][]
 }
@@ -509,7 +509,7 @@ function OhlcChart(props: OhlcChartProps) {
         color: 'white',
         width: 0.7,
         dashStyle: 'Dot',
-        value: props.selectedOrder[1],
+        value: parseFloat(props.selectedOrder[1]),
         id: 'selectedOrderPrice',
       })
       chartRef.current.chart.series[0].yAxis.addPlotLine({
@@ -663,14 +663,27 @@ function GreedAndFear(props: GreedAndFearChartProps) {
 }
 
 export function TradingChart(data: { tradingData: tradingDataDef }) {
+  const filterState = useSelector(
+    (state: { filters: FilterState }) => state.filters,
+  )
+
   const [exchange, pair, selectedOrder, pairScoreDetails, selectedArticle] =
-    useSelector((state: { filters: FilterState }) => [
-      state.filters.exchange,
-      state.filters.pair,
-      state.filters.selectedOrder,
-      state.filters.pairScoreDetails,
-      state.filters.selectedArticle,
-    ])
+    useMemo(
+      () => [
+        filterState.exchange,
+        filterState.pair,
+        filterState.selectedOrder,
+        filterState.pairScoreDetails,
+        filterState.selectedArticle,
+      ],
+      [
+        filterState.exchange,
+        filterState.pair,
+        filterState.selectedOrder,
+        filterState.pairScoreDetails,
+        filterState.selectedArticle,
+      ],
+    )
 
   const [cryptoInfo, setCryptoInfo] = useState<any>({})
   const [volumeArray, setVolumeArray] = useState<number[][]>([])

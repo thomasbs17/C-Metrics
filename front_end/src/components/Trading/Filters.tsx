@@ -22,7 +22,7 @@ import {
 import Highcharts from 'highcharts'
 import HighchartsMore from 'highcharts/highcharts-more'
 import SolidGauge from 'highcharts/modules/solid-gauge'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Container, Row, ToggleButton } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router'
@@ -55,7 +55,6 @@ function TradingTypeFilter() {
       value={selectedValue}
       exclusive
       onChange={handleSelect}
-      aria-label="Platform"
     >
       <ToggleButton value="paper" variant="success">
         Paper
@@ -97,7 +96,7 @@ function OhlcPeriodsFilter() {
   }
 
   return (
-    <FormControl fullWidth>
+    <FormControl>
       <InputLabel id="ohlc-period-time-label">Time</InputLabel>
       <Select
         id="ohlc-period-time"
@@ -140,7 +139,7 @@ function ExchangeFilter(props: FilterProps) {
       clearIcon={false}
       options={props.data}
       sx={{ marginTop: 3, padding: 1, width: '100%' }}
-      value={selectedValue != '' ? selectedValue : stateValue}
+      value={selectedValue !== '' ? selectedValue : stateValue}
       onChange={handleSelect}
       renderInput={(params) => (
         <TextField {...params} label={`Exchange (${props.data.length})`} />
@@ -152,13 +151,15 @@ function ExchangeFilter(props: FilterProps) {
 function PairFilter(props: FilterProps) {
   const dispatch = useDispatch()
   const navigate = useNavigate()
-  const [exchange, stateValue] = useSelector(
-    (state: { filters: FilterState }) => [
-      state.filters.exchange,
-      state.filters.pair,
-    ],
+  const filterState = useSelector(
+    (state: { filters: FilterState }) => state.filters,
   )
-  const [selectedValue, setSelectedValue] = useState(stateValue)
+  const [exchange, pair] = useMemo(
+    () => [filterState.exchange, filterState.pair],
+    [filterState.exchange, filterState.pair],
+  )
+
+  const [selectedValue, setSelectedValue] = useState(pair)
   const handleSelectPair = (
     event: React.ChangeEvent<{}>,
     value: string | null,
@@ -171,19 +172,19 @@ function PairFilter(props: FilterProps) {
     }
   }
   useEffect(() => {
-    setSelectedValue(stateValue)
-    navigate(`/trading?exchange=${exchange}&pair=${stateValue}`)
-  }, [stateValue, props.data, navigate, exchange])
+    setSelectedValue(pair)
+    navigate(`/trading?exchange=${exchange}&pair=${pair}`)
+  }, [pair, props.data, navigate, exchange])
 
   useEffect(() => {
-    if (!props.data.includes(stateValue) && props.data.length > 0) {
+    if (!props.data.includes(pair) && props.data.length > 0) {
       setSelectedValue(props.data[0])
       dispatch(filterSlice.actions.setPair(props.data[0]))
       dispatch(filterSlice.actions.setPairScoreDetails({}))
       dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
       navigate(`/trading?exchange=${exchange}&pair=${props.data[0]}`)
     }
-  }, [dispatch, exchange, navigate, props.data, stateValue])
+  }, [dispatch, exchange, navigate, props.data, pair])
 
   return (
     <div>
@@ -199,7 +200,7 @@ function PairFilter(props: FilterProps) {
           clearIcon={false}
           options={props.data}
           sx={{ marginTop: 3, padding: 1 }}
-          value={selectedValue !== '' ? selectedValue : stateValue}
+          value={selectedValue !== '' ? selectedValue : pair}
           onChange={handleSelectPair}
           renderInput={(params) => (
             <TextField {...params} label={`Pair (${props.data.length})`} />
@@ -261,6 +262,7 @@ function NavigationMenu() {
       >
         {Object.keys(pages).map((page: string) => (
           <Link
+            key={`${page}_link`}
             href={`/${[pages[page]]}`}
             sx={{
               textDecoration: 'none',
@@ -268,7 +270,11 @@ function NavigationMenu() {
               backgroundColor: 'rgba(0,0,0,0.5)',
             }}
           >
-            <MenuItem component={Link} onClick={handleClose}>
+            <MenuItem
+              key={`${page}_item`}
+              component={Link}
+              onClick={handleClose}
+            >
               {page}
             </MenuItem>
           </Link>
@@ -364,10 +370,13 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
   const [modalIsOpen, setModalIsOpen] = useState(false)
   const handleOpen = () => setModalIsOpen(true)
   const handleClose = () => setModalIsOpen(false)
-  const [exchange, pair] = useSelector((state: { filters: FilterState }) => [
-    state.filters.exchange,
-    state.filters.pair,
-  ])
+  const filterState = useSelector(
+    (state: { filters: FilterState }) => state.filters,
+  )
+  const [exchange, pair] = useMemo(
+    () => [filterState.exchange, filterState.pair],
+    [filterState.exchange, filterState.pair],
+  )
 
   const containerStyle: React.CSSProperties = {
     display: 'flex',

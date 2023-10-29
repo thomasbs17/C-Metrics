@@ -1,6 +1,3 @@
-import { useEffect, useRef } from 'react'
-import { Accordion } from 'react-bootstrap'
-
 function TradeHistory() {
   return (
     <div className="p-2" id="trades-history">

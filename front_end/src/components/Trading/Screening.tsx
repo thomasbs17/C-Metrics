@@ -7,7 +7,6 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material'
-import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { FilterState, filterSlice } from '../StateManagement'
 

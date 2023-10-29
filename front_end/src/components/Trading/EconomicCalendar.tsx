@@ -1,29 +1,3 @@
-import React from 'react'
-
-type Calendar = {
-  CalendarId: string
-  Date: string
-  Country: string
-  Event: string
-  Reference: string
-  ReferenceDate: string
-  Source: string
-  SourceURL: string
-  Actual: string
-  Previous: string
-  Forecast: string
-  TEForecast: string
-  URL: string
-  DateSpan: string
-  Importance: string
-  LastUpdate: string
-  Revised: string
-  Currency: string
-  Unit: string
-  Ticker: string
-  Symbol: string
-}
-
 function EconomicCalendar() {
   return (
     <div style={{ textAlign: 'center', overflowY: 'auto' }}>
