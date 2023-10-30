@@ -8,7 +8,6 @@ import redis
 import websockets
 
 
-
 class DisplayLiveData:
     def __init__(self, broker: str, pair: str):
         self.redis_client = redis.StrictRedis(host="localhost", port=6379, db=0)
@@ -72,24 +71,26 @@ async def reader(reader, _):
         except:
             message = []
         if message:
-            data = message[0]['data']
+            data = message[0]["data"]
             # print(data['symbol'])
-            if data['symbol'] == 'ETH-USD':
-                if message[0]['type'] == 'trades':
-                    print(f'New trade: {data["side"]} {data["amount"]} @ {data["price"]}')
+            if data["symbol"] == "BTC-USD":
+                if message[0]["type"] == "trades":
+                    print(
+                        f'New trade: {data["side"]} {data["amount"]} @ {data["price"]}'
+                    )
                 else:
-                    bids = list(data['book']['bid'].keys())
-                    asks = list(data['book']['ask'].keys())
+                    bids = list(data["book"]["bid"].keys())
+                    asks = list(data["book"]["ask"].keys())
                     if bid != bids[0] or ask != asks[0]:
                         bid = bids[0]
                         ask = asks[0]
-                        print(f'Bid: {bid} / Ask: {ask}')
+                        print(f"Bid: {bid} / Ask: {ask}")
 
 
 async def main():
-    server = await asyncio.start_server(
-        reader, '127.0.0.1', 8080)
+    server = await asyncio.start_server(reader, "127.0.0.1", 8080)
 
     await server.serve_forever()
+
 
 # asyncio.run(main())

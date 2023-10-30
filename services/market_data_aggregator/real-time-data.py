@@ -28,14 +28,11 @@ class RealTimeMarketData:
         self.f.add_feed(
             exchange(
                 config="config.yaml",
-                checksum_validation=True,
                 subscription={
                     L2_BOOK: [pair],
-                    # TRADES: ["SOL-USD"],
                 },
                 callbacks={
                     L2_BOOK: self.book,
-                    # TRADES: trade,
                 },
             )
         )
@@ -47,9 +44,6 @@ class RealTimeMarketData:
             else False
         )
         if self.data and self.clients and batching_condition:
-            first_ask = float(list(self.data["asks"])[0])
-            first_bid = float(list(self.data["bids"])[0])
-            print(f"Bid: {first_bid} / Ask: {first_ask}")
             self.last_emission_tmstmp = dt.now()
             await asyncio.wait(
                 [client.send(json.dumps(self.data)) for client in self.clients]
@@ -109,20 +103,9 @@ class RealTimeMarketData:
 
     async def book(self, book, *args):
         if book.symbol == self.pair:
-            # self.data = dict(bids= dict(book.book.bids), asks= dict(book.book.asks))
-            if not self.data:
-                asks = {str(p): float(v) for p, v in dict(book.book.asks).items()}
-                bids = {str(p): float(v) for p, v in dict(book.book.bids).items()}
-                self.data = dict(bids=bids, asks=asks)
-            else:
-                for side in ("asks", "bids"):
-                    for item in book.raw[0].get(side[0], []):
-                        price = item[0]
-                        if float(item[1]) == 0:
-                            self.data[side].pop(price, None)
-                        else:
-                            self.data[side][price] = float(item[1])
-        await self.send_to_clients({"type": "book", "data": self.data})
+            self.data = book.to_dict(numeric_type=float)
+            print(self.data["delta"])
+        await self.send_to_clients({"type": "book", "data": self.data["delta"]})
 
     def run(self):
         asyncio.get_event_loop().run_until_complete(

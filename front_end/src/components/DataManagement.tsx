@@ -244,12 +244,12 @@ function LoadOhlcvData() {
 }
 
 function formatOrderBook(rawOrderBook: any, isWebSocketFeed: boolean) {
-  let formattedBook: OrderBookData = { bids: [], asks: [] }
-  ;['bids', 'asks'].forEach((side: string) => {
+  let formattedBook: OrderBookData = { bid: [], ask: [] }
+  ;['bid', 'ask'].forEach((side: string) => {
     let cumulativeVolume = 0
     if (isWebSocketFeed) {
       const sortedPrices =
-        side === 'bids'
+        side === 'bid'
           ? Object.keys(rawOrderBook[side]).sort(
               (a, b) => parseFloat(b) - parseFloat(a),
             )
@@ -311,8 +311,8 @@ function LoadOrderBook() {
     }
     socket.onmessage = (event) => {
       const newData = JSON.parse(event.data)
-      if (newData !== undefined && Object.keys(newData).includes('bids')) {
-        setOrderBookData(formatOrderBook(newData, true))
+      if (Object.keys(orderBookData).length === 0) {
+        setOrderBookData(formatOrderBook(newData['book'], true))
       }
     }
 

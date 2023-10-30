@@ -115,10 +115,10 @@ function getSpread(bookData: OrderBookData) {
   let spread = 'N/A'
   if (
     Object.keys(bookData).length !== 0 &&
-    bookData.bids.length > 0 &&
-    bookData.asks.length > 0
+    bookData.bid.length > 0 &&
+    bookData.ask.length > 0
   ) {
-    spread = ((bookData.asks[0][1] / bookData.bids[0][1] - 1) * 100).toFixed(2)
+    spread = ((bookData.ask[0][1] / bookData.bid[0][1] - 1) * 100).toFixed(2)
   }
   return spread
 }
@@ -127,8 +127,8 @@ function OrderBookChart(props: BookChartProps) {
   const orderBookChartRef = useRef<HighchartsReactRefObject>(null)
   const bidAskFontSize = '13px'
   const spread = getSpread(props.data)
-  const bid = props.data.bids[0][1].toLocaleString()
-  const ask = props.data.asks[0][1].toLocaleString()
+  const bid = props.data.bid[0][1].toLocaleString()
+  const ask = props.data.ask[0][1].toLocaleString()
   const [synchCharts, setSynchCharts] = useState(false)
   const [chartOptions] = useState<any>({
     boost: {
@@ -218,8 +218,8 @@ function OrderBookChart(props: BookChartProps) {
 
   useEffect(() => {
     if (orderBookChartRef.current && orderBookChartRef.current.chart) {
-      orderBookChartRef.current.chart.series[0].setData(props.data.bids)
-      orderBookChartRef.current.chart.series[1].setData(props.data.asks)
+      orderBookChartRef.current.chart.series[0].setData(props.data.bid)
+      orderBookChartRef.current.chart.series[1].setData(props.data.ask)
     }
   }, [props.data])
 
@@ -733,8 +733,8 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
           )}
         </Col>
         <Col sm={2} style={{ zIndex: 2 }}>
-          {Object.keys(data.tradingData.orderBookData).includes('bids') &&
-            data.tradingData.orderBookData.bids.length !== 0 && (
+          {Object.keys(data.tradingData.orderBookData).includes('bid') &&
+            data.tradingData.orderBookData.bid.length !== 0 && (
               <OrderBookChart
                 data={data.tradingData.orderBookData}
                 pair={pair}
