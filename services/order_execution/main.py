@@ -56,13 +56,11 @@ class OrderExecutionService:
             self.redis_client.delete(user)
             self.redis_client.set(user, json.dumps(user_df.to_dict(orient="records")))
 
-
     def retrieve_from_redis(self) -> pd.DataFrame:
         all_data = dict()
         for user in self.users:
             all_data[user] = self.redis_client.get(user)
         return pd.DataFrame(all_data)
-
 
     def initialize_websocket(self):
         redis_data = self.retrieve_from_redis()

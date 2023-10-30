@@ -57,12 +57,12 @@ def run_process(exchange_object: object, symbols: list):
     )
     f.run()
     # try:
-        # loop = asyncio.get_event_loop()
-        # loop.create_task(periodic_cache_clear())
-        # f.run(start_loop=False)
-        # loop.run_forever()
+    # loop = asyncio.get_event_loop()
+    # loop.create_task(periodic_cache_clear())
+    # f.run(start_loop=False)
+    # loop.run_forever()
     # finally:
-        # loop.close()
+    # loop.close()
 
 
 def get_all_pairs(exchange: object, ref_currency: str) -> list:
@@ -79,7 +79,7 @@ def main():
     exchange_object = Coinbase
     # ref_currency = "USDT"
     # all_pairs = get_all_pairs(exchange_object, ref_currency)
-    all_pairs = ['BTC-USD']
+    all_pairs = ["BTC-USD"]
     symbols_per_process = 20
     sublists = [
         all_pairs[i : i + symbols_per_process]

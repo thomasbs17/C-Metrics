@@ -44,6 +44,7 @@ class Screener:
         threads = []
         for pair, details in symbols.items():
             if self.ref_currency and details["quote"] == self.ref_currency:
+                # self.get_pair_ohlcv(exchange, pair)
                 thread = threading.Thread(
                     target=self.get_pair_ohlcv, args=(exchange, pair)
                 )
@@ -107,6 +108,9 @@ class Screener:
         )
 
     def get_pair_ohlcv(self, exchange: ccxt.Exchange, pair: str):
+        # Only works with multithreading when using openssl 1.1.1
+        # https://askubuntu.com/questions/1403837/how-do-i-use-openssl-1-1-1-in-ubuntu-22-04
+        # http://security.ubuntu.com/ubuntu/pool/main/o/openssl/
         if self.verbose:
             print(f"Downloading OHLCV data for {pair}")
         if pair not in self.data["exchanges"][exchange.name]:
@@ -222,7 +226,7 @@ class Screener:
         top_scores = self.data["exchanges"][exchange]["scores"].head(top_score_amount)
         print(top_scores.to_string())
 
-    async def run_screening(self, websocket):
+    async def run_screening(self, websocket=None):
         while True:
             for exchange in self.exchange_list:
                 exchange_object = getattr(ccxt, exchange)()
@@ -250,10 +254,11 @@ class Screener:
 
 
 def run_websocket():
-    screener = Screener(exchange_list=["kraken"], verbose=False)
-    start_server = websockets.serve(screener.run_screening, "localhost", 8767)
-    asyncio.get_event_loop().run_until_complete(start_server)
-    asyncio.get_event_loop().run_forever()
+    screener = Screener(exchange_list=["kraken"], verbose=True)
+    asyncio.run(screener.run_screening())
+    # start_server = websockets.serve(screener.run_screening, "localhost", 8767)
+    # asyncio.get_event_loop().run_until_complete(start_server)
+    # asyncio.get_event_loop().run_forever()
 
 
 if __name__ == "__main__":
