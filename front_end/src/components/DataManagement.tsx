@@ -262,8 +262,8 @@ function formatOrderBook(rawOrderBook: any, isWebSocketFeed: boolean) {
         formattedBook[side].push([cumulativeVolume, parseFloat(price)])
       })
     } else {
-      formattedBook[side].push([0, rawOrderBook[side][0][0]])
-      rawOrderBook[side].forEach((level: [number, number, number]) => {
+      formattedBook[side].push([0, rawOrderBook[side + 's'][0][0]])
+      rawOrderBook[side + 's'].forEach((level: [number, number, number]) => {
         cumulativeVolume += level[1]
         formattedBook[side].push([cumulativeVolume, level[0]])
       })
