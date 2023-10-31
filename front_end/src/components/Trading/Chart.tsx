@@ -130,6 +130,7 @@ function OrderBookChart(props: BookChartProps) {
   const bid = props.data.bid[0][1].toLocaleString()
   const ask = props.data.ask[0][1].toLocaleString()
   const [synchCharts, setSynchCharts] = useState(false)
+  const [zoomLevel, setZoomLevel] = useState(0)
   const [chartOptions] = useState<any>({
     boost: {
       useGPUTranslations: true,
@@ -263,6 +264,14 @@ function OrderBookChart(props: BookChartProps) {
   }, [props.pairScoreDetails, props.selectedOrder])
 
   function afterSetExtremes(this: any, e: any) {
+    let bookSideDetails = {'ask': {}, 'bid': {}}
+    Object.keys(bookSideDetails).forEach((side: string) => {
+      const amountOfQuotes = props.data[side].length;
+      const topQuote = props.data[side][0][1]
+      const lastQuote = props.data[side][amountOfQuotes][1]
+
+    })
+
     this.setExtremes(0, this.max)
     const charts = Highcharts.charts
     let orderBookChart: any = undefined
@@ -273,9 +282,9 @@ function OrderBookChart(props: BookChartProps) {
         }
       }
     })
-    charts.forEach((chart: any) => {
-      if (chart !== undefined) {
-        if (synchCharts) {
+    if (synchCharts) {
+      charts.forEach((chart: any) => {
+        if (chart !== undefined) {
           if (chart.title.textStr === 'ohlc') {
             if (synchCharts) {
               chart.yAxis[0].setExtremes(
@@ -286,7 +295,7 @@ function OrderBookChart(props: BookChartProps) {
           }
         }
       }
-    })
+    )}
   }
 
   return (
