@@ -57,6 +57,16 @@ def get_asset_coinmarketcap_mapping(request):
         safe=False,
     )
 
+@api_view(["GET"])
+def get_crypto_meta_data(request):
+    crypto_coinmarketcap_id = request.query_params.get("crypto_coinmarketcap_id")
+    return JsonResponse(
+        coinmarketcap.get_endpoint(
+            api_version=2, category="cryptocurrency", endpoint=f"info?id={crypto_coinmarketcap_id}"
+        ),
+        safe=False,
+    )
+
 
 @api_view(["GET"])
 def get_exchange_markets(request):

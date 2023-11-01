@@ -19,6 +19,7 @@ from django.urls import path
 
 from crypto_station_api.views import (
     OrdersViewSet,
+    get_crypto_meta_data,
     get_exchanges,
     get_ohlc,
     get_order_book,
@@ -36,6 +37,11 @@ urlpatterns = [
         "coinmarketcap_info/",
         get_asset_coinmarketcap_mapping,
         name="coin_market_cap_info",
+    ),
+    path(
+        "coinmarketcap_crypto_meta/",
+        get_crypto_meta_data,
+        name="coin_market_cap_crypto_meta",
     ),
     path("markets/", get_exchange_markets, name="exchange_markets"),
     path("ohlc/", get_ohlc, name="get_ohlc"),
