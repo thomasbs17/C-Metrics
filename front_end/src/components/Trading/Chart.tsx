@@ -105,6 +105,9 @@ interface OhlcChartProps {
   selectedOrder: [string, string, string]
   pairScoreDetails: any
   volumeArray: number[][]
+  cryptoInfo: any
+  cryptoMetaData: any
+  decimalPlaces: number
 }
 
 interface GreedAndFearChartProps {
@@ -322,6 +325,39 @@ function OrderBookChart(props: BookChartProps) {
 
 function OhlcChart(props: OhlcChartProps) {
   const chartRef = useRef<HighchartsReactRefObject>(null)
+  const amountOfPoints = props.data.length - 1
+  const [selectedPoint, setSelectedPoint] = useState<any>({
+    open: props.data[amountOfPoints][1],
+    high: props.data[amountOfPoints][2],
+    low: props.data[amountOfPoints][3],
+    close: props.data[amountOfPoints][4],
+    color:
+      props.data[amountOfPoints][4] > props.data[amountOfPoints][1]
+        ? 'green'
+        : 'red',
+  })
+  const handleHover = (e: any) => {
+    setSelectedPoint({
+      open: e.target.open,
+      high: e.target.high,
+      low: e.target.low,
+      close: e.target.close,
+      color: e.target.color,
+    })
+  }
+  const handleMouseOut = () => {
+    setSelectedPoint({
+      open: props.data[amountOfPoints][1],
+      high: props.data[amountOfPoints][2],
+      low: props.data[amountOfPoints][3],
+      close: props.data[amountOfPoints][4],
+      color:
+        props.data[amountOfPoints][4] > props.data[amountOfPoints][1]
+          ? 'green'
+          : 'red',
+    })
+  }
+
   const [chartOptions] = useState<any>({
     plotOptions: {
       ohlc: {
@@ -449,7 +485,8 @@ function OhlcChart(props: OhlcChartProps) {
         id: 'ohlc',
         point: {
           events: {
-            mouseOver: () => console.log('test'),
+            mouseOver: (e: any) => handleHover(e),
+            mouseOut: () => handleMouseOut(),
           },
         },
       },
@@ -553,12 +590,83 @@ function OhlcChart(props: OhlcChartProps) {
   ])
 
   return (
-    <HighchartsReact
-      highcharts={Highcharts}
-      options={chartOptions}
-      constructorType={'stockChart'}
-      ref={chartRef}
-    />
+    <div>
+      {props.cryptoInfo !== undefined &&
+        props.cryptoMetaData !== undefined &&
+        Object.keys(props.cryptoInfo).length > 0 &&
+        Object.keys(props.cryptoMetaData).length > 0 && (
+          <div
+            style={{
+              position: 'absolute',
+              marginTop: 40,
+              padding: 5,
+              display: 'flex',
+            }}
+          >
+            <img
+              src={props.cryptoMetaData['logo']}
+              alt={`${props.pair}-logo`}
+              width={30}
+              height={30}
+            />
+            <Typography variant="h5">{props.cryptoInfo.name}</Typography>
+            <div style={{ display: 'flex', marginTop: 5, marginLeft: 5 }}>
+              <p style={{ marginLeft: 5 }}>
+                <span>O:</span>
+                <span style={{ color: selectedPoint.color }}>
+                  {selectedPoint.open.toLocaleString('en-US', {
+                    minimumFractionDigits: props.decimalPlaces,
+                    maximumFractionDigits: props.decimalPlaces,
+                  })}
+                </span>
+              </p>
+              <p style={{ marginLeft: 5 }}>
+                <span>H:</span>
+                <span style={{ color: selectedPoint.color }}>
+                  {selectedPoint.high.toLocaleString('en-US', {
+                    minimumFractionDigits: props.decimalPlaces,
+                    maximumFractionDigits: props.decimalPlaces,
+                  })}
+                </span>
+              </p>
+              <p style={{ marginLeft: 5 }}>
+                <span>L:</span>
+                <span style={{ color: selectedPoint.color }}>
+                  {selectedPoint.low.toLocaleString('en-US', {
+                    minimumFractionDigits: props.decimalPlaces,
+                    maximumFractionDigits: props.decimalPlaces,
+                  })}
+                </span>
+              </p>
+              <p style={{ marginLeft: 5 }}>
+                <span>C:</span>
+                <span style={{ color: selectedPoint.color }}>
+                  {selectedPoint.close.toLocaleString('en-US', {
+                    minimumFractionDigits: props.decimalPlaces,
+                    maximumFractionDigits: props.decimalPlaces,
+                  })}
+                </span>
+              </p>
+              <p style={{ marginLeft: 5 }}>
+                <span>%:</span>
+                <span style={{ color: selectedPoint.color }}>
+                  {(
+                    (selectedPoint.close / selectedPoint.open - 1) *
+                    100
+                  ).toFixed(2)}
+                  %
+                </span>
+              </p>
+            </div>
+          </div>
+        )}
+      <HighchartsReact
+        highcharts={Highcharts}
+        options={chartOptions}
+        constructorType={'stockChart'}
+        ref={chartRef}
+      />
+    </div>
   )
 }
 
@@ -686,6 +794,7 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
     )
 
   const [cryptoInfo, setCryptoInfo] = useState<any>({})
+  const [cryptoMetaData, setCryptoMetaData] = useState<any>({})
   const [volumeArray, setVolumeArray] = useState<number[][]>([])
 
   useEffect(() => {
@@ -695,7 +804,21 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
         data.tradingData.coinMarketCapMapping,
       ),
     )
-  }, [pair, data.tradingData.coinMarketCapMapping])
+    if (
+      cryptoInfo &&
+      Object.keys(cryptoInfo).length !== 0 &&
+      data.tradingData.cryptoMetaData.length !== 0
+    ) {
+      setCryptoMetaData(
+        data.tradingData.cryptoMetaData['data'][cryptoInfo['id']],
+      )
+    }
+  }, [
+    pair,
+    data.tradingData.coinMarketCapMapping,
+    data.tradingData.cryptoMetaData,
+    cryptoInfo,
+  ])
 
   useEffect(() => {
     const volumeArrayData = data.tradingData.ohlcvData.map((item) => [
@@ -705,17 +828,17 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
     setVolumeArray(volumeArrayData)
   }, [data.tradingData.ohlcvData])
 
+  let decimalPlaces = 2
+  try {
+    decimalPlaces = data.tradingData.markets[pair]['precision']['price']
+      .toString()
+      .split('.')[1].length
+  } catch {}
+
   return (
     <div style={{ height: CHART_HEIGHT }}>
       <Row style={{ height: CHART_HEIGHT }}>
         <Col sm={10} style={{ zIndex: 1 }}>
-          {cryptoInfo !== undefined && Object.keys(cryptoInfo).length > 0 && (
-            <div style={{ position: 'absolute', marginTop: 40, marginLeft: 5 }}>
-              <Typography variant="h5">{cryptoInfo.name}</Typography>
-              {cryptoInfo.platform !== null &&
-                `Network: ${cryptoInfo.platform.name}`}
-            </div>
-          )}
           {data.tradingData.ohlcvData.length === 0 ? (
             <CircularProgress
               style={{ position: 'absolute', top: '30%', left: '40%' }}
@@ -729,6 +852,9 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
               selectedOrder={selectedOrder}
               pairScoreDetails={pairScoreDetails}
               volumeArray={volumeArray}
+              cryptoInfo={cryptoInfo}
+              cryptoMetaData={cryptoMetaData}
+              decimalPlaces={decimalPlaces}
             />
           )}
         </Col>

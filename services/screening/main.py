@@ -93,19 +93,20 @@ class Screener:
 
     def add_technical_indicators(self, exchange: ccxt.Exchange, pair: str):
         ohlc = self.data["exchanges"][exchange.name][pair]["data"]["ohlc"]
-        for period in (20, 50, 100, 200):
-            for ma_type in ("sma", "ema"):
-                func = getattr(ta, ma_type)
-                key = f"{ma_type}_{period}"
-                self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][key] = func(
-                    ohlc["close"], length=period
-                )
-        bbands_df = ta.bbands(ohlc["close"])
-        columns = [column for column in bbands_df.columns]
-        self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][columns] = bbands_df
-        self.data["exchanges"][exchange.name][pair]["data"]["ohlc"]["rsi"] = ta.rsi(
-            ohlc["close"]
-        )
+        if len(ohlc) > 20:
+            for period in (20, 50, 100, 200):
+                for ma_type in ("sma", "ema"):
+                    func = getattr(ta, ma_type)
+                    key = f"{ma_type}_{period}"
+                    self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][key] = func(
+                        ohlc["close"], length=period
+                    )
+            bbands_df = ta.bbands(ohlc["close"])
+            columns = [column for column in bbands_df.columns]
+            self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][columns] = bbands_df
+            self.data["exchanges"][exchange.name][pair]["data"]["ohlc"]["rsi"] = ta.rsi(
+                ohlc["close"]
+            )
 
     def get_pair_ohlcv(self, exchange: ccxt.Exchange, pair: str):
         # Only works with multithreading when using openssl 1.1.1
@@ -254,11 +255,10 @@ class Screener:
 
 
 def run_websocket():
-    screener = Screener(exchange_list=["kraken"], verbose=True)
-    asyncio.run(screener.run_screening())
-    # start_server = websockets.serve(screener.run_screening, "localhost", 8767)
-    # asyncio.get_event_loop().run_until_complete(start_server)
-    # asyncio.get_event_loop().run_forever()
+    screener = Screener(exchange_list=["kraken"], verbose=False)
+    start_server = websockets.serve(screener.run_screening, "localhost", 8767)
+    asyncio.get_event_loop().run_until_complete(start_server)
+    asyncio.get_event_loop().run_forever()
 
 
 if __name__ == "__main__":

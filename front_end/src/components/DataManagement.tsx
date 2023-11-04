@@ -4,6 +4,7 @@ import { FilterState, filterSlice } from './StateManagement'
 
 export type tradingDataDef = {
   coinMarketCapMapping: any
+  cryptoMetaData: any
   exchanges: any
   markets: any
   news: NewsArticle[]
@@ -78,6 +79,31 @@ function LoadStaticData(endpoint: string) {
     getData()
   }, [endpoint])
   return data
+}
+
+function LoadCryptoMetaData(coinMarketCapMapping: any) {
+  const pair = useSelector(
+    (state: { filters: FilterState }) => state.filters.pair,
+  )
+  const [metaData, setMetaData] = useState<any>([])
+  const coinMarketCapInfo = retrieveInfoFromCoinMarketCap(
+    pair,
+    coinMarketCapMapping,
+  )
+  useEffect(() => {
+    async function getData() {
+      try {
+        let url = `http://127.0.0.1:8000/coinmarketcap_crypto_meta/?crypto_coinmarketcap_id=${coinMarketCapInfo['id']}`
+        const response = await fetch(url)
+        const responseData = await response.json()
+        setMetaData(responseData)
+      } catch (error) {
+        console.error(`Error fetching Crypto Meta Data endpoint`, error)
+      }
+    }
+    coinMarketCapInfo !== undefined && getData()
+  }, [coinMarketCapInfo, pair])
+  return metaData
 }
 
 function LoadMarkets() {
@@ -347,6 +373,7 @@ function LoadGreedAndFear() {
 
 export function GetTradingData() {
   const coinMarketCapMapping = LoadStaticData('coinmarketcap_info')
+  const cryptoMetaData = LoadCryptoMetaData(coinMarketCapMapping)
   const exchanges = LoadStaticData('exchanges')
   const markets = LoadMarkets()
   const news = LoadNews(coinMarketCapMapping)
@@ -359,6 +386,7 @@ export function GetTradingData() {
 
   return {
     coinMarketCapMapping: coinMarketCapMapping,
+    cryptoMetaData: cryptoMetaData,
     exchanges: exchanges,
     markets: markets,
     news: news,
