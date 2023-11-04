@@ -9,6 +9,7 @@ import HighchartsReact, {
 } from 'highcharts-react-official'
 import Highcharts from 'highcharts/highstock'
 import IndicatorsAll from 'highcharts/indicators/indicators-all'
+import VDP from 'highcharts/indicators/volume-by-price'
 import HighchartsBoost from 'highcharts/modules/boost'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Row } from 'react-bootstrap'
@@ -28,6 +29,7 @@ const CHART_HEIGHT = 600
 LinearGauge(Highcharts)
 IndicatorsAll(Highcharts)
 HighchartsBoost(Highcharts)
+VDP(Highcharts)
 
 function LinearGauge(H: any) {
   H.seriesType('lineargauge', 'column', null, {
@@ -494,6 +496,7 @@ function OhlcChart(props: OhlcChartProps) {
         data: [],
         name: 'volume',
         type: 'column',
+        id: 'volume',
         yAxis: 1,
       },
       // {
@@ -524,6 +527,22 @@ function OhlcChart(props: OhlcChartProps) {
           enabled: false,
         },
       })
+      props.volumeArray.length !== 0 &&
+        chartRef.current.chart.addSeries({
+          type: 'vbp',
+          linkedTo: 'ohlc',
+          params: {
+            ranges: 24,
+            volumeSeriesID: 'volume',
+          },
+          dataLabels: {
+            enabled: false,
+          },
+          zoneLines: {
+            enabled: false,
+          },
+          opacity: 0.1,
+        })
     }
   }, [props.data, props.volumeArray])
 
