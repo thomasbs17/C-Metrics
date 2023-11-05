@@ -16,6 +16,7 @@ from cryptofeed.exchanges import Coinbase, Kraken, Binance, EXCHANGE_MAP
 
 from test_read_live import reader
 
+multiprocessing.set_start_method("fork")
 
 FEED_CONFIG = {
     "log": {"filename": "demo.log", "level": "DEBUG", "disabled": True},
@@ -110,14 +111,16 @@ class MarketDataAggregator:
         # https://stackoverflow.com/questions/3288595/multiprocessing-how-to-use-pool-map-on-a-function-defined-in-a-class
         multiprocessing.current_process().daemon = False
         f = FeedHandler(FEED_CONFIG)
+        # host = "tcp://127.0.0.1"
+        # port = 8080
         for exchange, exchange_pairs in markets.items():
             f.add_feed(
                 EXCHANGE_MAP[exchange](
                     channels=[L2_BOOK, TRADES],
                     symbols=exchange_pairs,
                     callbacks={
-                        L2_BOOK: self.book_callback,
-                        TRADES: self.trades_callback,
+                        # L2_BOOK: BookSocket(host, port=port),
+                        TRADES: TradeSocket(f"tcp://{self.host}", port=self.port),
                     },
                     config=FEED_CONFIG,
                 )
@@ -127,7 +130,7 @@ class MarketDataAggregator:
     def add_all_feeds(self):
         sub_markets = self.break_down_pairs_per_cpu()
         processes = list()
-        for markets in sub_markets:
+        for markets in sub_markets[:1]:
             process = multiprocessing.Process(target=self.run_process, args=(markets,))
             processes.append(process)
         for process in processes:
@@ -139,7 +142,9 @@ class MarketDataAggregator:
         try:
             params = self.get_ws_parameters(path)
             self.clients[session_id] = dict(websocket=websocket, parameters=params)
-            print(f"New session: {websocket.id} with parameters: {params} (process: {self})")
+            print(
+                f"New session: {websocket.id} with parameters: {params} (process: {self})"
+            )
             return True
         except ValueError:
             if session_id in self.clients:
@@ -157,7 +162,19 @@ class MarketDataAggregator:
             formatted_param[param_name] = param_value
         return formatted_param
 
-    async def client_server(self, websocket, path):
+    async def data_aggregation_websocket(self, reader, writer):
+        while True:
+            data = await reader.read(1024 * 640)
+            message = data.decode()
+            # if multiple messages are received back to back,
+            # need to make sure they are formatted as if in an array
+            message = message.replace("}{", "},{")
+            message = f"[{message}]"
+            message = json.loads(message, parse_float=Decimal)
+            addr = writer.get_extra_info("peername")
+            print(f"Received {message!r} from {addr!r}")
+
+    async def client_websocket(self, websocket, path):
         while True:
             try:
                 session_id = str(websocket.id)
@@ -171,12 +188,22 @@ class MarketDataAggregator:
                 self.clients.pop(session_id, None)
                 break
 
-    def run_clients_websocket(self):
-        start_server = websockets.serve(self.client_server, self.host, self.port)
+    async def run_data_aggregation_websocket(self):
+        server = await asyncio.start_server(
+            self.data_aggregation_websocket, self.host, self.port
+        )
+        await server.serve_forever()
+
+    def _run_clients_websocket(self):
+        start_server = websockets.serve(self.client_websocket, self.host, 8080)
         asyncio.get_event_loop().run_until_complete(start_server)
         asyncio.get_event_loop().run_forever()
+
+    def run_clients_websocket(self):
+        multiprocessing.Process(target=self._run_clients_websocket).start()
 
 
 if __name__ == "__main__":
     aggregator = MarketDataAggregator(exchanges=["KRAKEN"], pairs=["BTC-USD"])
     aggregator.run_clients_websocket()
+    asyncio.run(aggregator.run_data_aggregation_websocket())
