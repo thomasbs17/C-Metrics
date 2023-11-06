@@ -1,20 +1,13 @@
 import asyncio
-import datetime
-from decimal import Decimal
 import math
 import multiprocessing
-import random
-import time
+from queue import Empty
 import websockets
-import pathos
 from yapic import json
 
 from cryptofeed import FeedHandler
-from cryptofeed.backends.socket import TradeSocket, BookSocket
 from cryptofeed.defines import TRADES, L2_BOOK
-from cryptofeed.exchanges import Coinbase, Kraken, Binance, EXCHANGE_MAP
-
-from test_read_live import reader
+from cryptofeed.exchanges import EXCHANGE_MAP
 
 
 FEED_CONFIG = {
@@ -46,6 +39,8 @@ class MarketDataAggregator:
         self.ref_currency = ref_curreny
         self.markets = self.get_markets()
         self.clients = dict()
+        self.client_queue = multiprocessing.Queue()
+        self.client_data_queue = multiprocessing.Queue()
         self.add_all_feeds()
 
     def get_markets(self) -> dict:
@@ -87,23 +82,18 @@ class MarketDataAggregator:
         return sub_lists
 
     async def _callback(self, method: str, data):
-        if self.clients:
-            async for client_subsriptions in self.clients.values():
-                if method in client_subsriptions["parameters"]:
-                    if data["symbol"] in client_subsriptions["parameters"][method]:
-                        formatted_data = data.to_dict(numeric_type=float)
-                        await client_subsriptions["parameters"].send(
-                            formatted_data["book"]
-                            if method == "book"
-                            else formatted_data
-                        )
+        try:
+            queue_data = self.client_queue.get(block=False, timeout=1)
+        except Empty:
+            return
+        if method in queue_data and data.symbol in queue_data[method]:
+            self.client_data_queue.put(data.to_dict(numeric_type=float))
 
     async def book_callback(self, data: dict, tmstmp: float):
-        # print(f"Book process: {self}")
         await self._callback(method="book", data=data)
 
     async def trades_callback(self, data: dict, tmstmp: float):
-        # print(f"Trades process: {self}")
+        print(data)
         await self._callback(method="trades", data=data)
 
     def run_process(self, markets: dict):
@@ -135,11 +125,17 @@ class MarketDataAggregator:
         # for process in processes:
         #     process.join()
 
-    async def add_client(self, websocket, path: str, session_id: str) -> bool:
+    async def send_to_aggregator_process(
+        self, websocket, path: str, session_id: str
+    ) -> bool:
         try:
-            params = self.get_ws_parameters(path)
-            self.clients[session_id] = dict(websocket=websocket, parameters=params)
-            print(f"New session: {websocket.id} with parameters: {params} (process: {self})")
+            if session_id not in self.clients:
+                params = self.get_ws_parameters(path)
+                self.clients[session_id] = params
+                print(
+                    f"New session: {websocket.id} with parameters: {params} (process: {self})"
+                )
+            self.client_queue.put(self.clients[session_id])
             return True
         except ValueError:
             if session_id in self.clients:
@@ -157,16 +153,27 @@ class MarketDataAggregator:
             formatted_param[param_name] = param_value
         return formatted_param
 
-    async def client_server(self, websocket, path):
+    async def send_to_client(self, websocket):
+        try:
+            queue_data = self.client_data_queue.get(block=False, timeout=1)
+            await websocket.send(json.dumps(queue_data))
+        except Empty:
+            pass
+
+    async def client_server(self, websocket, path: str):
         while True:
             try:
+                await self.send_to_client(websocket)
                 session_id = str(websocket.id)
-                if session_id not in self.clients:
-                    if not await self.add_client(websocket, path, session_id):
-                        break
-                await websocket.send("health: ok")
-                await asyncio.sleep(1)
-            except:
+                if not await self.send_to_aggregator_process(
+                    websocket, path, session_id
+                ):
+                    print(
+                        f"Failed connection attempt (invalid parameters): {session_id}"
+                    )
+                    self.clients.pop(session_id, None)
+                    break
+            except websockets.exceptions.ConnectionClosed:
                 print(f"Session {session_id} ended")
                 self.clients.pop(session_id, None)
                 break
@@ -178,5 +185,5 @@ class MarketDataAggregator:
 
 
 if __name__ == "__main__":
-    aggregator = MarketDataAggregator(exchanges=["KRAKEN"], pairs=["BTC-USD"])
+    aggregator = MarketDataAggregator(exchanges=["KRAKEN"], ref_curreny="USD")
     aggregator.run_clients_websocket()
