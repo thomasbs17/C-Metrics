@@ -1,10 +1,10 @@
 import asyncio
+import json
 import math
 import multiprocessing
 from queue import Empty
 import websockets
-from yapic import json
-
+from datetime import datetime as dt
 from cryptofeed import FeedHandler
 from cryptofeed.defines import TRADES, L2_BOOK
 from cryptofeed.exchanges import EXCHANGE_MAP
@@ -83,7 +83,7 @@ class MarketDataAggregator:
 
     async def _callback(self, method: str, data):
         try:
-            queue_data = self.client_queue.get(block=False, timeout=1)
+            queue_data = self.client_queue.get(block=False, timeout=0.01)
         except Empty:
             return
         if method in queue_data and data.symbol in queue_data[method]:
@@ -106,7 +106,7 @@ class MarketDataAggregator:
                     channels=[L2_BOOK, TRADES],
                     symbols=exchange_pairs,
                     callbacks={
-                        L2_BOOK: self.book_callback,
+                        # L2_BOOK: self.book_callback,
                         TRADES: self.trades_callback,
                     },
                     config=FEED_CONFIG,
@@ -160,11 +160,19 @@ class MarketDataAggregator:
         except Empty:
             pass
 
+    # async def empty_queue(self):
+    #     while True:
+    #         try:
+    #             self.client_queue.get(block=False, timeout=0.01)
+    #         except Empty:
+    #             break
+
     async def client_server(self, websocket, path: str):
-        while True:
-            try:
+        session_id = str(websocket.id)
+        heartbeat_tmstmp = dt.now()
+        try:
+            while True:
                 await self.send_to_client(websocket)
-                session_id = str(websocket.id)
                 if not await self.send_to_aggregator_process(
                     websocket, path, session_id
                 ):
@@ -172,11 +180,16 @@ class MarketDataAggregator:
                         f"Failed connection attempt (invalid parameters): {session_id}"
                     )
                     self.clients.pop(session_id, None)
+                    await websocket.close()
                     break
-            except websockets.exceptions.ConnectionClosed:
-                print(f"Session {session_id} ended")
-                self.clients.pop(session_id, None)
-                break
+                if (dt.now() - heartbeat_tmstmp).seconds > 1:
+                    await websocket.send("heartbeat")
+                    heartbeat_tmstmp = dt.now()
+        except websockets.exceptions.ConnectionClosed:
+            print(f"Session {session_id} ended")
+            self.clients.pop(session_id, None)
+            self.client_queue.get_nowait()
+            await websocket.close()
 
     def run_clients_websocket(self):
         start_server = websockets.serve(self.client_server, self.host, self.port)
@@ -185,5 +198,7 @@ class MarketDataAggregator:
 
 
 if __name__ == "__main__":
-    aggregator = MarketDataAggregator(exchanges=["KRAKEN"], ref_curreny="USD")
+    aggregator = MarketDataAggregator(
+        exchanges=["KRAKEN"], pairs=["BTC-USD", "ETH-USD"]
+    )
     aggregator.run_clients_websocket()
