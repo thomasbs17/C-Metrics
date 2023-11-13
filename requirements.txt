@@ -3,7 +3,7 @@ django-environ==0.11.2
 python-dotenv==1.0.0
 djangorestframework==3.14.0
 django-cors-headers==4.3.0
-ccxt==4.1.40
+ccxt==4.1.51
 GoogleNews==1.6.10
 cryptofeed==2.3.2
 pandas==2.1.2
