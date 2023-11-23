@@ -1,119 +1,204 @@
 import asyncio
 import json
-from datetime import datetime as dt
-
+import math
+import multiprocessing
+from queue import Empty
 import websockets
+from datetime import datetime as dt
 from cryptofeed import FeedHandler
-from cryptofeed import exchanges
-from cryptofeed.defines import L2_BOOK
+from cryptofeed.defines import TRADES, L2_BOOK
+from cryptofeed.exchanges import EXCHANGE_MAP
 
 
-# TODO: this is only meant to be used by one client for now
+FEED_CONFIG = {
+    "log": {"filename": "demo.log", "level": "DEBUG", "disabled": True},
+    "backend_multiprocessing": True,
+}
 
 
-class RealTimeMarketData:
-    def __init__(self):
-        self.clients = set()
-        self.exchange = exchanges.Kraken
-        self.pair = "ETH-USD"
-        self.config = {
-            "log": {"filename": "demo.log", "level": "DEBUG", "disabled": False}
-        }
-        self.f = FeedHandler(config=self.config)
-        self.add_feed(pair=self.pair, exchange=self.exchange)
-        self.data = None
-        self.last_emission_tmstmp = dt.now()
+class MarketDataAggregator:
+    host = "localhost"
+    port = 8768
 
-    def add_feed(self, pair: str, exchange):
-        self.f.add_feed(
-            exchange(
-                config="config.yaml",
-                subscription={
-                    L2_BOOK: [pair],
-                },
-                callbacks={
-                    L2_BOOK: self.book,
-                },
-            )
+    def __init__(
+        self,
+        exchanges: list = None,
+        pairs: list = None,
+        ref_curreny: str = None,
+        max_cpu_amount: int = None,
+    ):
+        self.cpu_amount = (
+            max_cpu_amount if max_cpu_amount else multiprocessing.cpu_count() - 1
         )
-
-    async def send_to_clients(self, *args):
-        batching_condition = (
-            True
-            if (dt.now() - self.last_emission_tmstmp).microseconds > 500000
-            else False
+        self.exchanges = (
+            {exchange: EXCHANGE_MAP[exchange] for exchange in exchanges}
+            if exchanges
+            else EXCHANGE_MAP
         )
-        if self.data and self.clients and batching_condition:
-            self.last_emission_tmstmp = dt.now()
-            await asyncio.wait(
-                [client.send(json.dumps(self.data)) for client in self.clients]
-            )
+        self.pairs = pairs
+        self.ref_currency = ref_curreny
+        self.markets = self.get_markets()
+        self.clients = dict()
+        self.client_queue = multiprocessing.Queue()
+        self.client_data_queue = multiprocessing.Queue()
+        self.add_all_feeds()
 
-    def get_paramters(self, websocket):
-        exchange = None
-        pair = None
-        indexes = []
-        i = 0
-        path = websocket.path
-        while True:
-            path = path[i + 1 :]
-            i = path.find("=")
-            if i == -1:
-                break
-            else:
-                indexes.append(i)
-        if len(indexes) != 0:
-            exchange = websocket.path[indexes[0] + 2 : indexes[0] + indexes[1] - 3]
-            pair = path
-        return exchange, pair
+    def get_markets(self) -> dict:
+        markets = dict()
+        for exchange_name, exchange_object in self.exchanges.items():
+            pairs = exchange_object.symbols()
+            filtered_pairs = list()
+            for pair in pairs:
+                if not self.pairs or pair in self.pairs:
+                    _, quote = pair.split("-")
+                    if "PINDEX" not in pair and (
+                        not self.ref_currency or quote == self.ref_currency
+                    ):
+                        filtered_pairs.append(pair)
+            if filtered_pairs:
+                markets[exchange_name] = filtered_pairs
+        return markets
 
-    def handle_parameters_change(self, websocket):
-        exchange, pair = self.get_paramters(websocket)
-        if (pair and exchange) and (pair != self.pair or exchange != self.exchange):
-            pair = pair.replace("/", "-")
-            exchange = exchange.capitalize()
-            self.pair = pair
-            self.exchange = exchange
-            self.data = None
-            self.f = FeedHandler(config=self.config)
-            self.clients = set()
-            try:
-                for feed in self.f.feeds:
-                    feed.shutdown()
-                    feed.close()
-                self.f.feeds = []
-                self.add_feed(pair=pair, exchange=getattr(exchanges, exchange))
-                loop = asyncio.get_event_loop()
-                self.f.feeds[0].start(loop)
-                print(f"Opened new websocket for {pair} on {exchange}")
-            except Exception as e:
-                self.data = None
-                print(f"Could not open websocket: {e}")
+    def break_down_pairs_per_cpu(self) -> list:
+        total_amount_of_pairs = 0
+        for pairs in self.markets.values():
+            total_amount_of_pairs += len(pairs)
+        symbols_per_process = math.ceil(total_amount_of_pairs / self.cpu_amount)
+        current_sub_dict = dict()
+        sub_lists = list()
+        for exchange, exchange_pairs in self.markets.items():
+            for pair in exchange_pairs:
+                if exchange not in current_sub_dict:
+                    current_sub_dict[exchange] = list()
+                total_amount_of_pairs = sum(
+                    len(values) for values in current_sub_dict.values()
+                )
+                if total_amount_of_pairs <= symbols_per_process:
+                    current_sub_dict[exchange].append(pair)
+                else:
+                    sub_lists.append(current_sub_dict)
+                    current_sub_dict = dict()
+        sub_lists.append(current_sub_dict)
+        return sub_lists
 
-    async def server(self, websocket):
-        self.handle_parameters_change(websocket)
-        self.clients.add(websocket)
+    async def _callback(self, method: str, data):
         try:
-            await asyncio.gather(
-                websocket.recv(),
-                self.send_to_clients(),
+            queue_data = self.client_queue.get(block=False, timeout=0.01)
+        except Empty:
+            return
+        if method in queue_data and data.symbol in queue_data[method]:
+            self.client_data_queue.put(data.to_dict(numeric_type=float))
+
+    async def book_callback(self, data: dict, tmstmp: float):
+        await self._callback(method="book", data=data)
+
+    async def trades_callback(self, data: dict, tmstmp: float):
+        print(data)
+        await self._callback(method="trades", data=data)
+
+    def run_process(self, markets: dict):
+        # https://stackoverflow.com/questions/3288595/multiprocessing-how-to-use-pool-map-on-a-function-defined-in-a-class
+        multiprocessing.current_process().daemon = False
+        f = FeedHandler(FEED_CONFIG)
+        for exchange, exchange_pairs in markets.items():
+            f.add_feed(
+                EXCHANGE_MAP[exchange](
+                    channels=[L2_BOOK, TRADES],
+                    symbols=exchange_pairs,
+                    callbacks={
+                        # L2_BOOK: self.book_callback,
+                        TRADES: self.trades_callback,
+                    },
+                    config=FEED_CONFIG,
+                )
             )
-        finally:
+        f.run()
+
+    def add_all_feeds(self):
+        sub_markets = self.break_down_pairs_per_cpu()
+        processes = list()
+        for markets in sub_markets:
+            process = multiprocessing.Process(target=self.run_process, args=(markets,))
+            processes.append(process)
+        for process in processes:
+            process.start()
+        # for process in processes:
+        #     process.join()
+
+    async def send_to_aggregator_process(
+        self, websocket, path: str, session_id: str
+    ) -> bool:
+        try:
+            if session_id not in self.clients:
+                params = self.get_ws_parameters(path)
+                self.clients[session_id] = params
+                print(
+                    f"New session: {websocket.id} with parameters: {params} (process: {self})"
+                )
+            self.client_queue.put(self.clients[session_id])
+            return True
+        except ValueError:
+            if session_id in self.clients:
+                self.clients.pop(session_id, None)
+            await websocket.send("Invalid parameters")
+        return False
+
+    @staticmethod
+    def get_ws_parameters(path: str) -> dict:
+        params = path[1:].split("?")
+        formatted_param = dict()
+        for param in params:
+            param_name, param_value = param.split("=")
+            param_value = param_value.split(",")
+            formatted_param[param_name] = param_value
+        return formatted_param
+
+    async def send_to_client(self, websocket):
+        try:
+            queue_data = self.client_data_queue.get(block=False, timeout=1)
+            await websocket.send(json.dumps(queue_data))
+        except Empty:
             pass
 
-    async def book(self, book, *args):
-        if book.symbol == self.pair:
-            self.data = book.to_dict(numeric_type=float)
-            print(self.data["delta"])
-        await self.send_to_clients({"type": "book", "data": self.data["delta"]})
+    # async def empty_queue(self):
+    #     while True:
+    #         try:
+    #             self.client_queue.get(block=False, timeout=0.01)
+    #         except Empty:
+    #             break
 
-    def run(self):
-        asyncio.get_event_loop().run_until_complete(
-            websockets.serve(self.server, "localhost", 8768)
-        )
-        self.f.run()
+    async def client_server(self, websocket, path: str):
+        session_id = str(websocket.id)
+        heartbeat_tmstmp = dt.now()
+        try:
+            while True:
+                await self.send_to_client(websocket)
+                if not await self.send_to_aggregator_process(
+                    websocket, path, session_id
+                ):
+                    print(
+                        f"Failed connection attempt (invalid parameters): {session_id}"
+                    )
+                    self.clients.pop(session_id, None)
+                    await websocket.close()
+                    break
+                if (dt.now() - heartbeat_tmstmp).seconds > 1:
+                    await websocket.send("heartbeat")
+                    heartbeat_tmstmp = dt.now()
+        except websockets.exceptions.ConnectionClosed:
+            print(f"Session {session_id} ended")
+            self.clients.pop(session_id, None)
+            self.client_queue.get_nowait()
+            await websocket.close()
+
+    def run_clients_websocket(self):
+        start_server = websockets.serve(self.client_server, self.host, self.port)
+        asyncio.get_event_loop().run_until_complete(start_server)
+        asyncio.get_event_loop().run_forever()
 
 
 if __name__ == "__main__":
-    rtmd = RealTimeMarketData()
-    rtmd.run()
+    aggregator = MarketDataAggregator(
+        exchanges=["KRAKEN"], pairs=["BTC-USD", "ETH-USD"]
+    )
+    aggregator.run_clients_websocket()
