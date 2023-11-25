@@ -7,11 +7,11 @@ interface RegistrationFormData {
   password: string
 }
 
-function UserRegistrationForm() {
+function UserRegistrationForm () {
   const [formData, setFormData] = useState<RegistrationFormData>({
     username: '',
     email: '',
-    password: '',
+    password: ''
   })
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -30,8 +30,7 @@ function UserRegistrationForm() {
             type="text"
             placeholder="Enter username"
             value={formData.username}
-            onChange={(e) =>
-              setFormData({ ...formData, username: e.target.value })
+            onChange={(e) => { setFormData({ ...formData, username: e.target.value }) }
             }
           />
         </Form.Group>
@@ -42,8 +41,7 @@ function UserRegistrationForm() {
             type="email"
             placeholder="Enter email"
             value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
+            onChange={(e) => { setFormData({ ...formData, email: e.target.value }) }
             }
           />
         </Form.Group>
@@ -54,8 +52,7 @@ function UserRegistrationForm() {
             type="password"
             placeholder="Password"
             value={formData.password}
-            onChange={(e) =>
-              setFormData({ ...formData, password: e.target.value })
+            onChange={(e) => { setFormData({ ...formData, password: e.target.value }) }
             }
           />
         </Form.Group>

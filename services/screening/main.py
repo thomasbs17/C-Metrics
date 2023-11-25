@@ -44,7 +44,6 @@ class Screener:
         threads = []
         for pair, details in symbols.items():
             if self.ref_currency and details["quote"] == self.ref_currency:
-                # self.get_pair_ohlcv(exchange, pair)
                 thread = threading.Thread(
                     target=self.get_pair_ohlcv, args=(exchange, pair)
                 )
@@ -93,25 +92,21 @@ class Screener:
 
     def add_technical_indicators(self, exchange: ccxt.Exchange, pair: str):
         ohlc = self.data["exchanges"][exchange.name][pair]["data"]["ohlc"]
-        if len(ohlc) > 20:
-            for period in (20, 50, 100, 200):
-                for ma_type in ("sma", "ema"):
-                    func = getattr(ta, ma_type)
-                    key = f"{ma_type}_{period}"
-                    self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][key] = func(
-                        ohlc["close"], length=period
-                    )
-            bbands_df = ta.bbands(ohlc["close"])
-            columns = [column for column in bbands_df.columns]
-            self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][columns] = bbands_df
-            self.data["exchanges"][exchange.name][pair]["data"]["ohlc"]["rsi"] = ta.rsi(
-                ohlc["close"]
-            )
+        for period in (20, 50, 100, 200):
+            for ma_type in ("sma", "ema"):
+                func = getattr(ta, ma_type)
+                key = f"{ma_type}_{period}"
+                self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][key] = func(
+                    ohlc["close"], length=period
+                )
+        bbands_df = ta.bbands(ohlc["close"])
+        columns = [column for column in bbands_df.columns]
+        self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][columns] = bbands_df
+        self.data["exchanges"][exchange.name][pair]["data"]["ohlc"]["rsi"] = ta.rsi(
+            ohlc["close"]
+        )
 
     def get_pair_ohlcv(self, exchange: ccxt.Exchange, pair: str):
-        # Only works with multithreading when using openssl 1.1.1
-        # https://askubuntu.com/questions/1403837/how-do-i-use-openssl-1-1-1-in-ubuntu-22-04
-        # http://security.ubuntu.com/ubuntu/pool/main/o/openssl/
         if self.verbose:
             print(f"Downloading OHLCV data for {pair}")
         if pair not in self.data["exchanges"][exchange.name]:
@@ -227,7 +222,7 @@ class Screener:
         top_scores = self.data["exchanges"][exchange]["scores"].head(top_score_amount)
         print(top_scores.to_string())
 
-    async def run_screening(self, websocket=None):
+    async def run_screening(self, websocket):
         while True:
             for exchange in self.exchange_list:
                 exchange_object = getattr(ccxt, exchange)()
@@ -256,7 +251,7 @@ class Screener:
 
 def run_websocket():
     screener = Screener(exchange_list=["kraken"], verbose=False)
-    start_server = websockets.serve(screener.run_screening, "localhost", 8767)
+    start_server = websockets.serve(screener.run_screening, "localhost", 8790)
     asyncio.get_event_loop().run_until_complete(start_server)
     asyncio.get_event_loop().run_forever()
 

@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   Checkbox,
   CircularProgress,
@@ -8,13 +9,13 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow,
+  TableRow
 } from '@mui/material'
 import { useMemo, useState } from 'react'
 import { Col, Container, Row } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
-import { Order, tradingDataDef } from '../DataManagement'
-import { FilterState, filterSlice } from '../StateManagement'
+import { type Order, type tradingDataDef } from '../DataManagement'
+import { type FilterState, filterSlice } from '../StateManagement'
 
 interface TableProps {
   openOnly: boolean
@@ -24,29 +25,29 @@ interface TableProps {
   orders: Order[]
 }
 
-function formatTimeStamp(originalDate: any) {
+function formatTimeStamp (originalDate: any) {
   let formattedDate = originalDate.substring(0, 19)
   formattedDate = formattedDate.replace('T', ' ')
   return formattedDate
 }
 
-function OrderTable({
+function OrderTable ({
   openOnly,
   selectedPair,
   paper,
   live,
-  orders,
+  orders
 }: TableProps) {
   const dispatch = useDispatch()
   const filterState = useSelector(
-    (state: { filters: FilterState }) => state.filters,
+    (state: { filters: FilterState }) => state.filters
   )
   const [pair, selectedOrder] = useMemo(
     () => [filterState.pair, filterState.selectedOrder],
-    [filterState.pair, filterState.selectedOrder],
+    [filterState.pair, filterState.selectedOrder]
   )
 
-  function getFilteredOrders() {
+  function getFilteredOrders () {
     let filteredOrders = orders.filter((order: Order) => {
       const isOpen = openOnly ? order.order_status === 'open' : true
       const isMatchingPair = selectedPair ? order.asset_id === pair : true
@@ -59,15 +60,15 @@ function OrderTable({
     filteredOrders = filteredOrders.sort(
       (
         a: { order_creation_tmstmp: string | number | Date },
-        b: { order_creation_tmstmp: string | number | Date },
+        b: { order_creation_tmstmp: string | number | Date }
       ) =>
         new Date(b.order_creation_tmstmp).getTime() -
-        new Date(a.order_creation_tmstmp).getTime(),
+        new Date(a.order_creation_tmstmp).getTime()
     )
     return filteredOrders
   }
 
-  function rowBackGroundColor(order: Order) {
+  function rowBackGroundColor (order: Order) {
     if (order.order_id === selectedOrder[2]) {
       if (order.order_side === 'buy') {
         return 'green'
@@ -79,7 +80,7 @@ function OrderTable({
     }
   }
 
-  function rowFontColor(order: Order) {
+  function rowFontColor (order: Order) {
     if (order.order_id === selectedOrder[2]) {
       return 'white'
     } else {
@@ -99,8 +100,8 @@ function OrderTable({
         filterSlice.actions.setSelectedOrder([
           order.order_creation_tmstmp,
           order.order_price,
-          order.order_id,
-        ]),
+          order.order_id
+        ])
       )
     } else {
       dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
@@ -109,9 +110,11 @@ function OrderTable({
 
   const filteredOrders = getFilteredOrders()
 
-  return orders.length === 0 ? (
+  return orders.length === 0
+    ? (
     <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
-  ) : (
+      )
+    : (
     <TableContainer sx={{ maxHeight: 170 }}>
       <Table stickyHeader size="small">
         <TableHead>
@@ -151,17 +154,17 @@ function OrderTable({
               key={index}
               sx={{
                 '&:last-child td, &:last-child th': { border: 0 },
-                cursor: 'pointer',
+                cursor: 'pointer'
               }}
               hover
-              onClick={() => handleClick(order)}
+              onClick={() => { handleClick(order) }}
             >
               <TableCell
                 align="left"
                 sx={{
                   color: rowFontColor(order),
                   backgroundColor: rowBackGroundColor(order),
-                  fontSize: 11,
+                  fontSize: 11
                 }}
               >
                 {formatTimeStamp(order.order_creation_tmstmp)}
@@ -170,7 +173,7 @@ function OrderTable({
                 align="left"
                 sx={{
                   color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
+                  backgroundColor: rowBackGroundColor(order)
                 }}
               >
                 {order.trading_env}
@@ -179,7 +182,7 @@ function OrderTable({
                 align="left"
                 sx={{
                   color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
+                  backgroundColor: rowBackGroundColor(order)
                 }}
               >
                 {order.asset_id}
@@ -188,7 +191,7 @@ function OrderTable({
                 align="left"
                 sx={{
                   color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
+                  backgroundColor: rowBackGroundColor(order)
                 }}
               >
                 {order.order_side}
@@ -197,7 +200,7 @@ function OrderTable({
                 align="left"
                 sx={{
                   color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
+                  backgroundColor: rowBackGroundColor(order)
                 }}
               >
                 {order.order_type}
@@ -206,7 +209,7 @@ function OrderTable({
                 align="left"
                 sx={{
                   color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
+                  backgroundColor: rowBackGroundColor(order)
                 }}
               >
                 {order.order_status}
@@ -215,7 +218,7 @@ function OrderTable({
                 align="left"
                 sx={{
                   color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
+                  backgroundColor: rowBackGroundColor(order)
                 }}
               >
                 {order.fill_pct * 100}%
@@ -224,24 +227,24 @@ function OrderTable({
                 align="left"
                 sx={{
                   color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
+                  backgroundColor: rowBackGroundColor(order)
                 }}
               >
                 {order.order_volume.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
+                  maximumFractionDigits: 2
                 })}
               </TableCell>
               <TableCell
                 align="left"
                 sx={{
                   color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
+                  backgroundColor: rowBackGroundColor(order)
                 }}
               >
                 {order.order_price.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
+                  maximumFractionDigits: 2
                 })}
               </TableCell>
             </TableRow>
@@ -249,10 +252,10 @@ function OrderTable({
         </TableBody>
       </Table>
     </TableContainer>
-  )
+      )
 }
 
-function Orders(data: { tradingData: tradingDataDef }) {
+function Orders (data: { tradingData: tradingDataDef }) {
   const [openOnly, setOpenOnly] = useState(true)
   const [selectedPair, setSelectedPair] = useState(true)
   const [paper, setPaper] = useState(true)
@@ -266,7 +269,8 @@ function Orders(data: { tradingData: tradingDataDef }) {
               control={
                 <Switch
                   checked={openOnly}
-                  onChange={() => setOpenOnly(!openOnly)}
+                  onChange={() => { setOpenOnly(!openOnly) }}
+                  size='small'
                 />
               }
               label="Open orders only"
@@ -277,22 +281,23 @@ function Orders(data: { tradingData: tradingDataDef }) {
               control={
                 <Switch
                   checked={selectedPair}
-                  onChange={() => setSelectedPair(!selectedPair)}
+                  onChange={() => { setSelectedPair(!selectedPair) }}
+                  size='small'
                 />
               }
               label="Selected pair only"
             />
           </Col>
-          <Col xs={5}>
+          <Col xs={5} style={{ marginTop: -10 }}>
             <FormControlLabel
               control={
-                <Checkbox checked={paper} onChange={() => setPaper(!paper)} />
+                <Checkbox size='small' checked={paper} onChange={() => { setPaper(!paper) }} />
               }
               label="Paper Trading"
             />
             <FormControlLabel
               control={
-                <Checkbox checked={live} onChange={() => setLive(!live)} />
+                <Checkbox size='small' checked={live} onChange={() => { setLive(!live) }} />
               }
               label="Live Trading"
             />

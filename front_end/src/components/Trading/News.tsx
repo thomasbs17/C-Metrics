@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   CircularProgress,
   Table,
@@ -5,21 +6,23 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow,
+  TableRow
 } from '@mui/material'
 import { useDispatch } from 'react-redux'
-import { NewsArticle, tradingDataDef } from '../DataManagement'
+import { type NewsArticle, type tradingDataDef } from '../DataManagement'
 import { filterSlice } from '../StateManagement'
 
-function News(data: { tradingData: tradingDataDef }) {
+function News (data: { tradingData: tradingDataDef }) {
   const news = data.tradingData.news.sort(
-    (a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime(),
+    (a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
   )
   const dispatch = useDispatch()
 
-  return news.length === 0 ? (
+  return news.length === 0
+    ? (
     <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
-  ) : (
+      )
+    : (
     <TableContainer sx={{ maxHeight: 210 }}>
       <Table stickyHeader aria-label="sticky table" size="small">
         <TableHead>
@@ -37,6 +40,7 @@ function News(data: { tradingData: tradingDataDef }) {
         </TableHead>
         <TableBody>
           {news.map((article: NewsArticle, index: number) => (
+            !isNaN(Date.parse(article.datetime)) &&
             <TableRow
               key={index}
               sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
@@ -45,8 +49,8 @@ function News(data: { tradingData: tradingDataDef }) {
                 dispatch(
                   filterSlice.actions.setSelectedArticle([
                     article.datetime,
-                    article.title,
-                  ]),
+                    article.title
+                  ])
                 )
               }
               onMouseLeave={() =>
@@ -73,7 +77,7 @@ function News(data: { tradingData: tradingDataDef }) {
         </TableBody>
       </Table>
     </TableContainer>
-  )
+      )
 }
 
 export default News

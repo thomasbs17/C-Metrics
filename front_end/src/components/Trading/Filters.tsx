@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   Autocomplete,
   Box,
@@ -17,7 +18,7 @@ import {
   Theme,
   ToggleButtonGroup,
   Typography,
-  useTheme,
+  useTheme
 } from '@mui/material'
 import Highcharts from 'highcharts'
 import HighchartsMore from 'highcharts/highcharts-more'
@@ -28,23 +29,25 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router'
 import { tradingDataDef } from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
+import EconomicCalendar from './EconomicCalendar'
+
 
 // Initialize the modules
 HighchartsMore(Highcharts)
 SolidGauge(Highcharts)
 
-type FilterProps = {
-  data: Array<string>
+interface FilterProps {
+  data: string[]
   handleClose?: any
 }
 
-function TradingTypeFilter() {
+function TradingTypeFilter () {
   const [selectedValue, setSelectedValue] = useState('Paper')
   const dispatch = useDispatch()
 
   const handleSelect = (
     event: React.MouseEvent<HTMLElement>,
-    tradingType: string,
+    tradingType: string
   ) => {
     setSelectedValue(tradingType)
     dispatch({ type: 'SET_TRADING_TYPE', payload: tradingType })
@@ -56,17 +59,17 @@ function TradingTypeFilter() {
       exclusive
       onChange={handleSelect}
     >
-      <ToggleButton value="paper" variant="success">
+      <ToggleButton id='paper-trading-button' value="paper" variant="success">
         Paper
       </ToggleButton>
-      <ToggleButton disabled value="live" variant="error">
+      <ToggleButton id='live-trading-button' disabled value="live" variant="error">
         Live
       </ToggleButton>
     </ToggleButtonGroup>
   )
 }
 
-function OhlcPeriodsFilter() {
+function OhlcPeriodsFilter () {
   const [ohlcPeriod, setOhlcPeriod] = useState('1d')
   const dispatch = useDispatch()
 
@@ -92,7 +95,7 @@ function OhlcPeriodsFilter() {
     '1d': '1d',
     '3d': '3d',
     '1w': '1w',
-    '1M': '1M',
+    '1M': '1M'
   }
 
   return (
@@ -115,15 +118,15 @@ function OhlcPeriodsFilter() {
   )
 }
 
-function ExchangeFilter(props: FilterProps) {
+function ExchangeFilter (props: FilterProps) {
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const [selectedValue, setSelectedValue] = useState('')
   const stateValue = useSelector(
-    (state: { filters: FilterState }) => state.filters.exchange,
+    (state: { filters: FilterState }) => state.filters.exchange
   )
   const pair = useSelector(
-    (state: { filters: FilterState }) => state.filters.pair,
+    (state: { filters: FilterState }) => state.filters.pair
   )
   const handleSelect = (event: React.ChangeEvent<{}>, value: string | null) => {
     if (value !== null) {
@@ -148,21 +151,21 @@ function ExchangeFilter(props: FilterProps) {
   )
 }
 
-function PairFilter(props: FilterProps) {
+function PairFilter (props: FilterProps) {
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const filterState = useSelector(
-    (state: { filters: FilterState }) => state.filters,
+    (state: { filters: FilterState }) => state.filters
   )
   const [exchange, pair] = useMemo(
     () => [filterState.exchange, filterState.pair],
-    [filterState.exchange, filterState.pair],
+    [filterState.exchange, filterState.pair]
   )
 
   const [selectedValue, setSelectedValue] = useState(pair)
   const handleSelectPair = (
     event: React.ChangeEvent<{}>,
-    value: string | null,
+    value: string | null
   ) => {
     if (value !== null && value !== undefined) {
       setSelectedValue(value)
@@ -188,14 +191,16 @@ function PairFilter(props: FilterProps) {
 
   return (
     <div>
-      {props.data.length === 0 ? (
+      {props.data.length === 0
+        ? (
         <Skeleton
           variant="rounded"
           height={40}
           width={'100%'}
           sx={{ marginTop: 3, padding: 1 }}
         />
-      ) : (
+          )
+        : (
         <Autocomplete
           clearIcon={false}
           options={props.data}
@@ -206,14 +211,14 @@ function PairFilter(props: FilterProps) {
             <TextField {...params} label={`Pair (${props.data.length})`} />
           )}
         />
-      )}
+          )}
     </div>
   )
 }
 
-function filtersSideAnimation(
+function filtersSideAnimation (
   containerRef: React.RefObject<HTMLDivElement>,
-  markets: any,
+  markets: any
 ) {
   const container = containerRef.current
   if (container) {
@@ -222,7 +227,7 @@ function filtersSideAnimation(
   }
 }
 
-function NavigationMenu() {
+function NavigationMenu () {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const open = Boolean(anchorEl)
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -236,7 +241,7 @@ function NavigationMenu() {
     Home: '',
     Trading: 'trading',
     Portfolio: 'portfolio',
-    'Sign Up': 'registration',
+    'Sign Up': 'registration'
   }
 
   return (
@@ -257,7 +262,7 @@ function NavigationMenu() {
         onClose={handleClose}
         sx={{ backgroundColor: 'rgba(0,0,0,0.8)' }}
         MenuListProps={{
-          'aria-labelledby': 'basic-button',
+          'aria-labelledby': 'basic-button'
         }}
       >
         {Object.keys(pages).map((page: string) => (
@@ -267,7 +272,7 @@ function NavigationMenu() {
             sx={{
               textDecoration: 'none',
               color: 'white',
-              backgroundColor: 'rgba(0,0,0,0.5)',
+              backgroundColor: 'rgba(0,0,0,0.5)'
             }}
           >
             <MenuItem
@@ -290,10 +295,10 @@ interface MultipleSelectChipProps {
   defaultValue: string[]
 }
 
-function MultipleSelectChip(props: MultipleSelectChipProps) {
+function MultipleSelectChip (props: MultipleSelectChipProps) {
   const theme = useTheme()
   const [selectedValue, setSelectedValue] = useState<string[]>(
-    props.defaultValue,
+    props.defaultValue
   )
 
   const ITEM_HEIGHT = 48
@@ -302,31 +307,31 @@ function MultipleSelectChip(props: MultipleSelectChipProps) {
     PaperProps: {
       style: {
         maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
-        width: 250,
-      },
-    },
+        width: 250
+      }
+    }
   }
 
   const getStyles = (
     name: string,
     personName: readonly string[],
-    theme: Theme,
+    theme: Theme
   ) => {
     return {
       fontWeight:
-        personName.indexOf(name) === -1
+        !personName.includes(name)
           ? theme.typography.fontWeightRegular
-          : theme.typography.fontWeightMedium,
+          : theme.typography.fontWeightMedium
     }
   }
 
   const handleChange = (event: SelectChangeEvent<typeof selectedValue>) => {
     const {
-      target: { value },
+      target: { value }
     } = event
     setSelectedValue(
       // On autofill we get a stringified value.
-      typeof value === 'string' ? value.split(',') : value,
+      typeof value === 'string' ? value.split(',') : value
     )
   }
 
@@ -365,17 +370,21 @@ function MultipleSelectChip(props: MultipleSelectChipProps) {
   )
 }
 
-export function TopBar(data: { tradingData: tradingDataDef }) {
+export function TopBar (data: { tradingData: tradingDataDef }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [modalIsOpen, setModalIsOpen] = useState(false)
-  const handleOpen = () => setModalIsOpen(true)
-  const handleClose = () => setModalIsOpen(false)
+  const [modalType, setModalType] = useState('')
+  const handleOpen = (modalType: string) => (
+    setModalType(modalType),
+    setModalIsOpen(true)
+  )
+  const handleClose = () => { setModalIsOpen(false) }
   const filterState = useSelector(
-    (state: { filters: FilterState }) => state.filters,
+    (state: { filters: FilterState }) => state.filters
   )
   const [exchange, pair] = useMemo(
     () => [filterState.exchange, filterState.pair],
-    [filterState.exchange, filterState.pair],
+    [filterState.exchange, filterState.pair]
   )
 
   const containerStyle: React.CSSProperties = {
@@ -385,7 +394,7 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
     opacity: '0',
     transition: 'opacity 1s, transform 1s',
     zIndex: 2,
-    position: 'relative',
+    position: 'relative'
   }
 
   const modalStyle = {
@@ -396,14 +405,16 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
     width: 800,
     bgcolor: 'background.paper',
     border: '2px solid #000',
+    borderRadius: 10,
     boxShadow: 24,
-    p: 4,
+    height: 600,
+    p: 4
   }
   const [filteredAssetTypes, setFilteredAssetTypes] = useState<string[]>([])
 
   useEffect(() => {
     if (Object.keys(data.tradingData.markets).length !== 0) {
-      let assetTypes: string[] = []
+      const assetTypes: string[] = []
       setFilteredAssetTypes(assetTypes)
       filtersSideAnimation(containerRef, data.tradingData.markets)
     }
@@ -425,10 +436,19 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
           <Button
             variant="text"
             size="large"
-            onClick={handleOpen}
+            onClick={() => { handleOpen('economicCalendar') }}
             sx={{ width: 200 }}
+          >Economic Calendar</Button>
+        </Col>
+        <Col>
+          <Button
+            variant="text"
+            size="large"
+            onClick={() => { handleOpen('pairSelection') }}
+            sx={{ width: 300 }}
           >{`${exchange}: ${pair}`}</Button>
         </Col>
+
       </Row>
       <Modal
         open={modalIsOpen}
@@ -436,35 +456,44 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
       >
-        <Box sx={modalStyle}>
-          <Typography id="symbol-selection" variant="h6" component="h2">
-            Symbol Selection
-          </Typography>
-          <Row>
-            <Col>
-              <ExchangeFilter data={data.tradingData.exchanges} />
-            </Col>
-            <Col>
-              <MultipleSelectChip
-                label="Networks"
-                options={[]}
-                defaultValue={[]}
-              />
-            </Col>
-            <Col>
-              <MultipleSelectChip
-                label="Asset Types"
-                options={filteredAssetTypes}
-                defaultValue={[]}
-              />
-            </Col>
-          </Row>
-          <PairFilter
-            data={Object.keys(data.tradingData.markets).sort()}
-            handleClose={handleClose}
-          />
-        </Box>
+
+        {modalType === 'pairSelection'
+          ? <Box sx={modalStyle}>
+            <Typography id="symbol-selection" variant="h6" component="h2">
+              Symbol Selection
+            </Typography>
+            <Row>
+              <Col>
+                <ExchangeFilter data={data.tradingData.exchanges} />
+              </Col>
+              <Col>
+                <MultipleSelectChip
+                  label="Networks"
+                  options={[]}
+                  defaultValue={[]}
+                />
+              </Col>
+              <Col>
+                <MultipleSelectChip
+                  label="Asset Types"
+                  options={filteredAssetTypes}
+                  defaultValue={[]}
+                />
+              </Col>
+            </Row>
+            <PairFilter
+              data={Object.keys(data.tradingData.markets).sort()}
+              handleClose={handleClose}
+            />
+          </Box>
+          : <Box sx={modalStyle}>
+            <Typography id="symbol-selection" variant="h6" component="h2" sx={{ padding: 2 }}>
+              Economic Calendar
+            </Typography>
+            <EconomicCalendar />
+          </Box>
+        }
       </Modal>
-    </Container>
+    </Container >
   )
 }

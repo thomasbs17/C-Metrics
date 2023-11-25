@@ -16,14 +16,14 @@ const pages: any = {
   Home: 'home',
   Trading: 'trading',
   Portfolio: 'portfolio',
-  'Sign Up': 'registration',
+  'Sign Up': 'registration'
 }
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout']
 
-function NavBar() {
+function NavBar () {
   const [, setAnchorElNav] = React.useState<null | HTMLElement>(null)
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(
-    null,
+    null
   )
 
   const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -55,7 +55,7 @@ function NavBar() {
               fontWeight: 700,
               letterSpacing: '.3rem',
               color: 'inherit',
-              textDecoration: 'none',
+              textDecoration: 'none'
             }}
           >
             Crypto Station
@@ -84,12 +84,12 @@ function NavBar() {
               anchorEl={anchorElUser}
               anchorOrigin={{
                 vertical: 'top',
-                horizontal: 'right',
+                horizontal: 'right'
               }}
               keepMounted
               transformOrigin={{
                 vertical: 'top',
-                horizontal: 'right',
+                horizontal: 'right'
               }}
               open={Boolean(anchorElUser)}
               onClose={handleCloseUserMenu}

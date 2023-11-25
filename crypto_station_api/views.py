@@ -1,9 +1,12 @@
 import datetime
+import math
 import uuid
 
 import ccxt
 from GoogleNews import GoogleNews
 from django.http import JsonResponse
+import numpy as np
+import pandas as pd
 from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.parsers import JSONParser
@@ -82,6 +85,7 @@ def get_news(request):
     googlenews = GoogleNews()
     googlenews.get_news(pair)
     data = googlenews.results()
+    data = [article for article in data if isinstance(article['datetime'], datetime.datetime)]
     return JsonResponse(data, safe=False)
 
 

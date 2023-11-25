@@ -1,6 +1,7 @@
 import { configureStore, createSlice } from '@reduxjs/toolkit'
+import React from 'react'
 
-export type FilterState = {
+export interface FilterState {
   tradingType: string
   ohlcPeriod: string
   exchange: string
@@ -19,7 +20,7 @@ const initialState: FilterState = {
   selectedArticle: ['', ''],
   selectedOrder: ['', '', ''],
   ordersNeedReload: true,
-  pairScoreDetails: {},
+  pairScoreDetails: {}
 }
 
 export const filterSlice = createSlice({
@@ -49,12 +50,12 @@ export const filterSlice = createSlice({
     },
     setPairScoreDetails: (state, action) => {
       state.pairScoreDetails = action.payload
-    },
-  },
+    }
+  }
 })
 
 export const filtersStore = configureStore({
   reducer: {
-    filters: filterSlice.reducer,
-  },
+    filters: filterSlice.reducer
+  }
 })

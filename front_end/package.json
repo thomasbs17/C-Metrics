@@ -27,12 +27,13 @@
     "react": "^18.2.0",
     "react-bootstrap": "^2.8.0",
     "react-dom": "^18.2.0",
+    "react-grid-layout": "^1.4.4",
     "react-plotly.js": "^2.6.0",
     "react-plotlyjs": "^0.4.4",
     "react-redux": "^8.1.3",
     "react-resizable-panels": "^0.0.55",
     "react-router-dom": "^6.14.2",
-    "react-scripts": "^5.0.1",
+    "react-scripts": "^3.0.1",
     "redux": "^4.2.1",
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
@@ -48,7 +49,8 @@
   "eslintConfig": {
     "extends": [
       "react-app",
-      "react-app/jest"
+      "react-app/jest",
+      "plugin:react/jsx-runtime"
     ]
   },
   "browserslist": [
@@ -58,6 +60,14 @@
   ],
   "devDependencies": {
     "@types/plotly.js": "^2.12.25",
+    "@types/react-grid-layout": "^1.3.5",
     "@types/react-plotly.js": "^2.6.0"
+  },
+  "allowedHosts": [
+    "localhost"
+  ],
+  "resolutions": {
+    "**/@typescript-eslint/eslint-plugin": "^4.1.1",
+    "**/@typescript-eslint/parser": "^4.1.1"
   }
 }
