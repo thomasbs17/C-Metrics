@@ -6,7 +6,7 @@ import {
   Radio,
   RadioGroup,
   Snackbar,
-  TextField
+  TextField,
 } from '@mui/material'
 import axios from 'axios'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
@@ -22,52 +22,60 @@ interface OrderTypeFilterProps {
   handleOrderTypeChange: (radio: string) => void
 }
 
-function OrderSideFilter ({ handleOrderSideChange }: OrderTypeSideProps) {
+function OrderSideFilter({ handleOrderSideChange }: OrderTypeSideProps) {
   return (
     <RadioGroup row defaultValue="buy">
       <FormControlLabel
         value="buy"
         control={<Radio />}
         label="Buy"
-        onChange={() => { handleOrderSideChange('buy') }}
+        onChange={() => {
+          handleOrderSideChange('buy')
+        }}
       />
       <FormControlLabel
         value="sell"
         control={<Radio />}
         label="Sell"
-        onChange={() => { handleOrderSideChange('sell') }}
+        onChange={() => {
+          handleOrderSideChange('sell')
+        }}
       />
     </RadioGroup>
   )
 }
 
-function OrderTypeFilter ({ handleOrderTypeChange }: OrderTypeFilterProps) {
+function OrderTypeFilter({ handleOrderTypeChange }: OrderTypeFilterProps) {
   return (
     <RadioGroup row defaultValue="limit">
       <FormControlLabel
         value="limit"
         control={<Radio />}
         label="Limit"
-        onChange={() => { handleOrderTypeChange('limit') }}
+        onChange={() => {
+          handleOrderTypeChange('limit')
+        }}
       />
       <FormControlLabel
         value="market"
         control={<Radio />}
         label="Market"
-        onChange={() => { handleOrderTypeChange('market') }}
+        onChange={() => {
+          handleOrderTypeChange('market')
+        }}
       />
     </RadioGroup>
   )
 }
 
-function OrderDetails () {
+function OrderDetails() {
   const dispatch = useDispatch()
   const filterState = useSelector(
-    (state: { filters: FilterState }) => state.filters
+    (state: { filters: FilterState }) => state.filters,
   )
   const [exchange, pair] = useMemo(
     () => [filterState.exchange, filterState.pair],
-    [filterState.exchange, filterState.pair]
+    [filterState.exchange, filterState.pair],
   )
 
   const [selectedOrderSide, setSelectedOrderSide] = useState<string>('buy')
@@ -85,7 +93,7 @@ function OrderDetails () {
     setSelectedOrderType(radio)
   }
 
-  function SubmitOrder () {
+  function SubmitOrder() {
     seIsLoading(true)
     const endpoint = 'http://127.0.0.1:8000/new_order/'
 
@@ -101,7 +109,7 @@ function OrderDetails () {
       order_status: selectedOrderType === 'limit' ? 'open' : 'executed',
       fill_pct: selectedOrderType === 'limit' ? 0 : 1,
       order_volume: orderAmount,
-      order_price: orderLimitPrice === undefined ? null : orderLimitPrice
+      order_price: orderLimitPrice === undefined ? null : orderLimitPrice,
     }
 
     axios
@@ -140,10 +148,9 @@ function OrderDetails () {
                 setOrderLimitPrice(
                   event.target.value === ''
                     ? null
-                    : parseFloat(event.target.value)
+                    : parseFloat(event.target.value),
                 )
-              }
-              }
+              }}
               sx={{ width: '100%' }}
             />
           </Col>
@@ -158,38 +165,41 @@ function OrderDetails () {
               setOrderAmount(
                 event.target.value === ''
                   ? null
-                  : parseFloat(event.target.value)
+                  : parseFloat(event.target.value),
               )
-            }
-            }
+            }}
             sx={{ width: '100%' }}
           />
         </Col>
       </Row>
       <Row style={{ paddingTop: 20 }}>
-        {isLoading
-          ? (
+        {isLoading ? (
           <CircularProgress style={{ marginLeft: '50%' }} />
-            )
-          : (
+        ) : (
           <Button
             variant="contained"
             color={selectedOrderSide === 'buy' ? 'success' : 'error'}
             disabled={
-              !!(orderAmount === null ||
-              (selectedOrderType === 'limit' && orderLimitPrice === null))
+              !!(
+                orderAmount === null ||
+                (selectedOrderType === 'limit' && orderLimitPrice === null)
+              )
             }
-            onClick={() => { SubmitOrder() }}
+            onClick={() => {
+              SubmitOrder()
+            }}
             sx={{ width: '100%' }}
           >
             {selectedOrderSide}
           </Button>
-            )}
+        )}
       </Row>
       <Snackbar
         open={snackIsOpen}
         autoHideDuration={2000}
-        onClose={() => { setSnackIsOpen(false) }}
+        onClose={() => {
+          setSnackIsOpen(false)
+        }}
       >
         <Alert severity="success" sx={{ width: '100%' }}>
           Order successfuly created!
@@ -199,7 +209,7 @@ function OrderDetails () {
   )
 }
 
-function CreateOrderWidget () {
+function CreateOrderWidget() {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -215,7 +225,7 @@ function CreateOrderWidget () {
     transform: 'translateY(-50px)',
     transition: 'opacity 1s, transform 1s',
     height: '200px',
-    padding: 5
+    padding: 5,
   }
 
   return (

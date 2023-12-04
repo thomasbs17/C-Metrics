@@ -3,10 +3,10 @@ import {
   CircularProgress,
   FormControlLabel,
   Switch,
-  Typography
+  Typography,
 } from '@mui/material'
 import HighchartsReact, {
-  type HighchartsReactRefObject
+  type HighchartsReactRefObject,
 } from 'highcharts-react-official'
 import Highcharts from 'highcharts/highstock'
 import IndicatorsAll from 'highcharts/indicators/indicators-all'
@@ -25,7 +25,7 @@ import {
   type OhlcData,
   type OrderBookData,
   retrieveInfoFromCoinMarketCap,
-  type tradingDataDef
+  type tradingDataDef,
 } from '../DataManagement'
 import { type FilterState } from '../StateManagement'
 import './charts.css'
@@ -46,7 +46,7 @@ PriceIndicator(Highcharts)
 FullScreen(Highcharts)
 DarkTheme(Highcharts)
 
-function LinearGauge (H: any) {
+function LinearGauge(H: any) {
   H.seriesType('lineargauge', 'column', null, {
     setVisible: function () {
       H.seriesTypes.column.prototype.setVisible.apply(this, arguments)
@@ -83,7 +83,7 @@ function LinearGauge (H: any) {
               0,
               'L',
               0,
-              0 + xAxis.len
+              0 + xAxis.len,
             ]
           : ['M', 0, 0, 'L', -5, -5, 'L', -5, 5, 'L', 0, 0, 'L', xAxis.len, 0]
         markLine = this.markLine = chart.renderer
@@ -91,7 +91,7 @@ function LinearGauge (H: any) {
           .attr({
             fill: series.color,
             stroke: series.color,
-            'stroke-width': 1
+            'stroke-width': 1,
           })
           .add()
       }
@@ -101,9 +101,9 @@ function LinearGauge (H: any) {
           : xAxis.left,
         translateY: inverted
           ? xAxis.top
-          : yAxis.top + yAxis.len - yAxis.translate(point.y)
+          : yAxis.top + yAxis.len - yAxis.translate(point.y),
       })
-    }
+    },
   })
 }
 
@@ -131,7 +131,7 @@ interface GreedAndFearChartProps {
   data: any
 }
 
-function getSpread (bookData: OrderBookData) {
+function getSpread(bookData: OrderBookData) {
   let spread = 'N/A'
   if (
     Object.keys(bookData).length !== 0 &&
@@ -143,26 +143,20 @@ function getSpread (bookData: OrderBookData) {
   return spread
 }
 
-function OrderBookChart (props: BookChartProps) {
+function OrderBookChart(props: BookChartProps) {
   const orderBookChartRef = useRef<HighchartsReactRefObject>(null)
   const bidAskFontSize = '13px'
   const spread = getSpread(props.data)
-  const bid = props.data.bid[0][1].toLocaleString()
-  const ask = props.data.ask[0][1].toLocaleString()
+  const bid = props.data.bid[0][1]
+  const ask = props.data.ask[0][1]
   const [synchCharts, setSynchCharts] = useState(false)
+
   const [chartOptions] = useState<any>({
     boost: {
-      useGPUTranslations: true
+      useGPUTranslations: true,
     },
     tooltip: {
-      enabled: true,
-      split: true,
-      shape: 'square',
-      headerShape: 'callout',
-      borderWidth: 0,
-      shadow: false,
-      backgroundColor: 'rgba(0,0,0,1)',
-      style: { color: 'white' }
+      enabled: false,
     },
     xAxis: [
       {
@@ -172,35 +166,35 @@ function OrderBookChart (props: BookChartProps) {
         labels: { enabled: false },
         snap: false,
         events: {
-          afterSetExtremes
+          afterSetExtremes,
         },
         tooltip: {
-          enabled: false
-        }
-      }
+          enabled: false,
+        },
+      },
     ],
     yAxis: [
       {
         visible: true,
         labels: {
-          enabled: false
+          enabled: false,
         },
         resize: {
-          enabled: true
+          enabled: true,
         },
         title: { text: '' },
         lineWidth: 0,
         gridLineWidth: 0,
         tooltip: {
-          enabled: true
-        }
-      }
+          enabled: true,
+        },
+      },
     ],
     title: {
       text: 'order book',
       style: {
-        fontSize: 0
-      }
+        fontSize: 0,
+      },
     },
     series: [
       {
@@ -212,10 +206,10 @@ function OrderBookChart (props: BookChartProps) {
           linearGradient: [300, 0, 0, 300],
           stops: [
             [0, 'rgba(0, 150, 0, 1)'],
-            [1, 'rgba(0, 0, 0, 0)']
-          ]
+            [1, 'rgba(0, 0, 0, 0)'],
+          ],
         },
-        type: 'area'
+        type: 'area',
       },
       {
         data: [],
@@ -226,33 +220,151 @@ function OrderBookChart (props: BookChartProps) {
           linearGradient: [0, 0, 300, 0],
           stops: [
             [0, 'rgba(0, 0, 0, 0)'],
-            [1, 'rgba(150, 0, 0, 1']
-          ]
+            [1, 'rgba(150, 0, 0, 1'],
+          ],
         },
         threshold: Infinity,
-        type: 'area'
-      }
+        type: 'area',
+      },
     ],
     stockTools: {
       gui: {
         buttons: ['fullScreen'],
-        toolbarClassName: 'test'
-      }
+        toolbarClassName: 'test',
+      },
     },
     chart: {
       backgroundColor: 'transparent',
-      height: CHART_HEIGHT - 215
+      height: CHART_HEIGHT - 215,
+      zooming: {
+        mouseWheel: { enabled: true, type: 'x' },
+      },
     },
     legend: {
-      enabled: false
+      enabled: false,
     },
-    credits: { enabled: false }
+    plotOptions: {
+      series: {
+        point: {
+          events: {
+            mouseOver: handleHover,
+            mouseOut: handleOut,
+          },
+        },
+      },
+    },
+    credits: { enabled: false },
   })
 
+  function getOverSidePrice(price: number) {
+    const bid = props.data.bid[0][1]
+    const ask = props.data.ask[0][1]
+    if (price >= ask) {
+      const distance = price / ask - 1
+      return ['bid', bid - distance * bid]
+    } else if (bid >= price) {
+      const distance = bid / price - 1
+      return ['ask', distance * ask + ask]
+    }
+  }
+
+  function handleOut() {
+    if (orderBookChartRef.current) {
+      orderBookChartRef.current.chart.series[0].yAxis.removePlotLine(
+        'ask-book-hover-line',
+      )
+      orderBookChartRef.current.chart.series[0].yAxis.removePlotLine(
+        'bid-book-hover-line',
+      )
+      orderBookChartRef.current.chart.series[0].yAxis.removePlotLine(
+        'central-book-hover-line',
+      )
+    }
+  }
+
+  function handleHover(this: any) {
+    const overSidePrice = getOverSidePrice(this.y)
+    const bid = props.data.bid[0][1]
+    const ask = props.data.ask[0][1]
+    if (orderBookChartRef.current) {
+      handleOut()
+      if (overSidePrice !== undefined) {
+        const hoverBid = overSidePrice[0] === 'bid' ? overSidePrice[1] : this.y
+        const hoverAsk = overSidePrice[0] === 'ask' ? overSidePrice[1] : this.y
+        const hoverDistance = (hoverAsk / hoverBid - 1) * 100
+
+        orderBookChartRef.current.chart.series[0].yAxis.addPlotLine({
+          color: 'red',
+          value: hoverAsk,
+          dashStyle: 'Dot',
+          label: {
+            text: hoverAsk.toLocaleString(),
+            style: { color: 'red' },
+            align: 'right',
+          },
+          id: 'ask-book-hover-line',
+        })
+        orderBookChartRef.current.chart.series[0].yAxis.addPlotLine({
+          color: 'green',
+          value: hoverBid,
+          dashStyle: 'Dot',
+          label: {
+            text: hoverBid.toLocaleString(),
+            style: { color: 'green' },
+            align: 'right',
+          },
+          id: 'bid-book-hover-line',
+        })
+        orderBookChartRef.current.chart.series[0].yAxis.addPlotLine({
+          color: 'white',
+          value: (ask + bid) / 2,
+          label: {
+            text: `${hoverDistance.toFixed(2)}%`,
+            style: { color: 'white' },
+            align: 'right',
+          },
+          width: 0,
+          id: 'central-book-hover-line',
+        })
+      }
+    }
+  }
+
+  function filterData() {
+    const bids = props.data.bid
+    const asks = props.data.ask
+    const lastBid = bids[bids.length - 1][1]
+    const lastAsk = asks[asks.length - 1][1]
+    const inRangeDistance =
+      lastAsk / asks[0][1] > bids[0][1] / lastBid
+        ? bids[0][1] / lastBid
+        : lastAsk / asks[0][1]
+    const filteredBids = bids.filter(
+      (bid) => bids[0][1] / bid[1] <= inRangeDistance,
+    )
+    const filteredAsks = asks.filter(
+      (ask) => ask[1] / asks[0][1] <= inRangeDistance,
+    )
+    return { bids: filteredBids, asks: filteredAsks }
+  }
+
   useEffect(() => {
+    const filteredData = filterData()
     if (orderBookChartRef.current && orderBookChartRef.current.chart) {
-      orderBookChartRef.current.chart.series[0].setData(props.data.bid)
-      orderBookChartRef.current.chart.series[1].setData(props.data.ask)
+      orderBookChartRef.current.chart.series[0].setData(filteredData.bids)
+      orderBookChartRef.current.chart.series[1].setData(filteredData.asks)
+      orderBookChartRef.current.chart.update({
+        plotOptions: {
+          series: {
+            point: {
+              events: {
+                mouseOver: handleHover,
+                mouseOut: handleOut,
+              },
+            },
+          },
+        },
+      })
     }
   }, [props.data])
 
@@ -267,7 +379,7 @@ function OrderBookChart (props: BookChartProps) {
           width: 1,
           dashStyle: 'Dot',
           value: props.selectedOrder[1],
-          id: 'selectedOrderPrice'
+          id: 'selectedOrderPrice',
         })
         HighchartSeries.yAxis.addPlotLine({
           color: 'red',
@@ -276,7 +388,7 @@ function OrderBookChart (props: BookChartProps) {
           id: 'supportLine',
           value: Object.keys(props.pairScoreDetails).includes('next_support')
             ? props.pairScoreDetails.next_support
-            : null
+            : null,
         })
         HighchartSeries.yAxis.addPlotLine({
           color: 'green',
@@ -284,18 +396,18 @@ function OrderBookChart (props: BookChartProps) {
           label: {
             text: 'resistance',
             align: 'right',
-            style: { color: 'green' }
+            style: { color: 'green' },
           },
           id: 'resistanceLine',
           value: Object.keys(props.pairScoreDetails).includes('next_resistance')
             ? props.pairScoreDetails.next_resistance
-            : null
+            : null,
         })
       })
     }
   }, [props.pairScoreDetails, props.selectedOrder])
 
-  function afterSetExtremes (this: any, e: any) {
+  function afterSetExtremes(this: any, e: any) {
     this.setExtremes(0, this.max)
     const charts = Highcharts.charts
     let orderBookChart: any
@@ -307,10 +419,14 @@ function OrderBookChart (props: BookChartProps) {
       }
     })
     charts.forEach((chart: any) => {
-      if (chart !== undefined && synchCharts && chart.title.textStr === 'ohlc') {
+      if (
+        chart !== undefined &&
+        synchCharts &&
+        chart.title.textStr === 'ohlc'
+      ) {
         chart.yAxis[0].setExtremes(
           orderBookChart.yAxis[0].dataMin,
-          orderBookChart.yAxis[0].dataMax
+          orderBookChart.yAxis[0].dataMax,
         )
       }
     })
@@ -341,20 +457,22 @@ function OrderBookChart (props: BookChartProps) {
           <Typography fontSize={'10px'}>Synchrnoize with main chart</Typography>
         }
         value={synchCharts}
-        onChange={(e, checked) => { setSynchCharts(checked) }}
+        onChange={(e, checked) => {
+          setSynchCharts(checked)
+        }}
       />
     </div>
   )
 }
 
-function OhlcChart (props: OhlcChartProps) {
+function OhlcChart(props: OhlcChartProps) {
   const chartRef = useRef<HighchartsReactRefObject>(null)
   const [chartOptions] = useState<any>({
     plotOptions: {
       ohlc: {
         color: 'red',
-        upColor: 'green'
-      }
+        upColor: 'green',
+      },
     },
     xAxis: [
       {
@@ -370,11 +488,11 @@ function OhlcChart (props: OhlcChartProps) {
             backgroundColor: 'transparent',
             formatter: function (value: number) {
               return Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', value)
-            }
-          }
+            },
+          },
         },
-        opposite: false
-      }
+        opposite: false,
+      },
     ],
     yAxis: [
       {
@@ -384,10 +502,10 @@ function OhlcChart (props: OhlcChartProps) {
         minorTickLength: 0,
         tickLength: 0,
         labels: {
-          enabled: false
+          enabled: false,
         },
         resize: {
-          enabled: true
+          enabled: true,
         },
         title: { text: '' },
         crosshair: {
@@ -399,16 +517,16 @@ function OhlcChart (props: OhlcChartProps) {
             backgroundColor: 'transparent',
             formatter: function (value: number) {
               return value.toLocaleString()
-            }
-          }
+            },
+          },
         },
         gridLineWidth: 0.05,
         top: '0%',
-        height: '90%'
+        height: '90%',
       },
       {
         title: {
-          text: ''
+          text: '',
         },
         top: '90%',
         height: '10%',
@@ -422,18 +540,18 @@ function OhlcChart (props: OhlcChartProps) {
             backgroundColor: 'transparent',
             formatter: function (value: number) {
               return value.toFixed(2)
-            }
-          }
-        }
-      }
+            },
+          },
+        },
+      },
     ],
     title: {
       align: 'left',
       useHTML: true,
       text: `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name}`,
       style: {
-        fontSize: '20px'
-      }
+        fontSize: '20px',
+      },
     },
     tooltip: {
       shape: 'square',
@@ -455,21 +573,21 @@ function OhlcChart (props: OhlcChartProps) {
                 Math.min(
                   point.plotX + chart.plotLeft - width / 2,
                   // Right side limit
-                  chart.chartWidth - width
-                )
+                  chart.chartWidth - width,
+                ),
               ),
-              y: point.plotY
+              y: point.plotY,
             }
           } else {
             position = {
               x: point.series.chart.plotLeft,
-              y: point.series.yAxis.top - chart.plotTop
+              y: point.series.yAxis.top - chart.plotTop,
             }
           }
 
           return position
         }
-      }
+      },
     },
     series: [
       {
@@ -477,28 +595,28 @@ function OhlcChart (props: OhlcChartProps) {
         name: props.pair,
         type: 'ohlc',
         yAxis: 0,
-        id: 'ohlc'
+        id: 'ohlc',
       },
       {
         data: [],
         name: 'volume',
         type: 'column',
         id: 'volume',
-        yAxis: 1
-      }
+        yAxis: 1,
+      },
     ],
     navigation: {
       annotationsOptions: {
         shapeOptions: {
-          stroke: 'blue'
-        }
-      }
+          stroke: 'blue',
+        },
+      },
     },
     chart: {
       backgroundColor: 'transparent',
-      height: CHART_HEIGHT
+      height: CHART_HEIGHT,
     },
-    credits: { enabled: false }
+    credits: { enabled: false },
   })
 
   useEffect(() => {
@@ -513,30 +631,32 @@ function OhlcChart (props: OhlcChartProps) {
       const yAxisPlotLinesId = [
         'selectedOrderPrice',
         'supportLine',
-        'resistanceLine'
+        'resistanceLine',
       ]
-      yAxisPlotLinesId.forEach((id: string) => (
-        chartRef.current?.chart.series[0].yAxis.removePlotLine(id)
-      ))
+      yAxisPlotLinesId.forEach(
+        (id: string) =>
+          chartRef.current?.chart.series[0].yAxis.removePlotLine(id),
+      )
       const xAxisPlotLinesId = ['selectedArticleDate', 'selectedOrderDate']
-      xAxisPlotLinesId.forEach((id: string) => (
-        chartRef.current?.chart.series[0].xAxis.removePlotLine(id)
-      ))
+      xAxisPlotLinesId.forEach(
+        (id: string) =>
+          chartRef.current?.chart.series[0].xAxis.removePlotLine(id),
+      )
       chartRef.current.chart.series[0].name = props.pair
       chartRef.current.chart.setTitle({
         align: 'left',
         useHTML: true,
         text: `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name}`,
         style: {
-          fontSize: '20px'
-        }
+          fontSize: '20px',
+        },
       })
       chartRef.current.chart.series[0].yAxis.addPlotLine({
         color: 'white',
         width: 0.7,
         dashStyle: 'Dot',
         value: parseFloat(props.selectedOrder[1]),
-        id: 'selectedOrderPrice'
+        id: 'selectedOrderPrice',
       })
       chartRef.current.chart.series[0].yAxis.addPlotLine({
         color: 'red',
@@ -545,7 +665,7 @@ function OhlcChart (props: OhlcChartProps) {
         id: 'supportLine',
         value: Object.keys(props.pairScoreDetails).includes('next_support')
           ? props.pairScoreDetails.next_support
-          : null
+          : null,
       })
       chartRef.current.chart.series[0].yAxis.addPlotLine({
         color: 'green',
@@ -554,27 +674,33 @@ function OhlcChart (props: OhlcChartProps) {
         id: 'resistanceLine',
         value: Object.keys(props.pairScoreDetails).includes('next_resistance')
           ? props.pairScoreDetails.next_resistance
-          : null
+          : null,
       })
       chartRef.current.chart.series[0].xAxis.addPlotLine({
         color: 'white',
         width: 0.7,
         dashStyle: 'Dot',
         id: 'selectedArticleDate',
-        value: new Date(props.selectedArticle[0]).getTime()
+        value: new Date(props.selectedArticle[0]).getTime(),
       })
       chartRef.current.chart.series[0].xAxis.addPlotLine({
         color: 'white',
         width: 0.7,
         dashStyle: 'Dot',
         id: 'selectedOrderDate',
-        value: new Date(props.selectedOrder[0]).getTime()
+        value: new Date(props.selectedOrder[0]).getTime(),
       })
     }
-  }, [props.cryptoInfo.name, props.cryptoMetaData, props.pair, props.pairScoreDetails, props.selectedArticle, props.selectedOrder])
+  }, [
+    props.cryptoInfo.name,
+    props.cryptoMetaData,
+    props.pair,
+    props.pairScoreDetails,
+    props.selectedArticle,
+    props.selectedOrder,
+  ])
 
   return (
-
     <HighchartsReact
       highcharts={Highcharts}
       options={chartOptions}
@@ -584,7 +710,7 @@ function OhlcChart (props: OhlcChartProps) {
   )
 }
 
-function GreedAndFear (props: GreedAndFearChartProps) {
+function GreedAndFear(props: GreedAndFearChartProps) {
   const chartRef = useRef<HighchartsReactRefObject>(null)
   const [chartOptions] = useState<any>({
     credits: { enabled: false },
@@ -592,16 +718,16 @@ function GreedAndFear (props: GreedAndFearChartProps) {
       inverted: true,
       backgroundColor: 'transparent',
       height: 60,
-      width: 250
+      width: 250,
     },
     title: {
-      text: ''
+      text: '',
     },
     xAxis: {
       labels: {
-        enabled: false
+        enabled: false,
       },
-      tickLength: true
+      tickLength: true,
     },
     yAxis: {
       min: 0,
@@ -616,36 +742,36 @@ function GreedAndFear (props: GreedAndFearChartProps) {
         {
           from: 0,
           to: 24,
-          color: '#8B0000'
+          color: '#8B0000',
         },
         {
           from: 25,
           to: 44,
-          color: '#FF0000'
+          color: '#FF0000',
         },
         {
           from: 45,
           to: 55,
-          color: 'orange'
+          color: 'orange',
         },
         {
           from: 56,
           to: 75,
-          color: '#008000'
+          color: '#008000',
         },
         {
           from: 76,
           to: 100,
-          color: '#006400'
-        }
-      ]
+          color: '#006400',
+        },
+      ],
     },
     legend: {
-      enabled: false
+      enabled: false,
     },
     tooltip: { enabled: false },
     stockTools: {
-      gui: { enabled: false }
+      gui: { enabled: false },
     },
     series: [
       {
@@ -654,9 +780,9 @@ function GreedAndFear (props: GreedAndFearChartProps) {
           Object.keys(props.data).length !== 0
             ? [parseInt(props.data.data[0].value)]
             : [],
-        color: 'white'
-      }
-    ] as any
+        color: 'white',
+      },
+    ] as any,
   })
 
   return (
@@ -665,7 +791,7 @@ function GreedAndFear (props: GreedAndFearChartProps) {
         textAlign: 'center',
         width: 250,
         position: 'absolute',
-        padding: 10
+        padding: 10,
       }}
     >
       <span>Greed & Fear:</span>
@@ -687,9 +813,9 @@ function GreedAndFear (props: GreedAndFearChartProps) {
   )
 }
 
-export function TradingChart (data: { tradingData: tradingDataDef }) {
+export function TradingChart(data: { tradingData: tradingDataDef }) {
   const filterState = useSelector(
-    (state: { filters: FilterState }) => state.filters
+    (state: { filters: FilterState }) => state.filters,
   )
 
   const [exchange, pair, selectedOrder, pairScoreDetails, selectedArticle] =
@@ -699,15 +825,15 @@ export function TradingChart (data: { tradingData: tradingDataDef }) {
         filterState.pair,
         filterState.selectedOrder,
         filterState.pairScoreDetails,
-        filterState.selectedArticle
+        filterState.selectedArticle,
       ],
       [
         filterState.exchange,
         filterState.pair,
         filterState.selectedOrder,
         filterState.pairScoreDetails,
-        filterState.selectedArticle
-      ]
+        filterState.selectedArticle,
+      ],
     )
 
   const [cryptoInfo, setCryptoInfo] = useState<any>({})
@@ -718,29 +844,27 @@ export function TradingChart (data: { tradingData: tradingDataDef }) {
     setCryptoInfo(
       retrieveInfoFromCoinMarketCap(
         pair,
-        data.tradingData.coinMarketCapMapping
-      )
+        data.tradingData.coinMarketCapMapping,
+      ),
     )
     if (
       cryptoInfo &&
       Object.keys(cryptoInfo).length !== 0 &&
       data.tradingData.cryptoMetaData.length !== 0
     ) {
-      setCryptoMetaData(
-        data.tradingData.cryptoMetaData.data[cryptoInfo.id]
-      )
+      setCryptoMetaData(data.tradingData.cryptoMetaData.data[cryptoInfo.id])
     }
   }, [
     pair,
     data.tradingData.coinMarketCapMapping,
     data.tradingData.cryptoMetaData,
-    cryptoInfo
+    cryptoInfo,
   ])
 
   useEffect(() => {
     const volumeArrayData = data.tradingData.ohlcvData.map((item) => [
       item[0],
-      item[5]
+      item[5],
     ])
     setVolumeArray(volumeArrayData)
   }, [data.tradingData.ohlcvData])
@@ -750,23 +874,21 @@ export function TradingChart (data: { tradingData: tradingDataDef }) {
     decimalPlaces = data.tradingData.markets[pair].precision.price
       .toString()
       .split('.')[1].length
-  } catch { }
+  } catch {}
 
   return (
     <div style={{ height: CHART_HEIGHT }}>
       <Row style={{ height: CHART_HEIGHT }}>
         <Col sm={10} style={{ zIndex: 1 }}>
-          {data.tradingData.ohlcvData.length === 0
-            ? (
+          {data.tradingData.ohlcvData.length === 0 ? (
             <CircularProgress
               style={{ position: 'absolute', top: '30%', left: '40%' }}
             />
-              )
-            : (
+          ) : (
             <OhlcChart
               data={data.tradingData.ohlcvData}
-              exchange={exchange }
-              pair={pair }
+              exchange={exchange}
+              pair={pair}
               selectedArticle={selectedArticle}
               selectedOrder={selectedOrder}
               pairScoreDetails={pairScoreDetails}
@@ -775,7 +897,7 @@ export function TradingChart (data: { tradingData: tradingDataDef }) {
               cryptoMetaData={cryptoMetaData}
               decimalPlaces={decimalPlaces}
             />
-              )}
+          )}
         </Col>
         <Col sm={2} style={{ zIndex: 2 }}>
           {Object.keys(data.tradingData.orderBookData).includes('bid') &&
@@ -786,7 +908,7 @@ export function TradingChart (data: { tradingData: tradingDataDef }) {
                 selectedOrder={selectedOrder}
                 pairScoreDetails={pairScoreDetails}
               />
-          )}
+            )}
           {Object.keys(data.tradingData.greedAndFearData).length !== 0 && (
             <GreedAndFear data={data.tradingData.greedAndFearData} />
           )}

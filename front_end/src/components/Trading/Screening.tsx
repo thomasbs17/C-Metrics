@@ -6,20 +6,20 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
 } from '@mui/material'
 import { useDispatch, useSelector } from 'react-redux'
 import { type FilterState, filterSlice } from '../StateManagement'
 
-function displayAsPercent (raw_number: number) {
+function displayAsPercent(raw_number: number) {
   return (raw_number * 100).toFixed(2) + '%'
 }
 
-function Screening (data: any) {
+function Screening(data: any) {
   const dispatch = useDispatch()
   const screeningData = data.screeningData
   const selectedPair = useSelector(
-    (state: { filters: FilterState }) => state.filters.pair
+    (state: { filters: FilterState }) => state.filters.pair,
   )
 
   const handleClick = (pairDetails: any) => {
@@ -28,11 +28,9 @@ function Screening (data: any) {
     dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
   }
 
-  return screeningData.length === 0
-    ? (
+  return screeningData.length === 0 ? (
     <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
-      )
-    : (
+  ) : (
     <TableContainer sx={{ maxHeight: 210 }}>
       <Table stickyHeader size="small">
         <TableHead>
@@ -77,10 +75,12 @@ function Screening (data: any) {
                 '&:last-child td, &:last-child th': { border: 0 },
                 cursor: 'pointer',
                 backgroundColor:
-                  pairDetails.pair === selectedPair ? 'green' : 'transparent'
+                  pairDetails.pair === selectedPair ? 'green' : 'transparent',
               }}
               hover
-              onClick={() => { handleClick(pairDetails) }}
+              onClick={() => {
+                handleClick(pairDetails)
+              }}
             >
               <TableCell align="left" sx={{ fontSize: 11 }}>
                 {pairDetails.pair}
@@ -98,9 +98,7 @@ function Screening (data: any) {
                 {displayAsPercent(pairDetails.distance_to_rsi - 1)}
               </TableCell>
               <TableCell align="left" sx={{ fontSize: 11 }}>
-                {displayAsPercent(
-                  pairDetails.distance_to_lower_bollinger - 1
-                )}
+                {displayAsPercent(pairDetails.distance_to_lower_bollinger - 1)}
               </TableCell>
               <TableCell align="left" sx={{ fontSize: 11 }}>
                 {pairDetails.book_score.toFixed(2)}
@@ -119,7 +117,7 @@ function Screening (data: any) {
         </TableBody>
       </Table>
     </TableContainer>
-      )
+  )
 }
 
 export default Screening

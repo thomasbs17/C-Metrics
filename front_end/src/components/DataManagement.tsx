@@ -46,9 +46,9 @@ export interface Order {
   order_price: number
 }
 
-export function retrieveInfoFromCoinMarketCap (
+export function retrieveInfoFromCoinMarketCap(
   pair: string,
-  coinMarketCapMapping: any
+  coinMarketCapMapping: any,
 ): any {
   const base = pair.slice(0, pair.search('/'))
   let assetInfo
@@ -62,10 +62,10 @@ export function retrieveInfoFromCoinMarketCap (
   return assetInfo
 }
 
-function LoadStaticData (endpoint: string) {
+function LoadStaticData(endpoint: string) {
   const [data, setData] = useState<any>([])
   useEffect(() => {
-    async function getData () {
+    async function getData() {
       try {
         const url = `http://127.0.0.1:8000/${endpoint}/`
         const response = await fetch(url)
@@ -80,17 +80,17 @@ function LoadStaticData (endpoint: string) {
   return data
 }
 
-function LoadCryptoMetaData (coinMarketCapMapping: any) {
+function LoadCryptoMetaData(coinMarketCapMapping: any) {
   const pair = useSelector(
-    (state: { filters: FilterState }) => state.filters.pair
+    (state: { filters: FilterState }) => state.filters.pair,
   )
   const [metaData, setMetaData] = useState<any>([])
   const coinMarketCapInfo = retrieveInfoFromCoinMarketCap(
     pair,
-    coinMarketCapMapping
+    coinMarketCapMapping,
   )
   useEffect(() => {
-    async function getData () {
+    async function getData() {
       try {
         const url = `http://127.0.0.1:8000/coinmarketcap_crypto_meta/?crypto_coinmarketcap_id=${coinMarketCapInfo.id}`
         const response = await fetch(url)
@@ -105,13 +105,13 @@ function LoadCryptoMetaData (coinMarketCapMapping: any) {
   return metaData
 }
 
-function LoadMarkets () {
+function LoadMarkets() {
   const [data, setData] = useState<any>({})
   const exchange = useSelector(
-    (state: { filters: FilterState }) => state.filters.exchange
+    (state: { filters: FilterState }) => state.filters.exchange,
   )
   useEffect(() => {
-    async function getMarkets () {
+    async function getMarkets() {
       try {
         setData([])
         const url = `http://127.0.0.1:8000/markets/?exchange=${exchange}`
@@ -127,19 +127,19 @@ function LoadMarkets () {
   return data
 }
 
-function LoadOrders () {
+function LoadOrders() {
   const dispatch = useDispatch()
   const [orders, setOrders] = useState<Order[]>([])
   const filterState = useSelector(
-    (state: { filters: FilterState }) => state.filters
+    (state: { filters: FilterState }) => state.filters,
   )
 
   const [pair, ordersNeedReload] = useMemo(
     () => [filterState.pair, filterState.ordersNeedReload],
-    [filterState.pair, filterState.ordersNeedReload]
+    [filterState.pair, filterState.ordersNeedReload],
   )
   useEffect(() => {
-    async function fetchOrders () {
+    async function fetchOrders() {
       const ordersEndPoint = 'http://127.0.0.1:8000/orders/?format=json'
       try {
         const response = await fetch(ordersEndPoint)
@@ -154,23 +154,23 @@ function LoadOrders () {
   return orders
 }
 
-function LoadNews (coinMarketCapMapping: any) {
+function LoadNews(coinMarketCapMapping: any) {
   const pair = useSelector(
-    (state: { filters: FilterState }) => state.filters.pair
+    (state: { filters: FilterState }) => state.filters.pair,
   )
   const [news, setNewsData] = useState<NewsArticle[]>([])
   useEffect(() => {
-    async function getNewsData () {
+    async function getNewsData() {
       setNewsData([])
       const cryptoInfo = retrieveInfoFromCoinMarketCap(
         pair,
-        coinMarketCapMapping
+        coinMarketCapMapping,
       )
       try {
         if (cryptoInfo !== undefined) {
           const searchTerm = `${cryptoInfo.name} crypto`
           const response = await fetch(
-            `http://127.0.0.1:8000/news/?search_term=${searchTerm}`
+            `http://127.0.0.1:8000/news/?search_term=${searchTerm}`,
           )
           const data = await response.json()
           setNewsData(data)
@@ -186,10 +186,10 @@ function LoadNews (coinMarketCapMapping: any) {
   return news
 }
 
-function LoadScreeningData () {
+function LoadScreeningData() {
   const dispatch = useDispatch()
   const selectedPair = useSelector(
-    (state: { filters: FilterState }) => state.filters.pair
+    (state: { filters: FilterState }) => state.filters.pair,
   )
   const [screeningData, setScreeningData] = useState<any>([])
   useEffect(() => {
@@ -217,10 +217,10 @@ function LoadScreeningData () {
   return screeningData
 }
 
-function LoadNoDataAnimation () {
+function LoadNoDataAnimation() {
   const [animationData, setAnimationData] = useState(null)
   useEffect(() => {
-    async function fetchAnimationData () {
+    async function fetchAnimationData() {
       const animationUrl =
         'https://lottie.host/010ee17d-3884-424d-b64b-c38ed7236758/wy6OPJZDbJ.json'
       try {
@@ -235,21 +235,21 @@ function LoadNoDataAnimation () {
   return animationData
 }
 
-function LoadOhlcvData () {
+function LoadOhlcvData() {
   const filterState = useSelector(
-    (state: { filters: FilterState }) => state.filters
+    (state: { filters: FilterState }) => state.filters,
   )
 
   const [exchange, pair, ohlcPeriod] = useMemo(
     () => [filterState.exchange, filterState.pair, filterState.ohlcPeriod],
-    [filterState.exchange, filterState.pair, filterState.ohlcPeriod]
+    [filterState.exchange, filterState.pair, filterState.ohlcPeriod],
   )
   const [ohlcData, setOHLCData] = useState<OhlcData>([])
   useEffect(() => {
-    async function fetchOHLCData () {
+    async function fetchOHLCData() {
       try {
         const ohlc_response = await fetch(
-          `http://127.0.0.1:8000/ohlc/?exchange=${exchange}&pair=${pair}&timeframe=${ohlcPeriod}`
+          `http://127.0.0.1:8000/ohlc/?exchange=${exchange}&pair=${pair}&timeframe=${ohlcPeriod}`,
         )
         setOHLCData(await ohlc_response.json())
       } catch (error) {
@@ -268,7 +268,7 @@ function LoadOhlcvData () {
   return ohlcData
 }
 
-function formatOrderBook (rawOrderBook: any, isWebSocketFeed: boolean) {
+function formatOrderBook(rawOrderBook: any, isWebSocketFeed: boolean) {
   const formattedBook: OrderBookData = { bid: [], ask: [] }
   ;['bid', 'ask'].forEach((side: string) => {
     let cumulativeVolume = 0
@@ -276,11 +276,11 @@ function formatOrderBook (rawOrderBook: any, isWebSocketFeed: boolean) {
       const sortedPrices =
         side === 'bid'
           ? Object.keys(rawOrderBook[side]).sort(
-            (a, b) => parseFloat(b) - parseFloat(a)
-          )
+              (a, b) => parseFloat(b) - parseFloat(a),
+            )
           : Object.keys(rawOrderBook[side]).sort(
-            (a, b) => parseFloat(a) - parseFloat(b)
-          )
+              (a, b) => parseFloat(a) - parseFloat(b),
+            )
       formattedBook[side].push([0, parseFloat(sortedPrices[0])])
       sortedPrices.forEach((price: string) => {
         cumulativeVolume += rawOrderBook[side][price]
@@ -297,22 +297,22 @@ function formatOrderBook (rawOrderBook: any, isWebSocketFeed: boolean) {
   return formattedBook
 }
 
-function LoadOrderBook () {
+function LoadOrderBook() {
   const filterState = useSelector(
-    (state: { filters: FilterState }) => state.filters
+    (state: { filters: FilterState }) => state.filters,
   )
 
   const [exchange, pair] = useMemo(
     () => [filterState.exchange, filterState.pair],
-    [filterState.exchange, filterState.pair]
+    [filterState.exchange, filterState.pair],
   )
   const [orderBookData, setOrderBookData] = useState<OrderBookData>({})
 
   useEffect(() => {
-    async function fetchOrderBookData () {
+    async function fetchOrderBookData() {
       try {
         const orderBookResponse = await fetch(
-          `http://127.0.0.1:8000/order_book/?exchange=${exchange}&pair=${pair}`
+          `http://127.0.0.1:8000/order_book/?exchange=${exchange}&pair=${pair}`,
         )
         const responseData = await orderBookResponse.json()
         setOrderBookData(formatOrderBook(responseData, false))
@@ -327,7 +327,7 @@ function LoadOrderBook () {
 
     socket.onerror = () => {
       console.warn(
-        `Could not implement websocket connection for ${pair} on ${exchange}. Will default back to periodic API refresh.`
+        `Could not implement websocket connection for ${pair} on ${exchange}. Will default back to periodic API refresh.`,
       )
       fetchOrderBookData()
     }
@@ -353,10 +353,10 @@ function LoadOrderBook () {
   return orderBookData
 }
 
-function LoadGreedAndFear () {
+function LoadGreedAndFear() {
   const [data, setData] = useState<any>({})
   useEffect(() => {
-    async function fetchIndexData () {
+    async function fetchIndexData() {
       const url = 'https://api.alternative.me/fng/'
       try {
         const response = await fetch(url)
@@ -370,7 +370,7 @@ function LoadGreedAndFear () {
   return data
 }
 
-export function GetTradingData () {
+export function GetTradingData() {
   const coinMarketCapMapping = LoadStaticData('coinmarketcap_info')
   const cryptoMetaData = LoadCryptoMetaData(coinMarketCapMapping)
   const exchanges = LoadStaticData('exchanges')
@@ -394,6 +394,6 @@ export function GetTradingData () {
     noDataAnimation,
     ohlcvData,
     orderBookData,
-    greedAndFearData
+    greedAndFearData,
   }
 }

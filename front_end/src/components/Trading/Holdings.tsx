@@ -1,6 +1,6 @@
 import React from 'react'
 
-function Holdings () {
+function Holdings() {
   return (
     <div className="p-2" id="news">
       Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod

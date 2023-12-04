@@ -1,6 +1,6 @@
 import React from 'react'
 
-function TradeHistory () {
+function TradeHistory() {
   return (
     <div className="p-2" id="trades-history">
       Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod

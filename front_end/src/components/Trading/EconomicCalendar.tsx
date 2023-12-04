@@ -1,6 +1,6 @@
 import React from 'react'
 
-function EconomicCalendar () {
+function EconomicCalendar() {
   return (
     <div style={{ textAlign: 'center', overflowY: 'auto' }}>
       <iframe
@@ -11,7 +11,7 @@ function EconomicCalendar () {
         allowTransparency={true}
         style={{
           margin: '0 auto',
-          display: 'block'
+          display: 'block',
         }}
       >
         dfdf
