@@ -240,7 +240,14 @@ class Screener:
                     ws_data = self.data["exchanges"][exchange_object.name][
                         "scores"
                     ].to_json(orient="records")
-                    await websocket.send(ws_data)
+                    try:
+                        await websocket.send(ws_data)
+                    except (
+                        websockets.exceptions.ConnectionClosedError
+                        or websockets.exceptions.ConnectionClosedOK
+                    ):
+                        await websocket.close()
+                        return
                     await asyncio.sleep(10)
 
     async def send_updates_to_clients(self, websocket, exchange_name):
