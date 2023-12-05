@@ -86,8 +86,9 @@ class MarketDataAggregator:
             queue_data = self.client_queue.get(block=False, timeout=0.01)
         except Empty:
             return
-        if method in queue_data and data.symbol in queue_data[method]:
+        if data.symbol in queue_data.get(method, []):
             self.client_data_queue.put(data.to_dict(numeric_type=float))
+        self.client_queue.put(queue_data)
 
     async def book_callback(self, data: dict, tmstmp: float):
         await self._callback(method="book", data=data)
@@ -106,7 +107,7 @@ class MarketDataAggregator:
                     channels=[L2_BOOK, TRADES],
                     symbols=exchange_pairs,
                     callbacks={
-                        # L2_BOOK: self.book_callback,
+                        L2_BOOK: self.book_callback,
                         TRADES: self.trades_callback,
                     },
                     config=FEED_CONFIG,
@@ -120,10 +121,7 @@ class MarketDataAggregator:
         for markets in sub_markets:
             process = multiprocessing.Process(target=self.run_process, args=(markets,))
             processes.append(process)
-        for process in processes:
             process.start()
-        # for process in processes:
-        #     process.join()
 
     async def send_to_aggregator_process(
         self, websocket, path: str, session_id: str
@@ -135,7 +133,7 @@ class MarketDataAggregator:
                 print(
                     f"New session: {websocket.id} with parameters: {params} (process: {self})"
                 )
-            self.client_queue.put(self.clients[session_id])
+                self.client_queue.put(self.clients[session_id])
             return True
         except ValueError:
             if session_id in self.clients:
@@ -148,9 +146,12 @@ class MarketDataAggregator:
         params = path[1:].split("?")
         formatted_param = dict()
         for param in params:
-            param_name, param_value = param.split("=")
-            param_value = param_value.split(",")
-            formatted_param[param_name] = param_value
+            if param:
+                param_name, param_value = param.split("=")
+                if param_name not in ("trades", "book"):
+                    raise ValueError("")
+                param_value = param_value.split(",")
+                formatted_param[param_name] = param_value
         return formatted_param
 
     async def send_to_client(self, websocket):
@@ -160,12 +161,12 @@ class MarketDataAggregator:
         except Empty:
             pass
 
-    # async def empty_queue(self):
-    #     while True:
-    #         try:
-    #             self.client_queue.get(block=False, timeout=0.01)
-    #         except Empty:
-    #             break
+    async def empty_queue(self):
+        while True:
+            try:
+                self.client_queue.get(block=False, timeout=0.01)
+            except Empty:
+                break
 
     async def client_server(self, websocket, path: str):
         session_id = str(websocket.id)
@@ -188,7 +189,7 @@ class MarketDataAggregator:
         except websockets.exceptions.ConnectionClosed:
             print(f"Session {session_id} ended")
             self.clients.pop(session_id, None)
-            self.client_queue.get_nowait()
+            await self.empty_queue()
             await websocket.close()
 
     def run_clients_websocket(self):
@@ -198,7 +199,5 @@ class MarketDataAggregator:
 
 
 if __name__ == "__main__":
-    aggregator = MarketDataAggregator(
-        exchanges=["KRAKEN"], pairs=["BTC-USD", "ETH-USD"]
-    )
+    aggregator = MarketDataAggregator(exchanges=["KRAKEN"])
     aggregator.run_clients_websocket()
