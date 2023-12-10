@@ -43,3 +43,5 @@ class Orders(models.Model):
     fill_pct = models.FloatField("Fill Percentage")
     order_volume = models.FloatField("Order Volume")
     order_price = models.FloatField("Order Price")
+    insert_tmstmp = models.DateTimeField("Record Insert Timestamp")
+    expiration_tmstmp = models.DateTimeField("Record Expiration Timestamp", null=True)
