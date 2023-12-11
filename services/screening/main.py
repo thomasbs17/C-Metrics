@@ -2,7 +2,6 @@ import asyncio
 import math
 import multiprocessing
 import threading
-import time
 from datetime import timedelta, date, datetime as dt
 
 import ccxt
@@ -258,7 +257,7 @@ class Screener:
 
 def run_websocket():
     screener = Screener(exchange_list=["kraken"], verbose=False)
-    start_server = websockets.serve(screener.run_screening, "localhost", 8793)
+    start_server = websockets.serve(screener.run_screening, "localhost", 8795)
     asyncio.get_event_loop().run_until_complete(start_server)
     asyncio.get_event_loop().run_forever()
 

@@ -2,13 +2,13 @@ import asyncio
 import json
 import math
 import multiprocessing
-from queue import Empty
-import websockets
 from datetime import datetime as dt
+from queue import Empty
+
+import websockets
 from cryptofeed import FeedHandler
 from cryptofeed.defines import TRADES, L2_BOOK
 from cryptofeed.exchanges import EXCHANGE_MAP
-
 
 FEED_CONFIG = {
     "log": {"filename": "demo.log", "level": "DEBUG", "disabled": True},

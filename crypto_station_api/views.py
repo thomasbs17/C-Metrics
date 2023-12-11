@@ -1,12 +1,9 @@
 import datetime
-import math
 import uuid
 
 import ccxt
 from GoogleNews import GoogleNews
 from django.http import JsonResponse
-import numpy as np
-import pandas as pd
 from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.parsers import JSONParser
@@ -60,12 +57,15 @@ def get_asset_coinmarketcap_mapping(request):
         safe=False,
     )
 
+
 @api_view(["GET"])
 def get_crypto_meta_data(request):
     crypto_coinmarketcap_id = request.query_params.get("crypto_coinmarketcap_id")
     return JsonResponse(
         coinmarketcap.get_endpoint(
-            api_version=2, category="cryptocurrency", endpoint=f"info?id={crypto_coinmarketcap_id}"
+            api_version=2,
+            category="cryptocurrency",
+            endpoint=f"info?id={crypto_coinmarketcap_id}",
         ),
         safe=False,
     )
@@ -85,7 +85,11 @@ def get_news(request):
     googlenews = GoogleNews()
     googlenews.get_news(pair)
     data = googlenews.results()
-    data = [article for article in data if isinstance(article['datetime'], datetime.datetime)]
+    data = [
+        article
+        for article in data
+        if isinstance(article["datetime"], datetime.datetime)
+    ]
     return JsonResponse(data, safe=False)
 
 
