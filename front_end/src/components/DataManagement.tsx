@@ -193,7 +193,7 @@ function LoadScreeningData() {
   )
   const [screeningData, setScreeningData] = useState<any>([])
   useEffect(() => {
-    const wsUrl = 'ws://localhost:8793'
+    const wsUrl = 'ws://localhost:8795'
     const socket = new WebSocket(wsUrl)
     socket.onerror = () => {
       console.error('Error with screening service')
