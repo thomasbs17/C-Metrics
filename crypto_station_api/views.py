@@ -129,3 +129,6 @@ def post_new_order(request):
 class OrdersViewSet(viewsets.ModelViewSet):
     queryset = Orders.objects.all()
     serializer_class = OrdersSerializer
+
+    def get_queryset(self):
+        return Orders.objects.filter(expiration_tmstmp__isnull=True)
