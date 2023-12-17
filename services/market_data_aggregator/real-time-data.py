@@ -93,7 +93,6 @@ class MarketDataAggregator:
         await self._callback(method="book", data=data)
 
     async def trades_callback(self, data: dict, tmstmp: float):
-        print(data)
         await self._callback(method="trades", data=data)
 
     def run_process(self, markets: dict):
@@ -159,6 +158,7 @@ class MarketDataAggregator:
                     if (
                         method in params["methods"]
                         and params["exchange"][0].upper() == details["exchange"]
+                        and details["symbol"] in params["methods"][method]
                     ):
                         await websocket.send(json.dumps(queue_data))
             except Empty:
@@ -203,5 +203,5 @@ class MarketDataAggregator:
 
 
 if __name__ == "__main__":
-    aggregator = MarketDataAggregator(exchanges=["BINANCE"], pairs=["BTC-USDT"])
+    aggregator = MarketDataAggregator(exchanges=["KRAKEN"], pairs=["BTC-USD"])
     aggregator.run_clients_websocket()
