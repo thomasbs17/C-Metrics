@@ -646,7 +646,7 @@ function OhlcChart(props: OhlcChartProps) {
       chartRef.current.chart.setTitle({
         align: 'left',
         useHTML: true,
-        text: `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name}`,
+        text: props.cryptoInfo === undefined ? '' : `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name}`,
         style: {
           fontSize: '20px',
         },

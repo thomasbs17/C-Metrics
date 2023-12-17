@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime as dt
 import uuid
 
 import ccxt
@@ -114,13 +114,14 @@ def post_new_order(request):
         asset_id=request.data["asset_id"],
         order_side=request.data["order_side"],
         order_type=request.data["order_type"],
-        order_creation_tmstmp=datetime.datetime.fromtimestamp(
+        order_creation_tmstmp=dt.fromtimestamp(
             float(request.data["order_creation_tmstmp"]) / 1000
         ),
         order_status=request.data["order_status"],
         fill_pct=request.data["fill_pct"],
         order_volume=request.data["order_volume"],
         order_price=request.data["order_price"] if request.data["order_price"] else 1,
+        insert_tmstmp=dt.now()
     )
     new_order.save()
     return JsonResponse("success", safe=False)
