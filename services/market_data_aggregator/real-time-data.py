@@ -38,7 +38,7 @@ class MarketDataAggregator:
         self.pairs = pairs
         self.ref_currency = ref_curreny
         self.markets = self.get_markets()
-        self.clients = dict()
+        self.clients = list()
         self.client_queue = multiprocessing.Queue()
         self.client_data_queue = multiprocessing.Queue()
         self.add_all_feeds()
@@ -86,9 +86,8 @@ class MarketDataAggregator:
             queue_data = self.client_queue.get(block=False, timeout=0.01)
         except Empty:
             return
-        if data.symbol in queue_data.get(method, []):
-            self.client_data_queue.put(data.to_dict(numeric_type=float))
         self.client_queue.put(queue_data)
+        self.client_data_queue.put({method: data.to_dict(numeric_type=float)})
 
     async def book_callback(self, data: dict, tmstmp: float):
         await self._callback(method="book", data=data)
@@ -124,42 +123,46 @@ class MarketDataAggregator:
             process.start()
 
     async def send_to_aggregator_process(
-        self, websocket, path: str, session_id: str
-    ) -> bool:
-        try:
-            if session_id not in self.clients:
-                params = self.get_ws_parameters(path)
-                self.clients[session_id] = params
-                print(
-                    f"New session: {websocket.id} with parameters: {params} (process: {self})"
-                )
-                self.client_queue.put(self.clients[session_id])
-            return True
-        except ValueError:
-            if session_id in self.clients:
-                self.clients.pop(session_id, None)
-            await websocket.send("Invalid parameters")
-        return False
+        self, websocket, path: str, session_id: str, params: dict
+    ):
+        if session_id not in self.clients:
+            self.clients.append(session_id)
+            print(
+                f"New session: {websocket.id} with parameters: {params} (process: {self})"
+            )
+            self.client_queue.put(session_id)
 
     @staticmethod
     def get_ws_parameters(path: str) -> dict:
         params = path[1:].split("?")
-        formatted_param = dict()
+        formatted_param = dict(methods=dict())
+        validation = dict(exchange=False, method=False)
         for param in params:
             if param:
                 param_name, param_value = param.split("=")
-                if param_name not in ("trades", "book"):
-                    raise ValueError("")
                 param_value = param_value.split(",")
-                formatted_param[param_name] = param_value
-        return formatted_param
+                if param_name == "exchange":
+                    validation["exchange"] = True
+                    formatted_param[param_name] = param_value
+                elif param_name in ("book", "trades") and param_value:
+                    formatted_param["methods"][param_name] = param_value
+                    validation["method"] = True
+        is_validated = all(value for value in validation.values())
+        if is_validated:
+            return formatted_param
 
-    async def send_to_client(self, websocket):
-        try:
-            queue_data = self.client_data_queue.get(block=False, timeout=1)
-            await websocket.send(json.dumps(queue_data))
-        except Empty:
-            pass
+    async def send_to_client(self, websocket, params: dict):
+        while True:
+            try:
+                queue_data = self.client_data_queue.get(block=False, timeout=1)
+                for method, details in queue_data.items():
+                    if (
+                        method in params["methods"]
+                        and params["exchange"][0].upper() == details["exchange"]
+                    ):
+                        await websocket.send(json.dumps(queue_data))
+            except Empty:
+                return
 
     async def empty_queue(self):
         while True:
@@ -170,27 +173,28 @@ class MarketDataAggregator:
 
     async def client_server(self, websocket, path: str):
         session_id = str(websocket.id)
+        params = self.get_ws_parameters(path)
         heartbeat_tmstmp = dt.now()
-        try:
-            while True:
-                await self.send_to_client(websocket)
-                if not await self.send_to_aggregator_process(
-                    websocket, path, session_id
-                ):
-                    print(
-                        f"Failed connection attempt (invalid parameters): {session_id}"
-                    )
-                    self.clients.pop(session_id, None)
-                    await websocket.close()
-                    break
-                if (dt.now() - heartbeat_tmstmp).seconds > 1:
-                    await websocket.send("heartbeat")
-                    heartbeat_tmstmp = dt.now()
-        except websockets.exceptions.ConnectionClosed:
-            print(f"Session {session_id} ended")
-            self.clients.pop(session_id, None)
-            await self.empty_queue()
+        if not params:
+            print(f"Failed connection attempt (invalid parameters): {session_id}")
+            await websocket.send("Invalid parameters")
             await websocket.close()
+        else:
+            while True:
+                await self.send_to_aggregator_process(
+                    websocket, path, session_id, params
+                )
+                try:
+                    await self.send_to_client(websocket, params)
+                    if (dt.now() - heartbeat_tmstmp).seconds > 1:
+                        await websocket.send("heartbeat")
+                        heartbeat_tmstmp = dt.now()
+                except websockets.exceptions.ConnectionClosed:
+                    print(f"Session {session_id} ended")
+                    self.clients.remove(session_id)
+                    await self.empty_queue()
+                    await websocket.close()
+                    return
 
     def run_clients_websocket(self):
         start_server = websockets.serve(self.client_server, self.host, self.port)
@@ -199,5 +203,5 @@ class MarketDataAggregator:
 
 
 if __name__ == "__main__":
-    aggregator = MarketDataAggregator(exchanges=["KRAKEN"])
+    aggregator = MarketDataAggregator(exchanges=["BINANCE"], pairs=["BTC-USDT"])
     aggregator.run_clients_websocket()
