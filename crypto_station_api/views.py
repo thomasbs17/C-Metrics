@@ -88,7 +88,7 @@ def get_news(request):
     data = [
         article
         for article in data
-        if isinstance(article["datetime"], datetime.datetime)
+        if isinstance(article["datetime"], dt)
     ]
     return JsonResponse(data, safe=False)
 
