@@ -2,7 +2,6 @@ import asyncio
 import math
 import multiprocessing
 import threading
-import time
 from datetime import timedelta, date, datetime as dt
 
 import ccxt
@@ -240,7 +239,14 @@ class Screener:
                     ws_data = self.data["exchanges"][exchange_object.name][
                         "scores"
                     ].to_json(orient="records")
-                    await websocket.send(ws_data)
+                    try:
+                        await websocket.send(ws_data)
+                    except (
+                        websockets.exceptions.ConnectionClosedError
+                        or websockets.exceptions.ConnectionClosedOK
+                    ):
+                        await websocket.close()
+                        return
                     await asyncio.sleep(10)
 
     async def send_updates_to_clients(self, websocket, exchange_name):
@@ -251,7 +257,7 @@ class Screener:
 
 def run_websocket():
     screener = Screener(exchange_list=["kraken"], verbose=False)
-    start_server = websockets.serve(screener.run_screening, "localhost", 8766)
+    start_server = websockets.serve(screener.run_screening, "localhost", 8795)
     asyncio.get_event_loop().run_until_complete(start_server)
     asyncio.get_event_loop().run_forever()
 

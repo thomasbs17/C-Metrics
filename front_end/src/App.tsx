@@ -1,13 +1,15 @@
+import React from 'react'
+import ReactDOM from 'react-dom'
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
 import 'bootstrap/dist/css/bootstrap.min.css'
-import { Provider, } from 'react-redux'
+import { Provider } from 'react-redux'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { filtersStore } from './components/StateManagement'
 import Home from './pages/Home'
 import NoPage from './pages/NoPage'
 import Portfolio from './pages/Portfolio'
 import Trading from './pages/Trading'
 import UserRegistrationForm from './pages/User'
-import { filtersStore } from './components/StateManagement'
 
 const darkTheme = createTheme({
   components: {
@@ -25,17 +27,17 @@ const darkTheme = createTheme({
             border: '3px solid #2b2b2b',
           },
           '&::-webkit-scrollbar-thumb:focus, & *::-webkit-scrollbar-thumb:focus':
-          {
-            backgroundColor: '#959595',
-          },
+            {
+              backgroundColor: '#959595',
+            },
           '&::-webkit-scrollbar-thumb:active, & *::-webkit-scrollbar-thumb:active':
-          {
-            backgroundColor: '#959595',
-          },
+            {
+              backgroundColor: '#959595',
+            },
           '&::-webkit-scrollbar-thumb:hover, & *::-webkit-scrollbar-thumb:hover':
-          {
-            backgroundColor: '#959595',
-          },
+            {
+              backgroundColor: '#959595',
+            },
           '&::-webkit-scrollbar-corner, & *::-webkit-scrollbar-corner': {
             backgroundColor: '#2b2b2b',
           },

@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react'
-import { Accordion } from 'react-bootstrap'
+import React from 'react'
 
 function TradeHistory() {
   return (

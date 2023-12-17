@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime as dt
 import uuid
 
 import ccxt
@@ -59,6 +59,19 @@ def get_asset_coinmarketcap_mapping(request):
 
 
 @api_view(["GET"])
+def get_crypto_meta_data(request):
+    crypto_coinmarketcap_id = request.query_params.get("crypto_coinmarketcap_id")
+    return JsonResponse(
+        coinmarketcap.get_endpoint(
+            api_version=2,
+            category="cryptocurrency",
+            endpoint=f"info?id={crypto_coinmarketcap_id}",
+        ),
+        safe=False,
+    )
+
+
+@api_view(["GET"])
 def get_exchange_markets(request):
     exchange = request.query_params.get("exchange")
     exchange_class = getattr(ccxt, exchange)
@@ -72,6 +85,11 @@ def get_news(request):
     googlenews = GoogleNews()
     googlenews.get_news(pair)
     data = googlenews.results()
+    data = [
+        article
+        for article in data
+        if isinstance(article["datetime"], dt)
+    ]
     return JsonResponse(data, safe=False)
 
 
@@ -96,13 +114,14 @@ def post_new_order(request):
         asset_id=request.data["asset_id"],
         order_side=request.data["order_side"],
         order_type=request.data["order_type"],
-        order_creation_tmstmp=datetime.datetime.fromtimestamp(
+        order_creation_tmstmp=dt.fromtimestamp(
             float(request.data["order_creation_tmstmp"]) / 1000
         ),
         order_status=request.data["order_status"],
         fill_pct=request.data["fill_pct"],
         order_volume=request.data["order_volume"],
         order_price=request.data["order_price"] if request.data["order_price"] else 1,
+        insert_tmstmp=dt.now()
     )
     new_order.save()
     return JsonResponse("success", safe=False)
@@ -111,3 +130,6 @@ def post_new_order(request):
 class OrdersViewSet(viewsets.ModelViewSet):
     queryset = Orders.objects.all()
     serializer_class = OrdersSerializer
+
+    def get_queryset(self):
+        return Orders.objects.filter(expiration_tmstmp__isnull=True)

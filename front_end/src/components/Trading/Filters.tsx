@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   Autocomplete,
   Box,
@@ -17,26 +18,25 @@ import {
   Theme,
   ToggleButtonGroup,
   Typography,
-  useTheme
+  useTheme,
 } from '@mui/material'
 import Highcharts from 'highcharts'
 import HighchartsMore from 'highcharts/highcharts-more'
 import SolidGauge from 'highcharts/modules/solid-gauge'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Container, Row, ToggleButton } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router'
 import { tradingDataDef } from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
+import EconomicCalendar from './EconomicCalendar'
 
 // Initialize the modules
 HighchartsMore(Highcharts)
 SolidGauge(Highcharts)
 
-
-
-type FilterProps = {
-  data: Array<string>
+interface FilterProps {
+  data: string[]
   handleClose?: any
 }
 
@@ -57,29 +57,32 @@ function TradingTypeFilter() {
       value={selectedValue}
       exclusive
       onChange={handleSelect}
-      aria-label="Platform"
     >
-      <ToggleButton value="paper" variant="success">
+      <ToggleButton id="paper-trading-button" value="paper" variant="success">
         Paper
       </ToggleButton>
-      <ToggleButton disabled value="live" variant="error">
+      <ToggleButton
+        id="live-trading-button"
+        disabled
+        value="live"
+        variant="error"
+      >
         Live
       </ToggleButton>
     </ToggleButtonGroup>
   )
 }
 
-
 function OhlcPeriodsFilter() {
-  const [ohlcPeriod, setOhlcPeriod] = useState('1d');
-  const dispatch = useDispatch();
+  const [ohlcPeriod, setOhlcPeriod] = useState('1d')
+  const dispatch = useDispatch()
 
   const handleSelect = (event: SelectChangeEvent) => {
     if (event.target.value !== null) {
       setOhlcPeriod(event.target.value)
       dispatch(filterSlice.actions.setOhlcPeriod(event.target.value))
     }
-  };
+  }
   const timeFrames = {
     '1s': '1s',
     '1m': '1m',
@@ -97,10 +100,10 @@ function OhlcPeriodsFilter() {
     '3d': '3d',
     '1w': '1w',
     '1M': '1M',
-  };
+  }
 
   return (
-    <FormControl fullWidth>
+    <FormControl>
       <InputLabel id="ohlc-period-time-label">Time</InputLabel>
       <Select
         id="ohlc-period-time"
@@ -133,7 +136,7 @@ function ExchangeFilter(props: FilterProps) {
     if (value !== null) {
       setSelectedValue(value)
       dispatch(filterSlice.actions.setExchange(value))
-      dispatch(filterSlice.actions.setPairScoreDetails({}));
+      dispatch(filterSlice.actions.setPairScoreDetails({}))
       dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
       navigate(`/trading?exchange=${value}&pair=${pair}`)
     }
@@ -143,7 +146,7 @@ function ExchangeFilter(props: FilterProps) {
       clearIcon={false}
       options={props.data}
       sx={{ marginTop: 3, padding: 1, width: '100%' }}
-      value={selectedValue != '' ? selectedValue : stateValue}
+      value={selectedValue !== '' ? selectedValue : stateValue}
       onChange={handleSelect}
       renderInput={(params) => (
         <TextField {...params} label={`Exchange (${props.data.length})`} />
@@ -155,13 +158,15 @@ function ExchangeFilter(props: FilterProps) {
 function PairFilter(props: FilterProps) {
   const dispatch = useDispatch()
   const navigate = useNavigate()
-  const [exchange, stateValue] = useSelector(
-    (state: { filters: FilterState }) => [
-      state.filters.exchange,
-      state.filters.pair,
-    ],
+  const filterState = useSelector(
+    (state: { filters: FilterState }) => state.filters,
   )
-  const [selectedValue, setSelectedValue] = useState(stateValue)
+  const [exchange, pair] = useMemo(
+    () => [filterState.exchange, filterState.pair],
+    [filterState.exchange, filterState.pair],
+  )
+
+  const [selectedValue, setSelectedValue] = useState(pair)
   const handleSelectPair = (
     event: React.ChangeEvent<{}>,
     value: string | null,
@@ -174,36 +179,41 @@ function PairFilter(props: FilterProps) {
     }
   }
   useEffect(() => {
-    setSelectedValue(stateValue)
-    navigate(`/trading?exchange=${exchange}&pair=${stateValue}`)
-  }, [stateValue, props.data, navigate, exchange]);
+    setSelectedValue(pair)
+    navigate(`/trading?exchange=${exchange}&pair=${pair}`)
+  }, [pair, props.data, navigate, exchange])
 
   useEffect(() => {
-    if (!props.data.includes(stateValue) && props.data.length > 0) {
+    if (!props.data.includes(pair) && props.data.length > 0) {
       setSelectedValue(props.data[0])
       dispatch(filterSlice.actions.setPair(props.data[0]))
-      dispatch(filterSlice.actions.setPairScoreDetails({}));
+      dispatch(filterSlice.actions.setPairScoreDetails({}))
       dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
       navigate(`/trading?exchange=${exchange}&pair=${props.data[0]}`)
     }
-  }, [dispatch, exchange, navigate, props.data, stateValue])
+  }, [dispatch, exchange, navigate, props.data, pair])
 
   return (
     <div>
-      {
-        props.data.length === 0 ?
-          <Skeleton variant="rounded" height={40} width={'100%'} sx={{ marginTop: 3, padding: 1 }} /> :
-          <Autocomplete
-            clearIcon={false}
-            options={props.data}
-            sx={{ marginTop: 3, padding: 1 }}
-            value={selectedValue !== '' ? selectedValue : stateValue}
-            onChange={handleSelectPair}
-            renderInput={(params) => (
-              <TextField {...params} label={`Pair (${props.data.length})`} />
-            )}
-          />
-      }
+      {props.data.length === 0 ? (
+        <Skeleton
+          variant="rounded"
+          height={40}
+          width={'100%'}
+          sx={{ marginTop: 3, padding: 1 }}
+        />
+      ) : (
+        <Autocomplete
+          clearIcon={false}
+          options={props.data}
+          sx={{ marginTop: 3, padding: 1 }}
+          value={selectedValue !== '' ? selectedValue : pair}
+          onChange={handleSelectPair}
+          renderInput={(params) => (
+            <TextField {...params} label={`Pair (${props.data.length})`} />
+          )}
+        />
+      )}
     </div>
   )
 }
@@ -219,18 +229,22 @@ function filtersSideAnimation(
   }
 }
 
-
 function NavigationMenu() {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const open = Boolean(anchorEl);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const open = Boolean(anchorEl)
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
+    setAnchorEl(event.currentTarget)
+  }
   const handleClose = () => {
-    setAnchorEl(null);
-  };
+    setAnchorEl(null)
+  }
 
-  const pages: any = { 'Home': '', 'Trading': 'trading', 'Portfolio': 'portfolio', 'Sign Up': 'registration' }
+  const pages: any = {
+    Home: '',
+    Trading: 'trading',
+    Portfolio: 'portfolio',
+    'Sign Up': 'registration',
+  }
 
   return (
     <div>
@@ -254,8 +268,17 @@ function NavigationMenu() {
         }}
       >
         {Object.keys(pages).map((page: string) => (
-          <Link href={`/${[pages[page]]}`} sx={{ textDecoration: 'none', color: 'white', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <Link
+            key={`${page}_link`}
+            href={`/${[pages[page]]}`}
+            sx={{
+              textDecoration: 'none',
+              color: 'white',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+            }}
+          >
             <MenuItem
+              key={`${page}_item`}
               component={Link}
               onClick={handleClose}
             >
@@ -264,7 +287,7 @@ function NavigationMenu() {
           </Link>
         ))}
       </Menu>
-    </div >
+    </div>
   )
 }
 
@@ -275,11 +298,13 @@ interface MultipleSelectChipProps {
 }
 
 function MultipleSelectChip(props: MultipleSelectChipProps) {
-  const theme = useTheme();
-  const [selectedValue, setSelectedValue] = useState<string[]>(props.defaultValue);
+  const theme = useTheme()
+  const [selectedValue, setSelectedValue] = useState<string[]>(
+    props.defaultValue,
+  )
 
-  const ITEM_HEIGHT = 48;
-  const ITEM_PADDING_TOP = 8;
+  const ITEM_HEIGHT = 48
+  const ITEM_PADDING_TOP = 8
   const MenuProps = {
     PaperProps: {
       style: {
@@ -287,24 +312,29 @@ function MultipleSelectChip(props: MultipleSelectChipProps) {
         width: 250,
       },
     },
-  };
+  }
 
-  const getStyles = (name: string, personName: readonly string[], theme: Theme) => {
+  const getStyles = (
+    name: string,
+    personName: readonly string[],
+    theme: Theme,
+  ) => {
     return {
-      fontWeight:
-        personName.indexOf(name) === -1
-          ? theme.typography.fontWeightRegular
-          : theme.typography.fontWeightMedium,
-    };
+      fontWeight: !personName.includes(name)
+        ? theme.typography.fontWeightRegular
+        : theme.typography.fontWeightMedium,
+    }
   }
 
   const handleChange = (event: SelectChangeEvent<typeof selectedValue>) => {
-    const { target: { value } } = event;
+    const {
+      target: { value },
+    } = event
     setSelectedValue(
       // On autofill we get a stringified value.
       typeof value === 'string' ? value.split(',') : value,
-    );
-  };
+    )
+  }
 
   return (
     <div>
@@ -338,19 +368,25 @@ function MultipleSelectChip(props: MultipleSelectChipProps) {
         </Select>
       </FormControl>
     </div>
-  );
+  )
 }
 
 export function TopBar(data: { tradingData: tradingDataDef }) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [modalIsOpen, setModalIsOpen] = useState(false);
-  const handleOpen = () => setModalIsOpen(true);
-  const handleClose = () => setModalIsOpen(false);
-  const [exchange, pair] = useSelector(
-    (state: { filters: FilterState }) => [
-      state.filters.exchange,
-      state.filters.pair,
-    ],
+  const [modalIsOpen, setModalIsOpen] = useState(false)
+  const [modalType, setModalType] = useState('')
+  const handleOpen = (modalType: string) => (
+    setModalType(modalType), setModalIsOpen(true)
+  )
+  const handleClose = () => {
+    setModalIsOpen(false)
+  }
+  const filterState = useSelector(
+    (state: { filters: FilterState }) => state.filters,
+  )
+  const [exchange, pair] = useMemo(
+    () => [filterState.exchange, filterState.pair],
+    [filterState.exchange, filterState.pair],
   )
 
   const containerStyle: React.CSSProperties = {
@@ -371,19 +407,20 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
     width: 800,
     bgcolor: 'background.paper',
     border: '2px solid #000',
+    borderRadius: 10,
     boxShadow: 24,
+    height: 600,
     p: 4,
-  };
-  const [filteredAssetTypes, setFilteredAssetTypes] = useState<string[]>([]);
+  }
+  const [filteredAssetTypes, setFilteredAssetTypes] = useState<string[]>([])
 
   useEffect(() => {
     if (Object.keys(data.tradingData.markets).length !== 0) {
-      let assetTypes: string[] = [];
-      setFilteredAssetTypes(assetTypes);
+      const assetTypes: string[] = []
+      setFilteredAssetTypes(assetTypes)
       filtersSideAnimation(containerRef, data.tradingData.markets)
     }
   }, [data.tradingData.markets])
-
 
   return (
     <Container fluid ref={containerRef} style={containerStyle}>
@@ -398,7 +435,26 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
           <OhlcPeriodsFilter />
         </Col>
         <Col>
-          <Button variant="text" size="large" onClick={handleOpen} sx={{ width: 200 }}>{`${exchange}: ${pair}`}</Button>
+          <Button
+            variant="text"
+            size="large"
+            onClick={() => {
+              handleOpen('economicCalendar')
+            }}
+            sx={{ width: 200 }}
+          >
+            Economic Calendar
+          </Button>
+        </Col>
+        <Col>
+          <Button
+            variant="text"
+            size="large"
+            onClick={() => {
+              handleOpen('pairSelection')
+            }}
+            sx={{ width: 300 }}
+          >{`${exchange}: ${pair}`}</Button>
         </Col>
       </Row>
       <Modal
@@ -407,23 +463,48 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
       >
-        <Box sx={modalStyle}>
-          <Typography id="symbol-selection" variant="h6" component="h2">
-            Symbol Selection
-          </Typography>
-          <Row>
-            <Col>
-              <ExchangeFilter data={data.tradingData.exchanges} />
-            </Col>
-            <Col>
-              <MultipleSelectChip label='Networks' options={[]} defaultValue={[]} />
-            </Col>
-            <Col>
-              <MultipleSelectChip label='Asset Types' options={filteredAssetTypes} defaultValue={[]} />
-            </Col>
-          </Row>
-          <PairFilter data={Object.keys(data.tradingData.markets).sort()} handleClose={handleClose} />
-        </Box>
+        {modalType === 'pairSelection' ? (
+          <Box sx={modalStyle}>
+            <Typography id="symbol-selection" variant="h6" component="h2">
+              Symbol Selection
+            </Typography>
+            <Row>
+              <Col>
+                <ExchangeFilter data={data.tradingData.exchanges} />
+              </Col>
+              <Col>
+                <MultipleSelectChip
+                  label="Networks"
+                  options={[]}
+                  defaultValue={[]}
+                />
+              </Col>
+              <Col>
+                <MultipleSelectChip
+                  label="Asset Types"
+                  options={filteredAssetTypes}
+                  defaultValue={[]}
+                />
+              </Col>
+            </Row>
+            <PairFilter
+              data={Object.keys(data.tradingData.markets).sort()}
+              handleClose={handleClose}
+            />
+          </Box>
+        ) : (
+          <Box sx={modalStyle}>
+            <Typography
+              id="symbol-selection"
+              variant="h6"
+              component="h2"
+              sx={{ padding: 2 }}
+            >
+              Economic Calendar
+            </Typography>
+            <EconomicCalendar />
+          </Box>
+        )}
       </Modal>
     </Container>
   )

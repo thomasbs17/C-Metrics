@@ -1,10 +1,9 @@
 import { configureStore, createSlice } from '@reduxjs/toolkit'
+import React from 'react'
 
-
-
-export type FilterState = {
+export interface FilterState {
   tradingType: string
-  ohlcPeriod: string,
+  ohlcPeriod: string
   exchange: string
   pair: string
   selectedArticle: [string, string]
