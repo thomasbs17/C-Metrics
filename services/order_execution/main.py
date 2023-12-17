@@ -2,15 +2,15 @@ import asyncio
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime as dt
 from pathlib import Path
 
 import pandas as pd
 import redis
 import requests
 import sqlalchemy as sql
-from dotenv import load_dotenv
 import websockets
+from dotenv import load_dotenv
 
 WS_URL = "ws://localhost:8768"
 BASE_API_URL = "http://127.0.0.1:8000/ohlc"
@@ -27,6 +27,19 @@ def get_db_connection() -> sql.Engine:
     port = os.getenv("DB_PORT")
     dsn = f"postgresql://{user}:{pwd}@{host}:{port}/{db_name}"
     return sql.create_engine(dsn)
+
+
+def datetime_unix_conversion(
+    df: pd.DataFrame, convert_to: str, cols: list = None
+) -> pd.DataFrame:
+    cols = cols if cols else df.columns
+    for col in cols:
+        if col.endswith("tmstmp"):
+            if convert_to == "unix":
+                df[col] = pd.to_datetime(df[col], utc=True).astype("int64") // 10**9
+            else:
+                df[col] = df[col].apply(lambda x: dt.utcfromtimestamp(x))
+    return df
 
 
 class OnStartChecker:
@@ -48,17 +61,16 @@ class OnStartChecker:
         return self.data[order["asset_id"]]
 
     @staticmethod
-    def get_execution_tmstmp(ohlcv_df: pd.DataFrame, order: pd.Series) -> datetime:
+    def get_execution_tmstmp(ohlcv_df: pd.DataFrame, order: pd.Series) -> dt:
         execution_df = ohlcv_df[
-            ohlcv_df["time"]
-            >= datetime.timestamp(order["order_creation_tmstmp"]) * 1000
+            ohlcv_df["time"] >= dt.timestamp(order["order_creation_tmstmp"]) * 1000
         ]
         if order["order_side"] == "buy":
             execution_df = execution_df[execution_df["low"] < order["order_price"]]
         else:
             execution_df = execution_df[execution_df["high"] > order["order_price"]]
         if not execution_df.empty:
-            return datetime.fromtimestamp(execution_df["time"].min() / 1000)
+            return dt.fromtimestamp(execution_df["time"].min() / 1000)
 
     def check_order(self, order_id: str):
         order = self.open_orders_df[
@@ -82,7 +94,7 @@ class OnStartChecker:
         )
         order_id_list = "','".join(order_id_list)
         query = (
-            f"update crypto_station_api_orders set expiration_tmstmp = '{datetime.now()}' "
+            f"update crypto_station_api_orders set expiration_tmstmp = '{dt.now()}' "
             f"where order_id in ('{order_id_list}') and expiration_tmstmp is null"
         )
         with self.db.connect() as connection:
@@ -94,7 +106,7 @@ class OnStartChecker:
         for order_id in self.filled_orders:
             order_df = self.open_orders_df[self.open_orders_df["order_id"] == order_id]
             df = pd.concat([df, order_df])
-        df.loc[:, "insert_tmstmp"] = datetime.now()
+        df.loc[:, "insert_tmstmp"] = dt.now()
         df.loc[:, "fill_pct"] = 1
         df.loc[:, "order_status"] = "executed"
         df["order_dim_key"] = df.apply(lambda x: str(uuid.uuid4()), axis=1)
@@ -102,8 +114,8 @@ class OnStartChecker:
 
     async def add_updated_order_rows(self, orders_df: pd.DataFrame = None):
         if orders_df is None:
-            df = self.get_updated_order_rows_df()
-        df.to_sql(
+            orders_df = self.get_updated_order_rows_df()
+        orders_df.to_sql(
             "crypto_station_api_orders",
             con=self.db,
             if_exists="append",
@@ -114,9 +126,10 @@ class OnStartChecker:
         await self.cancel_previous_records(orders_df)
         await self.add_updated_order_rows(orders_df)
 
-    def get_trades_df(self) -> pd.DataFrame:
-        df = self.get_updated_order_rows_df()
-        df = df.drop(
+    def get_trades_df(self, updates_orders_df: pd.DataFrame = None) -> pd.DataFrame:
+        if updates_orders_df is None:
+            updates_orders_df = self.get_updated_order_rows_df()
+        trades_df = updates_orders_df.drop(
             columns=[
                 "order_dim_key",
                 "order_type",
@@ -125,19 +138,23 @@ class OnStartChecker:
                 "fill_pct",
             ]
         )
-        df = df.drop_duplicates()
+        trades_df = trades_df.drop_duplicates()
         for id_col in ("trade_dim_key", "trade_id"):
-            df[id_col] = df.apply(lambda x: str(uuid.uuid4()), axis=1)
+            trades_df[id_col] = trades_df.apply(lambda x: str(uuid.uuid4()), axis=1)
         for column in ("side", "price", "volume"):
-            df = df.rename(columns={f"order_{column}": f"trade_{column}"})
-        df.loc[:, "insert_tmstmp"] = datetime.now()
-        df["execution_tmstmp"] = df["order_id"].apply(lambda x: self.filled_orders[x])
-        return df
+            trades_df = trades_df.rename(columns={f"order_{column}": f"trade_{column}"})
+        trades_df.loc[:, "insert_tmstmp"] = dt.now()
+        trades_df["execution_tmstmp"] = (
+            trades_df["order_id"].apply(lambda x: self.filled_orders[x])
+            if updates_orders_df is None
+            else dt.now()
+        )
+        return trades_df
 
     async def add_trades(self, trades_df: pd.DataFrame = None):
         if trades_df is None:
             trades_df = self.get_trades_df()
-        df.to_sql(
+        trades_df.to_sql(
             "crypto_station_api_trades",
             con=self.db,
             if_exists="append",
@@ -181,16 +198,11 @@ class OrderExecutionService(OnStartChecker):
         self.users = self.orders["user_id"].unique().tolist()
         for user in self.users:
             user_df = self.orders[self.orders["user_id"] == user]
-            for col in user_df.columns:
-                if col.endswith("tmstmp"):
-                    user_df[col] = (
-                        pd.to_datetime(user_df[col], utc=True).astype(int) // 10**9
-                    )
+            user_df = datetime_unix_conversion(user_df, convert_to="unix")
             self.redis_client.delete(user)
             self.redis_client.set(user, json.dumps(user_df.to_dict(orient="records")))
 
     def retrieve_from_redis(self, user_id: str) -> pd.DataFrame:
-        all_data = dict()
         redis_data = self.redis_client.get(user_id)
         return pd.DataFrame(json.loads(redis_data))
 
@@ -202,7 +214,8 @@ class OrderExecutionService(OnStartChecker):
             for asset in broker_df["asset_id"].unique().tolist()
         ]
 
-    def get_filled_qty(self, order: pd.Series, trade_data: dict) -> float:
+    @staticmethod
+    def get_filled_qty(order: pd.Series, trade_data: dict) -> float:
         if (
             order["order_side"] == "buy" and trade_data["price"] < order["order_price"]
         ) or (
@@ -222,7 +235,13 @@ class OrderExecutionService(OnStartChecker):
                 lambda x: "executed" if x == 1 else "part_fill"
             )
             filled_orders["insert_tmstmp"] = dt.now()
-            trades_df = ...
+            filled_orders["expiration_tmstmp"] = None
+            filled_orders = datetime_unix_conversion(
+                filled_orders, convert_to="timestamp", cols=["order_creation_tmstmp"]
+            )
+            filled_orders["order_volume"] = filled_orders["filled_qty"]
+            filled_orders.drop(columns="filled_qty", inplace=True)
+            trades_df = self.get_trades_df(filled_orders)
             await self.update_orders(filled_orders)
             await self.add_trades(trades_df)
 
