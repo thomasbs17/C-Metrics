@@ -158,7 +158,7 @@ class MarketDataAggregator:
                     if (
                         method in params["methods"]
                         and params["exchange"][0].upper() == details["exchange"]
-                        and details["symbol"] in params["methods"][method]
+                        and details["symbol"].lower() in params["methods"][method]
                     ):
                         await websocket.send(json.dumps(queue_data))
             except Empty:
@@ -203,5 +203,5 @@ class MarketDataAggregator:
 
 
 if __name__ == "__main__":
-    aggregator = MarketDataAggregator(exchanges=["KRAKEN"], pairs=["BTC-USD"])
+    aggregator = MarketDataAggregator(exchanges=["KRAKEN"], pairs=["ETH-USD"])
     aggregator.run_clients_websocket()
