@@ -184,7 +184,7 @@ class OrderExecutionService(OnStartChecker):
         self.db = get_db_connection()
         self.orders = self.retrieve_from_db()
         super().__init__(open_orders_df=self.orders, db=self.db)
-        # self.run_on_start_checker()
+        self.run_on_start_checker()
         self.add_user_channels()
 
     def retrieve_from_db(self) -> pd.DataFrame:
