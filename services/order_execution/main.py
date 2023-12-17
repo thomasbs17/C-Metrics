@@ -74,8 +74,12 @@ class OnStartChecker:
         for order_id in orders:
             self.check_order(order_id)
 
-    async def cancel_previous_records(self):
-        order_id_list = list(self.filled_orders.keys())
+    async def cancel_previous_records(self, orders_df: pd.DataFrame = None):
+        order_id_list = (
+            list(self.filled_orders.keys())
+            if orders_df is None
+            else orders_df["order_id"].tolist()
+        )
         order_id_list = "','".join(order_id_list)
         query = (
             f"update crypto_station_api_orders set expiration_tmstmp = '{datetime.now()}' "
@@ -96,8 +100,9 @@ class OnStartChecker:
         df["order_dim_key"] = df.apply(lambda x: str(uuid.uuid4()), axis=1)
         return df
 
-    async def add_updated_order_rows(self):
-        df = self.get_updated_order_rows_df()
+    async def add_updated_order_rows(self, orders_df: pd.DataFrame = None):
+        if orders_df is None:
+            df = self.get_updated_order_rows_df()
         df.to_sql(
             "crypto_station_api_orders",
             con=self.db,
@@ -105,9 +110,9 @@ class OnStartChecker:
             index=False,
         )
 
-    async def update_orders(self):
-        await self.cancel_previous_records()
-        await self.add_updated_order_rows()
+    async def update_orders(self, orders_df: pd.DataFrame = None):
+        await self.cancel_previous_records(orders_df)
+        await self.add_updated_order_rows(orders_df)
 
     def get_trades_df(self) -> pd.DataFrame:
         df = self.get_updated_order_rows_df()
@@ -129,8 +134,9 @@ class OnStartChecker:
         df["execution_tmstmp"] = df["order_id"].apply(lambda x: self.filled_orders[x])
         return df
 
-    async def add_trades(self):
-        df = self.get_trades_df()
+    async def add_trades(self, trades_df: pd.DataFrame = None):
+        if trades_df is None:
+            trades_df = self.get_trades_df()
         df.to_sql(
             "crypto_station_api_trades",
             con=self.db,
@@ -159,8 +165,9 @@ class OrderExecutionService(OnStartChecker):
             host=redis_host, port=redis_port, decode_responses=True
         )
         self.db = get_db_connection()
-        super().__init__(open_orders_df=self.retrieve_from_db(), db=self.db)
-        self.run_on_start_checker()
+        self.orders = self.retrieve_from_db()
+        super().__init__(open_orders_df=self.orders, db=self.db)
+        # self.run_on_start_checker()
         self.add_user_channels()
 
     def retrieve_from_db(self) -> pd.DataFrame:
@@ -171,10 +178,9 @@ class OrderExecutionService(OnStartChecker):
         return pd.read_sql_query(sql=query, con=self.db)
 
     def add_user_channels(self):
-        df = self.retrieve_from_db()
-        self.users = df["user_id"].unique().tolist()
+        self.users = self.orders["user_id"].unique().tolist()
         for user in self.users:
-            user_df = df[df["user_id"] == user]
+            user_df = self.orders[self.orders["user_id"] == user]
             for col in user_df.columns:
                 if col.endswith("tmstmp"):
                     user_df[col] = (
@@ -191,17 +197,59 @@ class OrderExecutionService(OnStartChecker):
     def get_asset_list(self, broker: str) -> list:
         redis_data = self.retrieve_from_redis("thomasbouamoud")
         broker_df = redis_data[redis_data["broker_id"] == broker]
-        return broker_df["asset_id"].unique().tolist()
+        return [
+            asset.lower().replace("/", "-")
+            for asset in broker_df["asset_id"].unique().tolist()
+        ]
+
+    def get_filled_qty(self, order: pd.Series, trade_data: dict) -> float:
+        if (
+            order["order_side"] == "buy" and trade_data["price"] < order["order_price"]
+        ) or (
+            order["order_side"] == "sell" and trade_data["price"] > order["order_price"]
+        ):
+            return order["order_volume"]
+        if trade_data["price"] == order["order_price"]:
+            return min(trade_data["amount"], order["order_volume"])
+        return 0
+
+    async def handle_fills(self, filled_orders: pd.DataFrame):
+        if not filled_orders.empty:
+            filled_orders["fill_pct"] = filled_orders.apply(
+                lambda x: round(x["filled_qty"] / x["order_volume"], 4), axis=1
+            )
+            filled_orders["order_status"] = filled_orders["fill_pct"].apply(
+                lambda x: "executed" if x == 1 else "part_fill"
+            )
+            filled_orders["insert_tmstmp"] = dt.now()
+            trades_df = ...
+            await self.update_orders(filled_orders)
+            await self.add_trades(trades_df)
+
+    async def check_fills(self, raw_trade_data: str):
+        trade_data = json.loads(raw_trade_data)
+        trade_data = trade_data["trades"]
+        orders = self.retrieve_from_redis("thomasbouamoud")
+        trade_pair = trade_data["symbol"]
+        trade_pair = trade_pair.replace("-", "/")
+        orders = orders[orders["asset_id"] == trade_pair]
+        orders["filled_qty"] = orders.apply(
+            lambda x: self.get_filled_qty(x, trade_data), axis=1
+        )
+        orders["filled_qty"] = orders["order_volume"]
+        filled_orders = orders[orders["filled_qty"] > 0]
+        await self.handle_fills(filled_orders)
 
     async def initialize_websocket(self):
         broker = "kraken"
         assets = self.get_asset_list(broker)
         uri = f"{WS_URL}?exchange={broker}?trades={','.join(assets)}"
         try:
-            async with websockets.connect(uri) as websocket:
+            async with websockets.connect(uri, ping_interval=None) as websocket:
                 while True:
                     response = await websocket.recv()
-                    print(response)
+                    if response != "heartbeat":
+                        await self.check_fills(response)
         except ConnectionRefusedError:
             print("The Real Time Data service is down.")
 
