@@ -10,7 +10,9 @@ import redis
 import requests
 import sqlalchemy as sql
 from dotenv import load_dotenv
+import websockets
 
+WS_URL = "ws://localhost:8768"
 BASE_API_URL = "http://127.0.0.1:8000/ohlc"
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 ENV_PATH = BASE_DIR / ".env"
@@ -159,6 +161,7 @@ class OrderExecutionService(OnStartChecker):
         self.db = get_db_connection()
         super().__init__(open_orders_df=self.retrieve_from_db(), db=self.db)
         self.run_on_start_checker()
+        self.add_user_channels()
 
     def retrieve_from_db(self) -> pd.DataFrame:
         query = (
@@ -172,28 +175,37 @@ class OrderExecutionService(OnStartChecker):
         self.users = df["user_id"].unique().tolist()
         for user in self.users:
             user_df = df[df["user_id"] == user]
+            for col in user_df.columns:
+                if col.endswith("tmstmp"):
+                    user_df[col] = (
+                        pd.to_datetime(user_df[col], utc=True).astype(int) // 10**9
+                    )
             self.redis_client.delete(user)
             self.redis_client.set(user, json.dumps(user_df.to_dict(orient="records")))
 
-    def retrieve_from_redis(self) -> pd.DataFrame:
+    def retrieve_from_redis(self, user_id: str) -> pd.DataFrame:
         all_data = dict()
-        for user in self.users:
-            all_data[user] = self.redis_client.get(user)
-        return pd.DataFrame(all_data)
+        redis_data = self.redis_client.get(user_id)
+        return pd.DataFrame(json.loads(redis_data))
 
-    def initialize_websocket(self):
-        redis_data = self.retrieve_from_redis()
-        brokers = redis_data["broker_id"].unique().tolist()
-        for broker in brokers:
-            broker_df = redis_data[redis_data["broker_id"] == broker]
-            assets = broker_df["asset_id"].unique().tolist()
-        # f = FeedHandler(config=self.config)
+    def get_asset_list(self, broker: str) -> list:
+        redis_data = self.retrieve_from_redis("thomasbouamoud")
+        broker_df = redis_data[redis_data["broker_id"] == broker]
+        return broker_df["asset_id"].unique().tolist()
 
-
-def run_service():
-    while True:
-        ...
+    async def initialize_websocket(self):
+        broker = "kraken"
+        assets = self.get_asset_list(broker)
+        uri = f"{WS_URL}?exchange={broker}?trades={','.join(assets)}"
+        try:
+            async with websockets.connect(uri) as websocket:
+                while True:
+                    response = await websocket.recv()
+                    print(response)
+        except ConnectionRefusedError:
+            print("The Real Time Data service is down.")
 
 
 if __name__ == "__main__":
     oes = OrderExecutionService()
+    asyncio.get_event_loop().run_until_complete(oes.initialize_websocket())
