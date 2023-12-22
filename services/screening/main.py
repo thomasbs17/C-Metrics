@@ -99,8 +99,9 @@ class Screener:
                     ohlc["close"], length=period
                 )
         bbands_df = ta.bbands(ohlc["close"])
-        columns = [column for column in bbands_df.columns]
-        self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][columns] = bbands_df
+        if bbands_df is not None:
+            columns = [column for column in bbands_df.columns]
+            self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][columns] = bbands_df
         self.data["exchanges"][exchange.name][pair]["data"]["ohlc"]["rsi"] = ta.rsi(
             ohlc["close"]
         )
