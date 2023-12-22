@@ -33,6 +33,11 @@ function getHoldingVolumesFromTrades(trades: Trade[]) {
       currentHoldings[pair] += tradeVolume
     }
   })
+  for (const pair in currentHoldings) {
+    if (currentHoldings[pair] === 0) {
+      delete currentHoldings[pair];
+    }
+  }
   const entries = Object.entries(currentHoldings);
   entries.sort((a, b) => b[1] - a[1]);
   const sortedHoldings = Object.fromEntries(entries);
