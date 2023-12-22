@@ -12,13 +12,13 @@ import CreateOrderWidget from '../components/Trading/CreateOrder'
 import { TopBar } from '../components/Trading/Filters'
 import Holdings from '../components/Trading/Holdings'
 import Orders from '../components/Trading/Orders'
-import TradeHistory from '../components/Trading/TradeHistory'
 // import AddRemoveLayout from '../components/ResizablePanel'
 import { Responsive, WidthProvider } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import News from '../components/Trading/News'
 import Screening from '../components/Trading/Screening'
+import Trades from '../components/Trading/TradeHistory'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
 
@@ -49,7 +49,7 @@ function BottomLeftContainer(data: { tradingData: tradingDataDef }) {
         </Tabs>
         {value === 'orders' && <Orders tradingData={data.tradingData} />}
         {value === 'holdings' && <Holdings />}
-        {value === 'trade-history' && <TradeHistory />}
+        {value === 'trade-history' && <Trades tradingData={data.tradingData}/>}
         {value === 'create-order' && <CreateOrderWidget />}
       </Box>
     </div>

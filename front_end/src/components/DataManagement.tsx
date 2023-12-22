@@ -10,6 +10,7 @@ export interface tradingDataDef {
   markets: any
   news: NewsArticle[]
   orders: Order[]
+  trades: Trade[]
   screeningData: any
   noDataAnimation: any
   ohlcvData: OhlcData
@@ -44,6 +45,20 @@ export interface Order {
   fill_pct: number
   order_volume: number
   order_price: number
+}
+
+export interface Trade {
+  user_id: string
+  trade_id: string
+  order_id: string
+  broker_id: string
+  trading_env: string
+  trading_type: string
+  asset_id: string
+  trade_side: string
+  execution_tmstmp: string
+  trade_volume: number
+  trade_price: number
 }
 
 export function retrieveInfoFromCoinMarketCap(
@@ -152,6 +167,24 @@ function LoadOrders() {
     fetchOrders()
   }, [dispatch, pair, ordersNeedReload])
   return orders
+}
+
+function LoadTrades() {
+  const [trades, setTrades] = useState<Trade[]>([])
+
+  useEffect(() => {
+    async function fetchTrades() {
+      const ordersEndPoint = 'http://127.0.0.1:8000/trades/?format=json'
+      try {
+        const response = await fetch(ordersEndPoint)
+        setTrades(await response.json())
+      } catch (error) {
+        console.error('Error fetching trades data:', error)
+      }
+    }
+    fetchTrades()
+  }, [])
+  return trades
 }
 
 function LoadNews(coinMarketCapMapping: any) {
@@ -270,30 +303,30 @@ function LoadOhlcvData() {
 
 function formatOrderBook(rawOrderBook: any, isWebSocketFeed: boolean) {
   const formattedBook: OrderBookData = { bid: [], ask: [] }
-  ;['bid', 'ask'].forEach((side: string) => {
-    let cumulativeVolume = 0
-    if (isWebSocketFeed) {
-      const sortedPrices =
-        side === 'bid'
-          ? Object.keys(rawOrderBook[side]).sort(
+    ;['bid', 'ask'].forEach((side: string) => {
+      let cumulativeVolume = 0
+      if (isWebSocketFeed) {
+        const sortedPrices =
+          side === 'bid'
+            ? Object.keys(rawOrderBook[side]).sort(
               (a, b) => parseFloat(b) - parseFloat(a),
             )
-          : Object.keys(rawOrderBook[side]).sort(
+            : Object.keys(rawOrderBook[side]).sort(
               (a, b) => parseFloat(a) - parseFloat(b),
             )
-      formattedBook[side].push([0, parseFloat(sortedPrices[0])])
-      sortedPrices.forEach((price: string) => {
-        cumulativeVolume += rawOrderBook[side][price]
-        formattedBook[side].push([cumulativeVolume, parseFloat(price)])
-      })
-    } else {
-      formattedBook[side].push([0, rawOrderBook[side + 's'][0][0]])
-      rawOrderBook[side + 's'].forEach((level: [number, number, number]) => {
-        cumulativeVolume += level[1]
-        formattedBook[side].push([cumulativeVolume, level[0]])
-      })
-    }
-  })
+        formattedBook[side].push([0, parseFloat(sortedPrices[0])])
+        sortedPrices.forEach((price: string) => {
+          cumulativeVolume += rawOrderBook[side][price]
+          formattedBook[side].push([cumulativeVolume, parseFloat(price)])
+        })
+      } else {
+        formattedBook[side].push([0, rawOrderBook[side + 's'][0][0]])
+        rawOrderBook[side + 's'].forEach((level: [number, number, number]) => {
+          cumulativeVolume += level[1]
+          formattedBook[side].push([cumulativeVolume, level[0]])
+        })
+      }
+    })
   return formattedBook
 }
 
@@ -377,6 +410,7 @@ export function GetTradingData() {
   const markets = LoadMarkets()
   const news = LoadNews(coinMarketCapMapping)
   const orders = LoadOrders()
+  const trades = LoadTrades()
   const screeningData = LoadScreeningData()
   const noDataAnimation = LoadNoDataAnimation()
   const ohlcvData = LoadOhlcvData()
@@ -390,6 +424,7 @@ export function GetTradingData() {
     markets,
     news,
     orders,
+    trades,
     screeningData,
     noDataAnimation,
     ohlcvData,
