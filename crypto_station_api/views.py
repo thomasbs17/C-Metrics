@@ -11,8 +11,8 @@ from rest_framework.renderers import JSONRenderer
 from rest_framework.views import APIView
 
 from crypto_station_api.data_sources.coinmarketcap import CoinMarketCap
-from crypto_station_api.models import Orders
-from crypto_station_api.serializers import OrdersSerializer
+from crypto_station_api.models import Orders, Trades
+from crypto_station_api.serializers import OrdersSerializer, TradesSerializer
 
 coinmarketcap = CoinMarketCap()
 
@@ -85,11 +85,7 @@ def get_news(request):
     googlenews = GoogleNews()
     googlenews.get_news(pair)
     data = googlenews.results()
-    data = [
-        article
-        for article in data
-        if isinstance(article["datetime"], dt)
-    ]
+    data = [article for article in data if isinstance(article["datetime"], dt)]
     return JsonResponse(data, safe=False)
 
 
@@ -121,7 +117,7 @@ def post_new_order(request):
         fill_pct=request.data["fill_pct"],
         order_volume=request.data["order_volume"],
         order_price=request.data["order_price"] if request.data["order_price"] else 1,
-        insert_tmstmp=dt.now()
+        insert_tmstmp=dt.now(),
     )
     new_order.save()
     return JsonResponse("success", safe=False)
@@ -133,3 +129,11 @@ class OrdersViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Orders.objects.filter(expiration_tmstmp__isnull=True)
+
+
+class TradesViewSet(viewsets.ModelViewSet):
+    queryset = Trades.objects.all()
+    serializer_class = TradesSerializer
+
+    def get_queryset(self):
+        return Trades.objects.filter(expiration_tmstmp__isnull=True)
