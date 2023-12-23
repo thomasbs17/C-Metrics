@@ -2,7 +2,6 @@ import asyncio
 import json
 import math
 import multiprocessing
-from datetime import datetime as dt
 from queue import Empty
 
 import websockets
@@ -40,7 +39,6 @@ class MarketDataAggregator:
         self.markets = self.get_markets()
         self.clients = list()
         self.client_data_queue = multiprocessing.Queue()
-        self.client_queue = multiprocessing.Queue()
         self.add_all_feeds()
 
     def get_markets(self) -> dict:
@@ -82,15 +80,7 @@ class MarketDataAggregator:
         return sub_lists
 
     async def _callback(self, method: str, data):
-        try:
-            queue_data = self.client_queue.get_nowait()
-        except Empty:
-            return
-        self.client_queue.put_nowait(queue_data)
-        client_data_queue = dict()
-        for session_id in queue_data:
-            client_data_queue[session_id] = {method: data.to_dict(numeric_type=float)}
-        self.client_data_queue.put_nowait(client_data_queue)
+        self.client_data_queue.put({method: data.to_dict(numeric_type=float)})
 
     async def book_callback(self, data: dict, _):
         await self._callback(method="book", data=data)
@@ -124,12 +114,23 @@ class MarketDataAggregator:
             processes.append(process)
             process.start()
 
-    async def add_client(self, websocket, session_id: str, params: dict):
-        self.clients.append(session_id)
-        self.client_queue.put_nowait(self.clients)
+    async def add_client(
+        self,
+        websocket: websockets.WebSocketServerProtocol,
+        path: str,
+    ):
+        params = self.get_ws_parameters(path)
         print(
             f"New session: {websocket.id} with parameters: {params} (process: {self})"
         )
+        session_id = str(websocket.id)
+        clients_details = dict(ws=websocket, params=params, session_id=session_id)
+        self.clients.append(clients_details)
+        try:
+            await websocket.wait_closed()
+        finally:
+            self.clients = [ws for ws in self.clients if ws["session_id"] != session_id]
+            print(f"Session {session_id} ended")
 
     @staticmethod
     def get_ws_parameters(path: str) -> dict:
@@ -150,62 +151,37 @@ class MarketDataAggregator:
         if is_validated:
             return formatted_param
 
-    async def send_to_client(self, websocket, params: dict):
-        session_id = str(websocket.id)
+    async def retrieve_queue_data(self) -> list:
+        client_queue_data = list()
         while True:
             try:
-                client_queue_data = self.client_data_queue.get_nowait()
+                data = self.client_data_queue.get_nowait()
+                client_queue_data.append(data)
             except Empty:
-                return
-            if session_id in client_queue_data:
-                client_data = client_queue_data[session_id]
-                other_clients_data = {
-                    k: v for k, v in client_queue_data.items() if k != session_id
-                }
-                if other_clients_data:
-                    self.client_data_queue.put_nowait(other_clients_data)
-                for method, details in client_data.items():
-                    if (
-                        method in params["methods"]
-                        and params["exchange"][0].upper() == details["exchange"]
-                        and details["symbol"].lower() in params["methods"][method]
-                    ):
-                        await websocket.send(json.dumps(client_data))
+                return client_queue_data
+
+    async def send_to_client(self):
+        while True:
+            queue_data = await self.retrieve_queue_data()
+            for client in self.clients.copy():
+                try:
+                    if queue_data:
+                        for record in queue_data:
+                            for method, data in record.items():
+                                if data["symbol"].lower() in client["params"][
+                                    "methods"
+                                ].get(method, []):
+                                    await client["ws"].send(json.dumps(data))
+                except websockets.ConnectionClosed:
+                    pass
             await asyncio.sleep(0)
 
-    async def run_client_socket(self, websocket, session_id: str, params: dict):
-        heartbeat_tmstmp = dt.now()
-        await self.add_client(websocket, session_id, params)
-        try:
-            while True:
-                await self.send_to_client(websocket, params)
-                if (dt.now() - heartbeat_tmstmp).seconds > 1:
-                    await websocket.send("heartbeat")
-                    heartbeat_tmstmp = dt.now()
-                await asyncio.sleep(0)
-        except websockets.exceptions.ConnectionClosed:
-            print(f"Session {session_id} ended")
-        finally:
-            self.clients.remove(session_id)
-
-    async def client_server(self, websocket, path: str):
-        session_id = str(websocket.id)
-        params = self.get_ws_parameters(path)
-        if not params:
-            print(f"Failed connection attempt (invalid parameters): {session_id}")
-            await websocket.send("Invalid parameters")
-            await websocket.close()
-        else:
-            await asyncio.gather(self.run_client_socket(websocket, session_id, params))
-
-    def run_clients_websocket(self):
-        start_server = websockets.serve(self.client_server, self.host, self.port)
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(start_server)
-        asyncio.get_event_loop().run_forever()
+    async def run_clients_websocket(self):
+        async with websockets.serve(self.add_client, self.host, self.port):
+            await self.send_to_client()
 
 
 if __name__ == "__main__":
     # To debug from CLI: wscat -c ws://localhost:8768?exchange=kraken?trades=btc-usd?book=btc-usd
     aggregator = MarketDataAggregator(exchanges=["KRAKEN"], pairs=["BTC-USD"])
-    aggregator.run_clients_websocket()
+    asyncio.run(aggregator.run_clients_websocket())
