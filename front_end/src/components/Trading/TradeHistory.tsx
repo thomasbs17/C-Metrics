@@ -29,12 +29,7 @@ function formatTimeStamp(originalDate: any) {
   return formattedDate
 }
 
-function TradeTable({
-  selectedPair,
-  paper,
-  live,
-  trades,
-}: TableProps) {
+function TradeTable({ selectedPair, paper, live, trades }: TableProps) {
   const dispatch = useDispatch()
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,

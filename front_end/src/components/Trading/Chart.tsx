@@ -548,7 +548,9 @@ function OhlcChart(props: OhlcChartProps) {
     title: {
       align: 'left',
       useHTML: true,
-      text: props.cryptoInfo !== undefined && `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name}`,
+      text:
+        props.cryptoInfo !== undefined &&
+        `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name}`,
       style: {
         fontSize: '20px',
       },
@@ -633,20 +635,21 @@ function OhlcChart(props: OhlcChartProps) {
         'supportLine',
         'resistanceLine',
       ]
-      yAxisPlotLinesId.forEach(
-        (id: string) =>
-          chartRef.current?.chart.series[0].yAxis.removePlotLine(id),
+      yAxisPlotLinesId.forEach((id: string) =>
+        chartRef.current?.chart.series[0].yAxis.removePlotLine(id),
       )
       const xAxisPlotLinesId = ['selectedArticleDate', 'selectedOrderDate']
-      xAxisPlotLinesId.forEach(
-        (id: string) =>
-          chartRef.current?.chart.series[0].xAxis.removePlotLine(id),
+      xAxisPlotLinesId.forEach((id: string) =>
+        chartRef.current?.chart.series[0].xAxis.removePlotLine(id),
       )
       chartRef.current.chart.series[0].name = props.pair
       chartRef.current.chart.setTitle({
         align: 'left',
         useHTML: true,
-        text: props.cryptoInfo === undefined ? '' : `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name}`,
+        text:
+          props.cryptoInfo === undefined
+            ? ''
+            : `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name}`,
         style: {
           fontSize: '20px',
         },
