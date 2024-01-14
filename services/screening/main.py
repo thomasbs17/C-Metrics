@@ -1,15 +1,20 @@
 import asyncio
 import math
 import multiprocessing
-import threading
+import os
+import sys
 from datetime import timedelta, date, datetime as dt
 
-import ccxt
+import ccxt.async_support as ccxt
 import pandas as pd
 import pandas_ta as ta
 import websockets
 
 from indicators.technicals import FractalCandlestickPattern
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+from utils.helpers import get_exchange_object
 
 
 class Screener:
@@ -35,24 +40,17 @@ class Screener:
 
     async def daily_refresh(self, exchange: ccxt.Exchange, symbols: dict):
         if date.today() != self.data["refresh_tmstmp"]["daily"]:
-            self.daily_data_refresh(exchange, symbols)
-            self.daily_indicators_refresh(exchange, symbols, multi_process=False)
+            self.data["exchanges"][exchange.name] = dict()
+            await self.daily_data_refresh(exchange, symbols)
+            await self.daily_indicators_refresh(exchange, symbols, multi_process=False)
             self.data["refresh_tmstmp"]["daily"] = date.today()
 
-    def daily_data_refresh(self, exchange: ccxt.Exchange, symbols: dict):
-        threads = []
+    async def daily_data_refresh(self, exchange: ccxt.Exchange, symbols: dict):
         for pair, details in symbols.items():
             if self.ref_currency and details["quote"] == self.ref_currency:
-                thread = threading.Thread(
-                    target=self.get_pair_ohlcv, args=(exchange, pair)
-                )
-                threads.append(thread)
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
+                await self.get_pair_ohlcv(exchange, pair)
 
-    def daily_indicators_refresh(
+    async def daily_indicators_refresh(
         self, exchange: ccxt.Exchange, symbols: dict, multi_process: bool
     ):
         if multi_process:
@@ -101,59 +99,60 @@ class Screener:
         bbands_df = ta.bbands(ohlc["close"])
         if bbands_df is not None:
             columns = [column for column in bbands_df.columns]
-            self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][columns] = bbands_df
+            self.data["exchanges"][exchange.name][pair]["data"]["ohlc"][
+                columns
+            ] = bbands_df
         self.data["exchanges"][exchange.name][pair]["data"]["ohlc"]["rsi"] = ta.rsi(
             ohlc["close"]
         )
 
-    def get_pair_ohlcv(self, exchange: ccxt.Exchange, pair: str):
-        if self.verbose:
-            print(f"Downloading OHLCV data for {pair}")
+    # @run_with_rate_limits
+    async def get_pair_ohlcv(self, exchange: ccxt.Exchange, pair: str):
         if pair not in self.data["exchanges"][exchange.name]:
             self.data["exchanges"][exchange.name][pair] = dict(
                 data=dict(), indicators=dict()
             )
-        ohlc_data = exchange.fetch_ohlcv(symbol=pair, timeframe="1d", limit=300)
-        ohlc_data = pd.DataFrame(
-            data=ohlc_data,
-            columns=["timestamp", "open", "high", "low", "close", "volume"],
-        )
-        self.data["exchanges"][exchange.name][pair]["data"]["ohlc"] = ohlc_data
+        if "ohlc" not in self.data["exchanges"][exchange.name][pair]["data"]:
+            if self.verbose:
+                print(f"Downloading OHLCV data for {pair}")
+            ohlc_data = await exchange.fetch_ohlcv(
+                symbol=pair, timeframe="1d", limit=300
+            )
+            ohlc_data = pd.DataFrame(
+                data=ohlc_data,
+                columns=["timestamp", "open", "high", "low", "close", "volume"],
+            )
+            self.data["exchanges"][exchange.name][pair]["data"]["ohlc"] = ohlc_data
 
     async def live_refresh(self, exchange: ccxt.Exchange, symbols: dict):
         time_diff = dt.now() - self.data["refresh_tmstmp"]["live"]
         time_diff = (time_diff.days * 24 * 60 * 60) + time_diff.seconds
         if time_diff > self.live_refresh_second_frequency:
-            self.live_data_refresh(exchange, symbols)
-            self.live_indicators_refresh(exchange, symbols)
+            await self.live_data_refresh(exchange, symbols)
+            await self.live_indicators_refresh(exchange, symbols)
             self.data["refresh_tmstmp"]["live"] = dt.now()
 
-    def live_data_refresh(self, exchange: ccxt.Exchange, symbols: dict):
-        threads = []
+    async def live_data_refresh(self, exchange: ccxt.Exchange, symbols: dict):
         for pair, details in symbols.items():
             if self.ref_currency and details["quote"] == self.ref_currency:
                 if pair not in self.data["exchanges"][exchange.name]:
                     self.data["exchanges"][exchange.name][pair] = dict(
                         data=dict(), indicators=dict()
                     )
-                thread = threading.Thread(
-                    target=self.get_pair_book,
-                    args=(exchange, pair),
-                )
-                threads.append(thread)
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
+                await self.get_pair_book(exchange, pair)
 
-    def get_pair_book(self, exchange: ccxt.Exchange, pair: str):
+    # @run_with_rate_limits
+    async def get_pair_book(self, exchange: ccxt.Exchange, pair: str):
         if self.verbose:
             print(f"Downloading Order Book data for {pair}")
-        self.data["exchanges"][exchange.name][pair]["data"][
-            "book"
-        ] = exchange.fetch_order_book(symbol=pair, limit=100)
+        try:
+            self.data["exchanges"][exchange.name][pair]["data"][
+                "book"
+            ] = await exchange.fetch_order_book(symbol=pair, limit=100)
+        except Exception as e:
+            print(f"Could not load order book for {pair}: {e}")
 
-    def live_indicators_refresh(self, exchange: ccxt.Exchange, symbols: dict):
+    async def live_indicators_refresh(self, exchange: ccxt.Exchange, symbols: dict):
         self.data["exchanges"][exchange.name]["scores"] = self.get_scoring(
             exchange, symbols
         )
@@ -161,8 +160,14 @@ class Screener:
     def get_book_scoring(
         self, exchange: ccxt.Exchange, pair: str, depth: int = 50
     ) -> float:
+        if "book" not in self.data["exchanges"][exchange.name][pair]["data"]:
+            return 0
         pair_book = self.data["exchanges"][exchange.name][pair]["data"]["book"]
-        columns = ["price", "volume", "timestamp"]
+        columns = (
+            ["price", "volume", "timestamp"]
+            if len(pair_book["bids"][0]) == 3
+            else ["price", "volume"]
+        )
         bids = pd.DataFrame(pair_book["bids"], columns=columns).head(depth)
         asks = pd.DataFrame(pair_book["asks"], columns=columns).head(depth)
         spread = asks.loc[0, "price"] / bids.loc[0, "price"]
@@ -225,10 +230,8 @@ class Screener:
     async def run_screening(self, websocket):
         while True:
             for exchange in self.exchange_list:
-                exchange_object = getattr(ccxt, exchange)()
-                symbols = exchange_object.load_markets()
-                if exchange_object.name not in self.data["exchanges"]:
-                    self.data["exchanges"][exchange_object.name] = dict()
+                exchange_object = get_exchange_object(exchange, async_mode=True)
+                symbols = await exchange_object.load_markets()
                 await self.daily_refresh(exchange_object, symbols)
                 await self.live_refresh(exchange_object, symbols)
                 if self.verbose:
@@ -249,15 +252,15 @@ class Screener:
                         await websocket.close()
                         return
                     await asyncio.sleep(10)
+                await exchange_object.close()
 
     async def send_updates_to_clients(self, websocket, exchange_name):
-        # Your logic to send updates to clients
         scores_data = self.data["exchanges"][exchange_name].get("scores", "")
         await websocket.send(scores_data)
 
 
 def run_websocket():
-    screener = Screener(exchange_list=["kraken"], verbose=False)
+    screener = Screener(exchange_list=["coinbase"], verbose=False)
     start_server = websockets.serve(screener.run_screening, "localhost", 8795)
     asyncio.get_event_loop().run_until_complete(start_server)
     asyncio.get_event_loop().run_forever()

@@ -1,5 +1,5 @@
-from datetime import datetime as dt
 import uuid
+from datetime import datetime as dt
 
 import ccxt
 from GoogleNews import GoogleNews
@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 from crypto_station_api.data_sources.coinmarketcap import CoinMarketCap
 from crypto_station_api.models import Orders, Trades
 from crypto_station_api.serializers import OrdersSerializer, TradesSerializer
+from utils.helpers import get_exchange_object
 
 coinmarketcap = CoinMarketCap()
 
@@ -32,8 +33,7 @@ def get_ohlc(request):
     exchange = request.query_params.get("exchange")
     timeframe = request.query_params.get("timeframe")
     pair = request.query_params.get("pair")
-    exchange_class = getattr(ccxt, exchange)
-    exchange = exchange_class()
+    exchange = get_exchange_object(exchange, async_mode=False)
     ohlc_data = exchange.fetch_ohlcv(symbol=pair, timeframe=timeframe, limit=300)
     return JsonResponse(ohlc_data, safe=False)
 
@@ -42,9 +42,8 @@ def get_ohlc(request):
 def get_order_book(request):
     exchange = request.query_params.get("exchange")
     pair = request.query_params.get("pair")
-    exchange_class = getattr(ccxt, exchange)
-    exchange = exchange_class()
-    order_book_data = exchange.fetch_order_book(symbol=pair, limit=1000)
+    exchange = get_exchange_object(exchange, async_mode=False)
+    order_book_data = exchange.fetch_order_book(symbol=pair, limit=10000)
     return JsonResponse(order_book_data, safe=False)
 
 
@@ -74,8 +73,7 @@ def get_crypto_meta_data(request):
 @api_view(["GET"])
 def get_exchange_markets(request):
     exchange = request.query_params.get("exchange")
-    exchange_class = getattr(ccxt, exchange)
-    exchange = exchange_class()
+    exchange = get_exchange_object(exchange, async_mode=False)
     return JsonResponse(exchange.load_markets(), safe=False)
 
 
@@ -93,8 +91,7 @@ def get_news(request):
 def get_public_trades(request):
     exchange = request.query_params.get("exchange")
     pair = request.query_params.get("pair")
-    exchange_class = getattr(ccxt, exchange)
-    exchange = exchange_class()
+    exchange = get_exchange_object(exchange, async_mode=False)
     data = exchange.fetch_trades(symbol=pair, limit=1000)
     return JsonResponse(data, safe=False)
 
@@ -102,6 +99,7 @@ def get_public_trades(request):
 @api_view(["POST"])
 def post_new_order(request):
     new_order = Orders(
+        order_dim_key=str(uuid.uuid4()),
         user_id=request.data["user_id"],
         order_id=str(uuid.uuid4()),
         broker_id=request.data["broker_id"],

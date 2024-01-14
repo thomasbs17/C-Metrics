@@ -15,7 +15,7 @@ export interface FilterState {
 const initialState: FilterState = {
   tradingType: 'Paper Trading',
   ohlcPeriod: '1d',
-  exchange: 'kraken',
+  exchange: 'coinbase',
   pair: 'BTC/USD',
   selectedArticle: ['', ''],
   selectedOrder: ['', '', ''],
