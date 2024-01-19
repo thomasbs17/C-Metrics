@@ -43,3 +43,5 @@ demo.log
 front_end/package-lock.json
 front_end/yarn.lock
 crypto_station_api/.idea/*
+feedhandler.log
+test.py
