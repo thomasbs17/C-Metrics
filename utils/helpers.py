@@ -17,14 +17,17 @@ environ.Env.read_env()
 API_LIMIT_RETRY_DELAY = 20
 
 
-def get_api_keys(exchange: str) -> dict:
+def get_api_keys(exchange: str, websocket: bool = False) -> dict:
     try:
         key = env(f"{exchange}_api_key")
         secret = env(f"{exchange}_api_secret")
     except django.core.exceptions.ImproperlyConfigured:
         key = secret = None
     if key and secret:
-        return dict(apiKey=key, secret=secret)
+        if websocket:
+            return dict(key_id=key, key_secret=secret)
+        else:
+            return dict(apiKey=key, secret=secret)
 
 
 def get_exchange_object(exchange: str, async_mode: bool) -> ccxt.Exchange:
