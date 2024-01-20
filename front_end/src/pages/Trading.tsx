@@ -48,8 +48,8 @@ function BottomLeftContainer(data: { tradingData: tradingDataDef }) {
           <Tab value="create-order" label="Create Order" />
         </Tabs>
         {value === 'orders' && <Orders tradingData={data.tradingData} />}
-        {value === 'holdings' && <Holdings tradingData={data.tradingData}/>}
-        {value === 'trade-history' && <Trades tradingData={data.tradingData}/>}
+        {value === 'holdings' && <Holdings tradingData={data.tradingData} />}
+        {value === 'trade-history' && <Trades tradingData={data.tradingData} />}
         {value === 'create-order' && <CreateOrderWidget />}
       </Box>
     </div>

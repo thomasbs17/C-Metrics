@@ -2,17 +2,31 @@ import asyncio
 import json
 import math
 import multiprocessing
+from datetime import datetime as dt
+import os
 from queue import Empty
+import sys
 
 import websockets
 from cryptofeed import FeedHandler
 from cryptofeed.defines import TRADES, L2_BOOK
 from cryptofeed.exchanges import EXCHANGE_MAP
 
-FEED_CONFIG = {
+BASE_CONFIG = {
     "log": {"filename": "demo.log", "level": "DEBUG", "disabled": True},
     "backend_multiprocessing": True,
 }
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+from utils.helpers import get_api_keys
+
+import json
+
+from dotenv import load_dotenv
+
+
+load_dotenv(verbose=True)
 
 
 class MarketDataAggregator:
@@ -41,10 +55,19 @@ class MarketDataAggregator:
         self.client_data_queue = multiprocessing.Queue()
         self.add_all_feeds()
 
+    @staticmethod
+    def get_feed_config(exchange_name: str) -> dict:
+        feed_config = BASE_CONFIG.copy()
+        keys = get_api_keys(exchange_name.lower(), websocket=True)
+        if keys:
+            feed_config[exchange_name.lower()] = keys
+        return feed_config
+
     def get_markets(self) -> dict:
         markets = dict()
         for exchange_name, exchange_object in self.exchanges.items():
-            pairs = exchange_object.symbols()
+            feed_config = self.get_feed_config(exchange_name)
+            pairs = exchange_object.symbols(feed_config)
             filtered_pairs = list()
             for pair in pairs:
                 if not self.pairs or pair in self.pairs:
@@ -91,8 +114,9 @@ class MarketDataAggregator:
     def run_process(self, markets: dict):
         # https://stackoverflow.com/questions/3288595/multiprocessing-how-to-use-pool-map-on-a-function-defined-in-a-class
         multiprocessing.current_process().daemon = False
-        f = FeedHandler(FEED_CONFIG)
+        f = FeedHandler()
         for exchange, exchange_pairs in markets.items():
+            feed_config = self.get_feed_config(exchange)
             f.add_feed(
                 EXCHANGE_MAP[exchange](
                     channels=[L2_BOOK, TRADES],
@@ -101,7 +125,7 @@ class MarketDataAggregator:
                         L2_BOOK: self.book_callback,
                         TRADES: self.trades_callback,
                     },
-                    config=FEED_CONFIG,
+                    config=feed_config,
                 )
             )
         f.run()
@@ -155,8 +179,15 @@ class MarketDataAggregator:
         client_queue_data = list()
         while True:
             try:
-                data = self.client_data_queue.get_nowait()
-                client_queue_data.append(data)
+                queue_data = self.client_data_queue.get(block=False, timeout=1)
+                for method, details in queue_data.items():
+                    if (
+                        method in params["methods"]
+                        and params["exchange"][0].upper() == details["exchange"]
+                        and details["symbol"].upper()
+                        in [pair.upper() for pair in params["methods"][method]]
+                    ):
+                        await websocket.send(json.dumps(queue_data, default=str))
             except Empty:
                 return client_queue_data
 
@@ -182,6 +213,6 @@ class MarketDataAggregator:
 
 
 if __name__ == "__main__":
-    # To debug from CLI: wscat -c ws://localhost:8768?exchange=kraken?trades=btc-usd?book=btc-usd
-    aggregator = MarketDataAggregator(exchanges=["KRAKEN"], pairs=["BTC-USD"])
-    asyncio.run(aggregator.run_clients_websocket())
+    # To debug from CLI: wscat -c ws://localhost:8768?exchange=coinbase?trades=btc-usd?book=btc-usd
+    aggregator = MarketDataAggregator(exchanges=["COINBASE"], pairs=["BTC-USD"])
+    aggregator.run_clients_websocket()
