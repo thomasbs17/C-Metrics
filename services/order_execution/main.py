@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import platform
 import uuid
 from datetime import datetime as dt
 from pathlib import Path
@@ -115,6 +116,7 @@ class OnStartChecker:
     async def add_updated_order_rows(self, orders_df: pd.DataFrame = None):
         if orders_df is None:
             orders_df = self.get_updated_order_rows_df()
+        orders_df["order_dim_key"] = str(uuid.uuid4())
         orders_df.to_sql(
             "crypto_station_api_orders",
             con=self.db,
@@ -183,7 +185,8 @@ class OrderExecutionService(OnStartChecker):
         )
         self.db = get_db_connection()
         self.orders = self.retrieve_from_db()
-        super().__init__(open_orders_df=self.orders, db=self.db)
+        if "linux" not in platform.platform():
+            super().__init__(open_orders_df=self.orders, db=self.db)
         self.run_on_start_checker()
         self.add_user_channels()
 
@@ -260,7 +263,7 @@ class OrderExecutionService(OnStartChecker):
         await self.handle_fills(filled_orders)
 
     async def initialize_websocket(self):
-        broker = "kraken"
+        broker = "coinbase"
         assets = self.get_asset_list(broker)
         uri = f"{WS_URL}?exchange={broker}?trades={','.join(assets)}"
         try:
@@ -269,7 +272,11 @@ class OrderExecutionService(OnStartChecker):
                     response = await websocket.recv()
                     if response != "heartbeat":
                         await self.check_fills(response)
-        except ConnectionRefusedError:
+        except (
+            ConnectionRefusedError
+            or websockets.ConnectionClosedError
+            or asyncio.IncompleteReadError
+        ):
             print("The Real Time Data service is down.")
 
 
