@@ -302,19 +302,18 @@ function LoadOhlcvData() {
 }
 
 function formatOrderBook(rawOrderBook: any, isWebSocketFeed: boolean) {
-  const formattedBook: OrderBookData = { bid: [], ask: [] };
-  rawOrderBook = rawOrderBook.book;
-  ['bid', 'ask'].forEach((side: string) => {
+  const formattedBook: OrderBookData = { bid: [], ask: [] }
+  ;['bid', 'ask'].forEach((side: string) => {
     let cumulativeVolume = 0
     if (isWebSocketFeed) {
       const sortedPrices =
         side === 'bid'
           ? Object.keys(rawOrderBook[side]).sort(
-            (a, b) => parseFloat(b) - parseFloat(a),
-          )
+              (a, b) => parseFloat(b) - parseFloat(a),
+            )
           : Object.keys(rawOrderBook[side]).sort(
-            (a, b) => parseFloat(a) - parseFloat(b),
-          )
+              (a, b) => parseFloat(a) - parseFloat(b),
+            )
       formattedBook[side].push([0, parseFloat(sortedPrices[0])])
       sortedPrices.forEach((price: string) => {
         cumulativeVolume += rawOrderBook[side][price]
@@ -356,7 +355,7 @@ function LoadOrderBook() {
       }
     }
 
-    const wsUrl = `ws://localhost:8768?exchange=${exchange}?book=${pair.replace("/", "-")}`
+    const wsUrl = `ws://localhost:8768?exchange=${exchange}?book=${pair.replace('/', '-')}`
     const socket = new WebSocket(wsUrl)
 
     socket.onerror = () => {
@@ -372,7 +371,7 @@ function LoadOrderBook() {
       if (event.data != 'heartbeat') {
         const newData = JSON.parse(event.data)
         if (Object.keys(newData).includes('book')) {
-          setOrderBookData(formatOrderBook(newData.book, true))
+          setOrderBookData(formatOrderBook(newData.book.book, true))
         }
       }
     }

@@ -2,30 +2,26 @@ import asyncio
 import json
 import math
 import multiprocessing
-from datetime import datetime as dt
 import os
-from queue import Empty
 import sys
+from datetime import datetime as dt
+from queue import Empty
 
 import websockets
 from cryptofeed import FeedHandler
 from cryptofeed.defines import TRADES, L2_BOOK
 from cryptofeed.exchanges import EXCHANGE_MAP
-
-BASE_CONFIG = {
-    "log": {"filename": "demo.log", "level": "DEBUG", "disabled": True},
-    "backend_multiprocessing": True,
-}
+from dotenv import load_dotenv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from utils.helpers import get_api_keys
 
-import json
 
-from dotenv import load_dotenv
-
-
+BASE_CONFIG = {
+    "log": {"filename": "demo.log", "level": "DEBUG", "disabled": True},
+    "backend_multiprocessing": True,
+}
 load_dotenv(verbose=True)
 
 
@@ -37,7 +33,7 @@ class MarketDataAggregator:
         self,
         exchanges: list = None,
         pairs: list = None,
-        ref_curreny: str = None,
+        ref_currency: str = None,
         max_cpu_amount: int = None,
     ):
         self.cpu_amount = (
@@ -49,9 +45,10 @@ class MarketDataAggregator:
             else EXCHANGE_MAP
         )
         self.pairs = pairs
-        self.ref_currency = ref_curreny
+        self.ref_currency = ref_currency
         self.markets = self.get_markets()
         self.clients = list()
+        self.client_queue = multiprocessing.Queue()
         self.client_data_queue = multiprocessing.Queue()
         self.add_all_feeds()
 
@@ -103,9 +100,14 @@ class MarketDataAggregator:
         return sub_lists
 
     async def _callback(self, method: str, data):
+        try:
+            queue_data = self.client_queue.get(block=False, timeout=0.01)
+        except Empty:
+            return
+        self.client_queue.put(queue_data)
         self.client_data_queue.put({method: data.to_dict(numeric_type=float)})
 
-    async def book_callback(self, data: dict, _):
+    async def book_callback(self, data: dict, tmstmp: float):
         await self._callback(method="book", data=data)
 
     async def trades_callback(self, data: dict, tmstmp: float):
@@ -138,23 +140,13 @@ class MarketDataAggregator:
             processes.append(process)
             process.start()
 
-    async def add_client(
-        self,
-        websocket: websockets.WebSocketServerProtocol,
-        path: str,
+    async def send_to_aggregator_process(
+        self, websocket, session_id: str, params: dict
     ):
-        params = self.get_ws_parameters(path)
-        print(
-            f"New session: {websocket.id} with parameters: {params} (process: {self})"
-        )
-        session_id = str(websocket.id)
-        clients_details = dict(ws=websocket, params=params, session_id=session_id)
-        self.clients.append(clients_details)
-        try:
-            await websocket.wait_closed()
-        finally:
-            self.clients = [ws for ws in self.clients if ws["session_id"] != session_id]
-            print(f"Session {session_id} ended")
+        if session_id not in self.clients:
+            self.clients.append(session_id)
+            print(f"New session: {websocket.id} with parameters: {params}")
+            self.client_queue.put(session_id)
 
     @staticmethod
     def get_ws_parameters(path: str) -> dict:
@@ -175,8 +167,7 @@ class MarketDataAggregator:
         if is_validated:
             return formatted_param
 
-    async def retrieve_queue_data(self) -> list:
-        client_queue_data = list()
+    async def send_to_client(self, websocket, params: dict):
         while True:
             try:
                 queue_data = self.client_data_queue.get(block=False, timeout=1)
@@ -189,30 +180,44 @@ class MarketDataAggregator:
                     ):
                         await websocket.send(json.dumps(queue_data, default=str))
             except Empty:
-                return client_queue_data
+                return
 
-    async def send_to_client(self):
+    async def empty_queue(self):
         while True:
-            queue_data = await self.retrieve_queue_data()
-            for client in self.clients.copy():
-                try:
-                    if queue_data:
-                        for record in queue_data:
-                            for method, data in record.items():
-                                if data["symbol"].lower() in client["params"][
-                                    "methods"
-                                ].get(method, []):
-                                    await client["ws"].send(json.dumps(data))
-                except websockets.ConnectionClosed:
-                    pass
-            await asyncio.sleep(0)
+            try:
+                self.client_queue.get(block=False, timeout=0.01)
+            except Empty:
+                break
 
-    async def run_clients_websocket(self):
-        async with websockets.serve(self.add_client, self.host, self.port):
-            await self.send_to_client()
+    async def client_server(self, websocket, path: str):
+        session_id = str(websocket.id)
+        params = self.get_ws_parameters(path)
+        heartbeat_tmstmp = dt.now()
+        if not params:
+            print(f"Failed connection attempt (invalid parameters): {session_id}")
+            await websocket.send("Invalid parameters")
+            await websocket.close()
+        else:
+            while True:
+                await self.send_to_aggregator_process(websocket, session_id, params)
+                try:
+                    await self.send_to_client(websocket, params)
+                    if (dt.now() - heartbeat_tmstmp).seconds > 1:
+                        await websocket.send("heartbeat")
+                        heartbeat_tmstmp = dt.now()
+                except websockets.exceptions.ConnectionClosed:
+                    print(f"Session {session_id} ended")
+                    self.clients.remove(session_id)
+                    await self.empty_queue()
+                    await websocket.close()
+                    return
+
+    def run_clients_websocket(self):
+        start_server = websockets.serve(self.client_server, self.host, self.port)
+        asyncio.get_event_loop().run_until_complete(start_server)
+        asyncio.get_event_loop().run_forever()
 
 
 if __name__ == "__main__":
-    # To debug from CLI: wscat -c ws://localhost:8768?exchange=coinbase?trades=btc-usd?book=btc-usd
     aggregator = MarketDataAggregator(exchanges=["COINBASE"], pairs=["BTC-USD"])
     aggregator.run_clients_websocket()
