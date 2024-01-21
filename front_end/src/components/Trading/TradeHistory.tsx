@@ -85,6 +85,7 @@ function TradeTable({ selectedPair, paper, live, trades }: TableProps) {
 
   const handleClick = (trade: Trade) => {
     if (trade.trade_id !== selectedOrder[2]) {
+      dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
       dispatch(filterSlice.actions.setPair(trade.asset_id))
       dispatch(
         filterSlice.actions.setSelectedOrder([

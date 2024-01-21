@@ -219,7 +219,8 @@ function LoadNews(coinMarketCapMapping: any) {
   return news
 }
 
-function LoadScreeningData() {
+function LoadScreeningData(throtle: number = 500) {
+  let lastRefreshTmtstmp = Date.now()
   const dispatch = useDispatch()
   const selectedPair = useSelector(
     (state: { filters: FilterState }) => state.filters.pair,
@@ -269,6 +270,7 @@ function LoadNoDataAnimation() {
 }
 
 function LoadOhlcvData() {
+  const dispatch = useDispatch()
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
   )
@@ -288,6 +290,8 @@ function LoadOhlcvData() {
       } catch (error) {
         setOHLCData([])
         console.error('Error fetching OHLC data:', error)
+      } finally {
+        dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', false]))
       }
     }
     const ohlcInterval = setInterval(() => {

@@ -65,6 +65,7 @@ function Holdings(data: { tradingData: tradingDataDef }) {
 
   const handleClick = (pair: string) => {
     if (pair !== selectedPair) {
+      dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
       dispatch(filterSlice.actions.setPair(pair))
     }
   }
