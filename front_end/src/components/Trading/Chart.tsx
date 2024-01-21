@@ -236,6 +236,7 @@ function OrderBookChart(props: BookChartProps) {
     chart: {
       backgroundColor: 'transparent',
       height: CHART_HEIGHT - 215,
+      animation: false,
       zooming: {
         mouseWheel: { enabled: true, type: 'x' },
       },
