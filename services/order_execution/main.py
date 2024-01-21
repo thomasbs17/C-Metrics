@@ -116,7 +116,9 @@ class OnStartChecker:
     async def add_updated_order_rows(self, orders_df: pd.DataFrame = None):
         if orders_df is None:
             orders_df = self.get_updated_order_rows_df()
-        orders_df["order_dim_key"] = str(uuid.uuid4())
+        orders_df["order_dim_key"] = orders_df.apply(
+            lambda x: str(uuid.uuid4()), axis=1
+        )
         orders_df.to_sql(
             "crypto_station_api_orders",
             con=self.db,
