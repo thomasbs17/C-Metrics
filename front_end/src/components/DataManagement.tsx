@@ -257,7 +257,7 @@ function LoadNews(coinMarketCapMapping: any) {
   return news
 }
 
-function LoadScreeningData(throtle: number = 500) {
+function LoadScreeningData(throtle: number = 1000) {
   let lastRefreshTmtstmp = Date.now()
   const dispatch = useDispatch()
   const selectedPair = useSelector(
