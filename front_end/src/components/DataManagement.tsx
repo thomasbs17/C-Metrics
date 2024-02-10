@@ -219,7 +219,7 @@ function LoadNews(coinMarketCapMapping: any) {
   return news
 }
 
-function LoadScreeningData(throtle: number = 500) {
+function LoadScreeningData(throtle: number = 1000) {
   let lastRefreshTmtstmp = Date.now()
   const dispatch = useDispatch()
   const selectedPair = useSelector(
@@ -236,18 +236,21 @@ function LoadScreeningData(throtle: number = 500) {
       console.log('Connected to screening service')
     }
     socket.onmessage = (event) => {
-      const formattedData = JSON.parse(event.data)
-      setScreeningData(formattedData)
-      formattedData.forEach((pairDetails: any) => {
-        if (pairDetails.pair === selectedPair) {
-          dispatch(filterSlice.actions.setPairScoreDetails(pairDetails))
-        }
-      })
+      if (Date.now() - lastRefreshTmtstmp > throtle) {
+        lastRefreshTmtstmp = Date.now()
+        const formattedData = JSON.parse(event.data)
+        setScreeningData(formattedData)
+        formattedData.forEach((pairDetails: any) => {
+          if (pairDetails.pair === selectedPair) {
+            dispatch(filterSlice.actions.setPairScoreDetails(pairDetails))
+          }
+        })
+      }
     }
     return () => {
       socket.close()
     }
-  }, [dispatch, selectedPair])
+  }, [selectedPair])
   return screeningData
 }
 

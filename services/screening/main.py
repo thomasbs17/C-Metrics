@@ -159,30 +159,28 @@ class Screener:
         self, exchange: ccxt.Exchange, pair: str, depth: int = 50
     ) -> float:
         exchange_name = exchange.name.lower()
-        if "book" not in self.data["exchanges"][exchange_name]["mapping"][pair]["data"]:
+        pair_data = self.data["exchanges"][exchange_name]["mapping"][pair]["data"]
+        if "book" not in pair_data:
             return 0
-        pair_book = self.data["exchanges"][exchange_name]["mapping"][pair]["data"][
-            "book"
-        ]
-        columns = (
-            ["price", "volume", "timestamp"]
-            if len(pair_book["bids"][0]) == 3
-            else ["price", "volume"]
-        )
-        bids = pd.DataFrame(pair_book["bids"], columns=columns).head(depth)
-        asks = pd.DataFrame(pair_book["asks"], columns=columns).head(depth)
-        spread = asks.loc[0, "price"] / bids.loc[0, "price"]
-        return (bids["volume"].sum() / asks["volume"].sum()) / spread
+        pair_book = pair_data["book"]
+        data = dict()
+        for side in ("bid", "ask"):
+            df = pd.DataFrame.from_dict(
+                pair_book[side], orient="index", columns=["volume"]
+            )
+            data[side] = df
+        spread = float(data["ask"].index[0]) / float(data["bid"].index[0])
+        return (data["bid"]["volume"].sum() / data["ask"]["volume"].sum()) / spread
 
     def score_pair(self, exchange: ccxt.Exchange, pair: str) -> dict:
         exchange_name = exchange.name.lower()
-        levels = self.data["exchanges"][exchange_name]["mapping"][pair]["indicators"][
-            "fractals"
-        ]
-        ohlc = self.data["exchanges"][exchange_name]["mapping"][pair]["data"]["ohlc"]
-        last_close = self.data["exchanges"][exchange_name]["mapping"][pair]["data"][
-            "last"
-        ]
+        pair_data = self.data["exchanges"][exchange_name]["mapping"][pair]
+        levels = pair_data["indicators"]["fractals"]
+        ohlc = pair_data["data"]["ohlc"]
+        if "last" not in pair_data["data"]:
+            last_close = pair_data["data"]["ohlc"].tail(1)["close"].item()
+        else:
+            last_close = pair_data["data"]["last"]
         supports = [level for level in levels if level < last_close]
         resistances = [level for level in levels if level > last_close]
         details = dict()
@@ -211,16 +209,16 @@ class Screener:
 
     def get_scoring(self, exchange: ccxt.Exchange, symbols: dict) -> pd.DataFrame:
         scores = pd.DataFrame()
-        for pair in symbols:
-            pair_score = self.score_pair(exchange, pair)
-            if pair_score:
-                pair_score_df = pd.DataFrame([pair_score])
-                scores = pd.concat([scores, pair_score_df])
-        if scores.empty:
-            return scores
-        else:
+        for pair, details in symbols.items():
+            if self.ref_currency and details["quote"] == self.ref_currency:
+                pair_score = self.score_pair(exchange, pair)
+                if pair_score:
+                    pair_score_df = pd.DataFrame([pair_score])
+                    scores = pd.concat([scores, pair_score_df])
+        if not scores.empty:
+
             scores["book_score"] = scores["book_score"].apply(
-                lambda x: x / scores["book_score"].max()
+                lambda x: x / scores["book_score"].max() if scores["book_score"].max() > 0 else 0
             )
             book_weight = 0.2
             technicals_weight = 0.8
@@ -232,8 +230,10 @@ class Screener:
             return scores.sort_values(by="score", ascending=False)
 
     def print_scores(self, exchange: str, top_score_amount: int = 10):
-        top_scores = self.data["exchanges"][exchange]["scores"].head(top_score_amount)
-        print(top_scores.to_string())
+        scores = self.data["exchanges"][exchange]["scores"]
+        if scores is not None:
+            top_scores = scores.head(top_score_amount)
+            print(top_scores.to_string())
 
     async def is_pair_in_scope(self, details: dict) -> bool:
         if not self.user_symbols_list or details["id"] in self.user_symbols_list:
@@ -310,7 +310,7 @@ class Screener:
     async def run_client_websocket(self, client_ws):
         while True:
             exchange_name = "coinbase"  # TODO: to be updated
-            if "scores" in self.data["exchanges"][exchange_name]:
+            if self.data["exchanges"][exchange_name].get("scores") is not None:
                 ws_data = self.data["exchanges"][exchange_name]["scores"].to_json(
                     orient="records"
                 )
@@ -322,11 +322,11 @@ class Screener:
                 ):
                     await client_ws.close()
                     return
-            await asyncio.sleep(0)
+            await asyncio.sleep(1)
 
 
 async def run_websocket():
-    screener = Screener(exchange_list=["coinbase"], verbose=True)
+    screener = Screener(exchange_list=["coinbase"], user_symbols_list=['BTC-USD', 'ETH-USD'])
     screening_task = asyncio.create_task(screener.run_screening())
     start_server = websockets.serve(screener.run_client_websocket, "localhost", 8795)
     await asyncio.gather(screening_task, start_server)

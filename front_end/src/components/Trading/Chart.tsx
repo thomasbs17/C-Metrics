@@ -403,6 +403,11 @@ function OrderBookChart(props: BookChartProps) {
   }, [props.pairScoreDetails, props.selectedOrder])
 
   function afterSetExtremes(this: any, e: any) {
+    let bookSideDetails = { ask: {}, bid: {} }
+    Object.keys(bookSideDetails).forEach((side: string) => {
+      const amountOfQuotes = props.data[side].length
+    })
+
     this.setExtremes(0, this.max)
     const charts = Highcharts.charts
     let orderBookChart: any
