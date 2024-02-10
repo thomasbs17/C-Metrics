@@ -830,23 +830,31 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
     (state: { filters: FilterState }) => state.filters,
   )
 
-  const [exchange, pair, selectedOrder, pairScoreDetails, selectedArticle] =
-    useMemo(
-      () => [
-        filterState.exchange,
-        filterState.pair,
-        filterState.selectedOrder,
-        filterState.pairScoreDetails,
-        filterState.selectedArticle,
-      ],
-      [
-        filterState.exchange,
-        filterState.pair,
-        filterState.selectedOrder,
-        filterState.pairScoreDetails,
-        filterState.selectedArticle,
-      ],
-    )
+  const [
+    exchange,
+    pair,
+    selectedOrder,
+    pairScoreDetails,
+    selectedArticle,
+    loadingComponents,
+  ] = useMemo(
+    () => [
+      filterState.exchange,
+      filterState.pair,
+      filterState.selectedOrder,
+      filterState.pairScoreDetails,
+      filterState.selectedArticle,
+      filterState.loadingComponents,
+    ],
+    [
+      filterState.exchange,
+      filterState.pair,
+      filterState.selectedOrder,
+      filterState.pairScoreDetails,
+      filterState.selectedArticle,
+      filterState.loadingComponents,
+    ],
+  )
 
   const [cryptoInfo, setCryptoInfo] = useState<any>({})
   const [cryptoMetaData, setCryptoMetaData] = useState<any>({})
@@ -892,24 +900,23 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
     <div style={{ height: CHART_HEIGHT }}>
       <Row style={{ height: CHART_HEIGHT }}>
         <Col sm={10} style={{ zIndex: 1 }}>
-          {data.tradingData.ohlcvData.length === 0 ? (
+          {loadingComponents['ohlcv'] && (
             <CircularProgress
               style={{ position: 'absolute', top: '30%', left: '40%' }}
             />
-          ) : (
-            <OhlcChart
-              data={data.tradingData.ohlcvData}
-              exchange={exchange}
-              pair={pair}
-              selectedArticle={selectedArticle}
-              selectedOrder={selectedOrder}
-              pairScoreDetails={pairScoreDetails}
-              volumeArray={volumeArray}
-              cryptoInfo={cryptoInfo}
-              cryptoMetaData={cryptoMetaData}
-              decimalPlaces={decimalPlaces}
-            />
           )}
+          <OhlcChart
+            data={data.tradingData.ohlcvData}
+            exchange={exchange}
+            pair={pair}
+            selectedArticle={selectedArticle}
+            selectedOrder={selectedOrder}
+            pairScoreDetails={pairScoreDetails}
+            volumeArray={volumeArray}
+            cryptoInfo={cryptoInfo}
+            cryptoMetaData={cryptoMetaData}
+            decimalPlaces={decimalPlaces}
+          />
         </Col>
         <Col sm={2} style={{ zIndex: 2 }}>
           {Object.keys(data.tradingData.orderBookData).includes('bid') &&

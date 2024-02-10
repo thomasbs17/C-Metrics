@@ -10,6 +10,7 @@ export interface FilterState {
   selectedOrder: [string, string, string]
   ordersNeedReload: boolean
   pairScoreDetails: any
+  loadingComponents: { [key: string]: boolean }
 }
 
 const initialState: FilterState = {
@@ -21,6 +22,7 @@ const initialState: FilterState = {
   selectedOrder: ['', '', ''],
   ordersNeedReload: true,
   pairScoreDetails: {},
+  loadingComponents: { ohlcv: true, book: true },
 }
 
 export const filterSlice = createSlice({
@@ -50,6 +52,9 @@ export const filterSlice = createSlice({
     },
     setPairScoreDetails: (state, action) => {
       state.pairScoreDetails = action.payload
+    },
+    setLoadingComponents: (state, action) => {
+      state.loadingComponents[action.payload[0]] = action.payload[1]
     },
   },
 })

@@ -23,6 +23,7 @@ function Screening(data: any) {
   )
 
   const handleClick = (pairDetails: any) => {
+    dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
     dispatch(filterSlice.actions.setPair(pairDetails.pair))
     dispatch(filterSlice.actions.setPairScoreDetails(pairDetails))
     dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))

@@ -94,6 +94,7 @@ function OrderTable({
 
   const handleClick = (order: Order) => {
     if (order.order_id !== selectedOrder[2]) {
+      dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
       dispatch(filterSlice.actions.setPair(order.asset_id))
       dispatch(
         filterSlice.actions.setSelectedOrder([
