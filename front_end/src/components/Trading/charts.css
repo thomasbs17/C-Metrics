@@ -302,7 +302,7 @@ li.highcharts-disabled-btn:hover,
   overflow-y: hidden;
   width: 75%;
   min-width: 300px;
-  max-width: 600px;
+  max-width: 800px;
   position: absolute;
   z-index: 100;
   -webkit-box-shadow: 0 0 8px 0 rgba(61, 61, 61, 0.3);

@@ -60,8 +60,8 @@ function TradeTable({ selectedPair, paper, live, trades }: TableProps) {
   }
 
   function rowBackGroundColor(trade: Trade) {
-    if (trade.trade_id === selectedOrder[2]) {
-      if (trade.trade_id === 'buy') {
+    if (trade.order_id === selectedOrder[2]) {
+      if (trade.trade_side === 'buy') {
         return 'green'
       } else {
         return 'red'
@@ -72,7 +72,7 @@ function TradeTable({ selectedPair, paper, live, trades }: TableProps) {
   }
 
   function rowFontColor(trade: Trade) {
-    if (trade.trade_id === selectedOrder[2]) {
+    if (trade.order_id === selectedOrder[2]) {
       return 'white'
     } else {
       if (trade.trade_side === 'buy') {
@@ -84,9 +84,7 @@ function TradeTable({ selectedPair, paper, live, trades }: TableProps) {
   }
 
   const handleClick = (trade: Trade) => {
-    if (trade.trade_id !== selectedOrder[2]) {
-      dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
-      dispatch(filterSlice.actions.setPair(trade.asset_id))
+    if (trade.order_id !== selectedOrder[2]) {
       dispatch(
         filterSlice.actions.setSelectedOrder([
           trade.execution_tmstmp,
@@ -94,6 +92,9 @@ function TradeTable({ selectedPair, paper, live, trades }: TableProps) {
           trade.order_id,
         ]),
       )
+      if (pair !== trade['asset_id']) {
+        dispatch(filterSlice.actions.setPair(trade.asset_id))
+      }
     } else {
       dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
     }

@@ -174,6 +174,7 @@ function PairFilter(props: FilterProps) {
     if (value !== null && value !== undefined) {
       setSelectedValue(value)
       dispatch(filterSlice.actions.setPair(value))
+      dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
       navigate(`/trading?exchange=${exchange}&pair=${value}`)
       props.handleClose()
     }
