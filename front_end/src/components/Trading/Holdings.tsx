@@ -9,47 +9,13 @@ import {
 } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { Trade, tradingDataDef } from '../DataManagement'
+import {
+  LatestHoldings,
+  Trade,
+  getHoldingVolumesFromTrades,
+  tradingDataDef,
+} from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
-
-type Holdings = { [asset: string]: [string, number][] }
-type LatestHoldings = { [asset: string]: number }
-
-function getHoldingVolumesFromTrades(trades: Trade[]) {
-  let holdings: Holdings = {}
-  let currentHoldings: LatestHoldings = {}
-  const sortedTrades = trades.sort(
-    (
-      a: { execution_tmstmp: string | number | Date },
-      b: { execution_tmstmp: string | number | Date },
-    ) =>
-      new Date(a.execution_tmstmp).getTime() -
-      new Date(b.execution_tmstmp).getTime(),
-  )
-  sortedTrades.forEach((trade: Trade) => {
-    const pair: string = trade.asset_id
-    const tradeVolume =
-      trade.trade_side === 'buy' ? trade.trade_volume : -trade.trade_volume
-    if (!Object.keys(holdings).includes(pair)) {
-      holdings[pair] = [[trade.execution_tmstmp, tradeVolume]]
-      currentHoldings[pair] = tradeVolume
-    } else {
-      let cumulatedPairVolume = holdings[pair][holdings[pair].length - 1][1]
-      cumulatedPairVolume = cumulatedPairVolume + tradeVolume
-      holdings[pair].push([trade.execution_tmstmp, cumulatedPairVolume])
-      currentHoldings[pair] += tradeVolume
-    }
-  })
-  for (const pair in currentHoldings) {
-    if (currentHoldings[pair] === 0) {
-      delete currentHoldings[pair]
-    }
-  }
-  const entries = Object.entries(currentHoldings)
-  entries.sort((a, b) => b[1] - a[1])
-  const sortedHoldings = Object.fromEntries(entries)
-  return { history: holdings, current: sortedHoldings }
-}
 
 function Holdings(data: { tradingData: tradingDataDef }) {
   const [currentHoldings, setCurrentHoldings] = useState<LatestHoldings>({})
@@ -64,10 +30,7 @@ function Holdings(data: { tradingData: tradingDataDef }) {
   }, [data.tradingData.trades])
 
   const handleClick = (pair: string) => {
-    if (pair !== selectedPair) {
-      dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
-      dispatch(filterSlice.actions.setPair(pair))
-    }
+    dispatch(filterSlice.actions.setPair(pair))
   }
 
   function rowBackGroundColor(pair: string) {
@@ -75,6 +38,16 @@ function Holdings(data: { tradingData: tradingDataDef }) {
       return 'green'
     } else {
       return 'transparent'
+    }
+  }
+
+  function getUSDValue(pair: string) {
+    const ohlcv = data.tradingData.ohlcvData[pair]
+    if (ohlcv === undefined || ohlcv === null) {
+      return 'N/A'
+    } else {
+      const lastPrice = ohlcv[ohlcv.length - 1][3]
+      return currentHoldings[pair] * lastPrice
     }
   }
 
@@ -90,6 +63,9 @@ function Holdings(data: { tradingData: tradingDataDef }) {
             </TableCell>
             <TableCell align="left">
               <u>Amount</u>
+            </TableCell>
+            <TableCell align="left">
+              <u>USD value</u>
             </TableCell>
           </TableRow>
         </TableHead>
@@ -121,6 +97,14 @@ function Holdings(data: { tradingData: tradingDataDef }) {
                 }}
               >
                 {currentHoldings[pair]}
+              </TableCell>
+              <TableCell
+                align="left"
+                sx={{
+                  backgroundColor: rowBackGroundColor(pair),
+                }}
+              >
+                {getUSDValue(pair)}
               </TableCell>
             </TableRow>
           ))}
