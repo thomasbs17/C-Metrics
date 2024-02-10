@@ -409,12 +409,9 @@ function OrderBookChart(props: BookChartProps) {
   }, [props.pairScoreDetails, props.selectedOrder])
 
   function afterSetExtremes(this: any, e: any) {
-    let bookSideDetails = {'ask': {}, 'bid': {}}
+    let bookSideDetails = { ask: {}, bid: {} }
     Object.keys(bookSideDetails).forEach((side: string) => {
-      const amountOfQuotes = props.data[side].length;
-      const topQuote = props.data[side][0][1]
-      const lastQuote = props.data[side][amountOfQuotes][1]
-
+      const amountOfQuotes = props.data[side].length
     })
 
     this.setExtremes(0, this.max)
@@ -438,7 +435,7 @@ function OrderBookChart(props: BookChartProps) {
           orderBookChart.yAxis[0].dataMax,
         )
       }
-    )}
+    })
   }
 
   return (

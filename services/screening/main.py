@@ -216,8 +216,9 @@ class Screener:
                     pair_score_df = pd.DataFrame([pair_score])
                     scores = pd.concat([scores, pair_score_df])
         if not scores.empty:
+
             scores["book_score"] = scores["book_score"].apply(
-                lambda x: x / scores["book_score"].max()
+                lambda x: x / scores["book_score"].max() if scores["book_score"].max() > 0 else 0
             )
             book_weight = 0.2
             technicals_weight = 0.8
@@ -309,7 +310,7 @@ class Screener:
     async def run_client_websocket(self, client_ws):
         while True:
             exchange_name = "coinbase"  # TODO: to be updated
-            if self.data["exchanges"][exchange_name].get("scores"):
+            if self.data["exchanges"][exchange_name].get("scores") is not None:
                 ws_data = self.data["exchanges"][exchange_name]["scores"].to_json(
                     orient="records"
                 )
@@ -321,11 +322,11 @@ class Screener:
                 ):
                     await client_ws.close()
                     return
-            await asyncio.sleep(0)
+            await asyncio.sleep(1)
 
 
 async def run_websocket():
-    screener = Screener(exchange_list=["coinbase"])
+    screener = Screener(exchange_list=["coinbase"], user_symbols_list=['BTC-USD', 'ETH-USD'])
     screening_task = asyncio.create_task(screener.run_screening())
     start_server = websockets.serve(screener.run_client_websocket, "localhost", 8795)
     await asyncio.gather(screening_task, start_server)
