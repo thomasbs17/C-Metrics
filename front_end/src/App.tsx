@@ -1,6 +1,6 @@
-import React from 'react'
-import ReactDOM from 'react-dom'
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
+import 'ag-grid-community/styles/ag-grid.css'
+import 'ag-grid-community/styles/ag-theme-quartz.css'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import { Provider } from 'react-redux'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
