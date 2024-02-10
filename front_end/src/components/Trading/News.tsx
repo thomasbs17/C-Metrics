@@ -25,7 +25,14 @@ function News(data: { tradingData: tradingDataDef }) {
   const [colDefs, setColDefs] = useState<ColDef<NewsArticle>[]>([
     { field: 'date' },
     { field: 'media' },
-    { field: 'title', flex: 1 },
+    {
+      field: 'title', flex: 1, cellRenderer: function (article: CellMouseOverEvent<NewsArticle, any>) {
+        if (article.rowIndex) {
+          const hoveredArticle = news[article.rowIndex]
+          return <a href={'https://' + hoveredArticle.link} target="_blank">{hoveredArticle.title}</a>
+        }
+      }
+    },
   ])
 
   function handleHover(article: CellMouseOverEvent<NewsArticle, any>) {
