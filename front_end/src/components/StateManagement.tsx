@@ -1,6 +1,7 @@
 import { configureStore, createSlice } from '@reduxjs/toolkit'
+import React from 'react'
 
-export type FilterState = {
+export interface FilterState {
   tradingType: string
   ohlcPeriod: string
   exchange: string
@@ -14,7 +15,7 @@ export type FilterState = {
 const initialState: FilterState = {
   tradingType: 'Paper Trading',
   ohlcPeriod: '1d',
-  exchange: 'kraken',
+  exchange: 'coinbase',
   pair: 'BTC/USD',
   selectedArticle: ['', ''],
   selectedOrder: ['', '', ''],

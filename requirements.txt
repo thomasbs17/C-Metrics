@@ -1,19 +1,21 @@
-Django==4.2.4
-django-environ==0.10.0
-python-dotenv==1.0.0
+Django==5.0.2
+django-environ==0.11.2
+python-dotenv==1.0.1
 djangorestframework==3.14.0
-django-cors-headers==4.2.0
-ccxt==4.0.50
-GoogleNews==1.6.9
-cryptofeed==2.3.2
-pandas==2.1.1
+django-cors-headers==4.3.1
+ccxt==4.2.35
+GoogleNews==1.6.12
+cryptofeed==2.4.0
+pandas==2.2.0
 redis==5.0.1
 msgpack==1.0.7
 pandas-ta==0.3.14b
+websockets==12.0
+sqlalchemy==2.0.25
 
 # POSTGRES
 #If running on Linux, the below commands must be entered first
 # sudo apt-get install python-pip
 # sudo apt-get update
 # sudo apt-get install libpq-dev python2-dev python2 python-dev-is-python3
-psycopg2==2.9.7
+psycopg2==2.9.9

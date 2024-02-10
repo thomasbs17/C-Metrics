@@ -30,9 +30,9 @@ function UserRegistrationForm() {
             type="text"
             placeholder="Enter username"
             value={formData.username}
-            onChange={(e) =>
+            onChange={(e) => {
               setFormData({ ...formData, username: e.target.value })
-            }
+            }}
           />
         </Form.Group>
 
@@ -42,9 +42,9 @@ function UserRegistrationForm() {
             type="email"
             placeholder="Enter email"
             value={formData.email}
-            onChange={(e) =>
+            onChange={(e) => {
               setFormData({ ...formData, email: e.target.value })
-            }
+            }}
           />
         </Form.Group>
 
@@ -54,9 +54,9 @@ function UserRegistrationForm() {
             type="password"
             placeholder="Password"
             value={formData.password}
-            onChange={(e) =>
+            onChange={(e) => {
               setFormData({ ...formData, password: e.target.value })
-            }
+            }}
           />
         </Form.Group>
         <div className="mb-3" style={{ padding: '10px' }}>

@@ -1,13 +1,15 @@
+import React from 'react'
+import ReactDOM from 'react-dom'
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import { Provider } from 'react-redux'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { filtersStore } from './components/StateManagement'
 import Home from './pages/Home'
 import NoPage from './pages/NoPage'
 import Portfolio from './pages/Portfolio'
 import Trading from './pages/Trading'
 import UserRegistrationForm from './pages/User'
-import { filtersStore } from './components/StateManagement'
 
 const darkTheme = createTheme({
   components: {

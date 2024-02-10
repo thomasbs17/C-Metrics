@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   CircularProgress,
   Table,
@@ -8,7 +9,7 @@ import {
   TableRow,
 } from '@mui/material'
 import { useDispatch } from 'react-redux'
-import { NewsArticle, tradingDataDef } from '../DataManagement'
+import { type NewsArticle, type tradingDataDef } from '../DataManagement'
 import { filterSlice } from '../StateManagement'
 
 function News(data: { tradingData: tradingDataDef }) {
@@ -36,40 +37,43 @@ function News(data: { tradingData: tradingDataDef }) {
           </TableRow>
         </TableHead>
         <TableBody>
-          {news.map((article: NewsArticle, index: number) => (
-            <TableRow
-              key={index}
-              sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-              hover
-              onMouseEnter={() =>
-                dispatch(
-                  filterSlice.actions.setSelectedArticle([
-                    article.datetime,
-                    article.title,
-                  ]),
-                )
-              }
-              onMouseLeave={() =>
-                dispatch(filterSlice.actions.setSelectedArticle(['', '']))
-              }
-            >
-              <TableCell align="left" width={120}>
-                {article.date}
-              </TableCell>
-              <TableCell align="left" width={150}>
-                {article.media}
-              </TableCell>
-              <TableCell align="left">
-                <a
-                  href={`https://${article.link}`}
-                  target="_blank"
-                  rel="noreferrer"
+          {news.map(
+            (article: NewsArticle, index: number) =>
+              !isNaN(Date.parse(article.datetime)) && (
+                <TableRow
+                  key={index}
+                  sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                  hover
+                  onMouseEnter={() =>
+                    dispatch(
+                      filterSlice.actions.setSelectedArticle([
+                        article.datetime,
+                        article.title,
+                      ]),
+                    )
+                  }
+                  onMouseLeave={() =>
+                    dispatch(filterSlice.actions.setSelectedArticle(['', '']))
+                  }
                 >
-                  {article.title}
-                </a>
-              </TableCell>
-            </TableRow>
-          ))}
+                  <TableCell align="left" width={120}>
+                    {article.date}
+                  </TableCell>
+                  <TableCell align="left" width={150}>
+                    {article.media}
+                  </TableCell>
+                  <TableCell align="left">
+                    <a
+                      href={`https://${article.link}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {article.title}
+                    </a>
+                  </TableCell>
+                </TableRow>
+              ),
+          )}
         </TableBody>
       </Table>
     </TableContainer>

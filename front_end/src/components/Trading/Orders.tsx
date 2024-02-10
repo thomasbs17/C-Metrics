@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   Checkbox,
   CircularProgress,
@@ -13,8 +14,8 @@ import {
 import { useMemo, useState } from 'react'
 import { Col, Container, Row } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
-import { Order, tradingDataDef } from '../DataManagement'
-import { FilterState, filterSlice } from '../StateManagement'
+import { type Order, type tradingDataDef } from '../DataManagement'
+import { type FilterState, filterSlice } from '../StateManagement'
 
 interface TableProps {
   openOnly: boolean
@@ -93,7 +94,6 @@ function OrderTable({
 
   const handleClick = (order: Order) => {
     if (order.order_id !== selectedOrder[2]) {
-      dispatch(filterSlice.actions.setPairScoreDetails({}))
       dispatch(filterSlice.actions.setPair(order.asset_id))
       dispatch(
         filterSlice.actions.setSelectedOrder([
@@ -154,7 +154,9 @@ function OrderTable({
                 cursor: 'pointer',
               }}
               hover
-              onClick={() => handleClick(order)}
+              onClick={() => {
+                handleClick(order)
+              }}
             >
               <TableCell
                 align="left"
@@ -266,7 +268,10 @@ function Orders(data: { tradingData: tradingDataDef }) {
               control={
                 <Switch
                   checked={openOnly}
-                  onChange={() => setOpenOnly(!openOnly)}
+                  onChange={() => {
+                    setOpenOnly(!openOnly)
+                  }}
+                  size="small"
                 />
               }
               label="Open orders only"
@@ -277,22 +282,37 @@ function Orders(data: { tradingData: tradingDataDef }) {
               control={
                 <Switch
                   checked={selectedPair}
-                  onChange={() => setSelectedPair(!selectedPair)}
+                  onChange={() => {
+                    setSelectedPair(!selectedPair)
+                  }}
+                  size="small"
                 />
               }
               label="Selected pair only"
             />
           </Col>
-          <Col xs={5}>
+          <Col xs={5} style={{ marginTop: -10 }}>
             <FormControlLabel
               control={
-                <Checkbox checked={paper} onChange={() => setPaper(!paper)} />
+                <Checkbox
+                  size="small"
+                  checked={paper}
+                  onChange={() => {
+                    setPaper(!paper)
+                  }}
+                />
               }
               label="Paper Trading"
             />
             <FormControlLabel
               control={
-                <Checkbox checked={live} onChange={() => setLive(!live)} />
+                <Checkbox
+                  size="small"
+                  checked={live}
+                  onChange={() => {
+                    setLive(!live)
+                  }}
+                />
               }
               label="Live Trading"
             />

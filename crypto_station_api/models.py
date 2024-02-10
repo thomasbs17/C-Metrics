@@ -14,8 +14,9 @@ def get_option_max_len(options: tuple) -> int:
 
 
 class Orders(models.Model):
+    order_dim_key = models.CharField("Order Record ID", max_length=36, primary_key=True)
     user_id = models.CharField("User ID", max_length=36)
-    order_id = models.CharField("Order ID", max_length=36, primary_key=True)
+    order_id = models.CharField("Order ID", max_length=36)
     broker_id = models.CharField("Broker ID", max_length=36)
     trading_env = models.CharField(
         "Live or Paper Trading",
@@ -43,3 +44,32 @@ class Orders(models.Model):
     fill_pct = models.FloatField("Fill Percentage")
     order_volume = models.FloatField("Order Volume")
     order_price = models.FloatField("Order Price")
+    insert_tmstmp = models.DateTimeField("Record Insert Timestamp")
+    expiration_tmstmp = models.DateTimeField("Record Expiration Timestamp", null=True)
+
+
+class Trades(models.Model):
+    trade_dim_key = models.CharField("Trade Record ID", max_length=36, primary_key=True)
+    user_id = models.CharField("User ID", max_length=36)
+    trade_id = models.CharField("Trade ID", max_length=36)
+    order_id = models.CharField("Related Order ID", max_length=36)
+    broker_id = models.CharField("Broker ID", max_length=36)
+    trading_env = models.CharField(
+        "Live or Paper Trading",
+        max_length=get_option_max_len(TRADING_ENV),
+        choices=TRADING_ENV,
+    )
+    trading_type = models.CharField(
+        "Spot or Derivatives",
+        max_length=get_option_max_len(TRADING_TYPE),
+        choices=TRADING_TYPE,
+    )
+    asset_id = models.CharField("Asset ID", max_length=36)
+    trade_side = models.CharField(
+        "Trade Side", max_length=get_option_max_len(ORDER_SIDE), choices=ORDER_SIDE
+    )
+    execution_tmstmp = models.DateTimeField("Trade Execution Timestamp")
+    trade_volume = models.FloatField("Trade Volume")
+    trade_price = models.FloatField("Trade Price")
+    insert_tmstmp = models.DateTimeField("Record Insert Timestamp")
+    expiration_tmstmp = models.DateTimeField("Record Expiration Timestamp", null=True)

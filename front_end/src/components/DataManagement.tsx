@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { FilterState, filterSlice } from './StateManagement'
+import { type FilterState, filterSlice } from './StateManagement'
+import React from 'react'
 
-export type tradingDataDef = {
+export interface tradingDataDef {
   coinMarketCapMapping: any
+  cryptoMetaData: any
   exchanges: any
   markets: any
   news: NewsArticle[]
   orders: Order[]
+  trades: Trade[]
   screeningData: any
   noDataAnimation: any
   ohlcvData: OhlcData
@@ -17,11 +20,9 @@ export type tradingDataDef = {
 
 export type OhlcData = number[][]
 
-export type OrderBookData = {
-  [key: string]: Array<[number, number]>
-}
+export type OrderBookData = Record<string, Array<[number, number]>>
 
-export type NewsArticle = {
+export interface NewsArticle {
   date: string
   title: string
   media: string
@@ -30,7 +31,7 @@ export type NewsArticle = {
   datetime: string
 }
 
-export type Order = {
+export interface Order {
   user_id: string
   order_id: string
   broker_id: string
@@ -46,12 +47,26 @@ export type Order = {
   order_price: number
 }
 
+export interface Trade {
+  user_id: string
+  trade_id: string
+  order_id: string
+  broker_id: string
+  trading_env: string
+  trading_type: string
+  asset_id: string
+  trade_side: string
+  execution_tmstmp: string
+  trade_volume: number
+  trade_price: number
+}
+
 export function retrieveInfoFromCoinMarketCap(
   pair: string,
   coinMarketCapMapping: any,
 ): any {
   const base = pair.slice(0, pair.search('/'))
-  let assetInfo = undefined
+  let assetInfo
   if (Object.keys(coinMarketCapMapping).length > 0) {
     coinMarketCapMapping.data.forEach((element: any) => {
       if (element.symbol === base) {
@@ -67,7 +82,7 @@ function LoadStaticData(endpoint: string) {
   useEffect(() => {
     async function getData() {
       try {
-        let url = `http://127.0.0.1:8000/${endpoint}/`
+        const url = `http://127.0.0.1:8000/${endpoint}/`
         const response = await fetch(url)
         const responseData = await response.json()
         setData(responseData)
@@ -80,6 +95,31 @@ function LoadStaticData(endpoint: string) {
   return data
 }
 
+function LoadCryptoMetaData(coinMarketCapMapping: any) {
+  const pair = useSelector(
+    (state: { filters: FilterState }) => state.filters.pair,
+  )
+  const [metaData, setMetaData] = useState<any>([])
+  const coinMarketCapInfo = retrieveInfoFromCoinMarketCap(
+    pair,
+    coinMarketCapMapping,
+  )
+  useEffect(() => {
+    async function getData() {
+      try {
+        const url = `http://127.0.0.1:8000/coinmarketcap_crypto_meta/?crypto_coinmarketcap_id=${coinMarketCapInfo.id}`
+        const response = await fetch(url)
+        const responseData = await response.json()
+        setMetaData(responseData)
+      } catch (error) {
+        console.error('Error fetching Crypto Meta Data endpoint', error)
+      }
+    }
+    coinMarketCapInfo !== undefined && getData()
+  }, [coinMarketCapInfo, pair])
+  return metaData
+}
+
 function LoadMarkets() {
   const [data, setData] = useState<any>({})
   const exchange = useSelector(
@@ -89,12 +129,12 @@ function LoadMarkets() {
     async function getMarkets() {
       try {
         setData([])
-        let url = `http://127.0.0.1:8000/markets/?exchange=${exchange}`
+        const url = `http://127.0.0.1:8000/markets/?exchange=${exchange}`
         const response = await fetch(url)
         const responseData = await response.json()
         setData(responseData)
       } catch (error) {
-        console.error(`Error fetching markets endpoint`, error)
+        console.error('Error fetching markets endpoint', error)
       }
     }
     getMarkets()
@@ -129,11 +169,29 @@ function LoadOrders() {
   return orders
 }
 
+function LoadTrades() {
+  const [trades, setTrades] = useState<Trade[]>([])
+
+  useEffect(() => {
+    async function fetchTrades() {
+      const ordersEndPoint = 'http://127.0.0.1:8000/trades/?format=json'
+      try {
+        const response = await fetch(ordersEndPoint)
+        setTrades(await response.json())
+      } catch (error) {
+        console.error('Error fetching trades data:', error)
+      }
+    }
+    fetchTrades()
+  }, [])
+  return trades
+}
+
 function LoadNews(coinMarketCapMapping: any) {
   const pair = useSelector(
     (state: { filters: FilterState }) => state.filters.pair,
   )
-  const [news, setNewsData] = useState<Array<NewsArticle>>([])
+  const [news, setNewsData] = useState<NewsArticle[]>([])
   useEffect(() => {
     async function getNewsData() {
       setNewsData([])
@@ -168,7 +226,7 @@ function LoadScreeningData() {
   )
   const [screeningData, setScreeningData] = useState<any>([])
   useEffect(() => {
-    const wsUrl = `ws://localhost:8767`
+    const wsUrl = 'ws://localhost:8795'
     const socket = new WebSocket(wsUrl)
     socket.onerror = () => {
       console.error('Error with screening service')
@@ -244,35 +302,35 @@ function LoadOhlcvData() {
 }
 
 function formatOrderBook(rawOrderBook: any, isWebSocketFeed: boolean) {
-  let formattedBook: OrderBookData = { bid: [], ask: [] }
-  ;['bid', 'ask'].forEach((side: string) => {
-    let cumulativeVolume = 0
-    if (isWebSocketFeed) {
-      const sortedPrices =
-        side === 'bid'
-          ? Object.keys(rawOrderBook[side]).sort(
+  const formattedBook: OrderBookData = { bid: [], ask: [] }
+    ;['bid', 'ask'].forEach((side: string) => {
+      let cumulativeVolume = 0
+      if (isWebSocketFeed) {
+        const sortedPrices =
+          side === 'bid'
+            ? Object.keys(rawOrderBook[side]).sort(
               (a, b) => parseFloat(b) - parseFloat(a),
             )
-          : Object.keys(rawOrderBook[side]).sort(
+            : Object.keys(rawOrderBook[side]).sort(
               (a, b) => parseFloat(a) - parseFloat(b),
             )
-      formattedBook[side].push([0, parseFloat(sortedPrices[0])])
-      sortedPrices.forEach((price: string) => {
-        cumulativeVolume += rawOrderBook[side][price]
-        formattedBook[side].push([cumulativeVolume, parseFloat(price)])
-      })
-    } else {
-      formattedBook[side].push([0, rawOrderBook[side + 's'][0][0]])
-      rawOrderBook[side + 's'].forEach((level: [number, number, number]) => {
-        cumulativeVolume += level[1]
-        formattedBook[side].push([cumulativeVolume, level[0]])
-      })
-    }
-  })
+        formattedBook[side].push([0, parseFloat(sortedPrices[0])])
+        sortedPrices.forEach((price: string) => {
+          cumulativeVolume += rawOrderBook[side][price]
+          formattedBook[side].push([cumulativeVolume, parseFloat(price)])
+        })
+      } else {
+        formattedBook[side].push([0, rawOrderBook[side + 's'][0][0]])
+        rawOrderBook[side + 's'].forEach((level: [number, number, number]) => {
+          cumulativeVolume += level[1]
+          formattedBook[side].push([cumulativeVolume, level[0]])
+        })
+      }
+    })
   return formattedBook
 }
 
-function LoadOrderBook() {
+function LoadOrderBook(throtle: number = 500) {
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
   )
@@ -282,6 +340,7 @@ function LoadOrderBook() {
     [filterState.exchange, filterState.pair],
   )
   const [orderBookData, setOrderBookData] = useState<OrderBookData>({})
+  let lastRefreshTmtstmp = Date.now()
 
   useEffect(() => {
     async function fetchOrderBookData() {
@@ -297,7 +356,7 @@ function LoadOrderBook() {
       }
     }
 
-    const wsUrl = `ws://localhost:8768?exchange=${exchange}&pair=${pair}`
+    const wsUrl = `ws://localhost:8768?exchange=${exchange}?book=${pair.replace('/', '-')}`
     const socket = new WebSocket(wsUrl)
 
     socket.onerror = () => {
@@ -310,9 +369,14 @@ function LoadOrderBook() {
       clearInterval(orderBookInterval)
     }
     socket.onmessage = (event) => {
-      const newData = JSON.parse(event.data)
-      if (Object.keys(orderBookData).length === 0) {
-        setOrderBookData(formatOrderBook(newData['book'], true))
+      if (event.data != 'heartbeat') {
+        if (Date.now() - lastRefreshTmtstmp > throtle) {
+          lastRefreshTmtstmp = Date.now()
+          const newData = JSON.parse(event.data)
+          if (Object.keys(newData).includes('book')) {
+            setOrderBookData(formatOrderBook(newData.book.book, true))
+          }
+        }
       }
     }
 
@@ -347,10 +411,12 @@ function LoadGreedAndFear() {
 
 export function GetTradingData() {
   const coinMarketCapMapping = LoadStaticData('coinmarketcap_info')
+  const cryptoMetaData = LoadCryptoMetaData(coinMarketCapMapping)
   const exchanges = LoadStaticData('exchanges')
   const markets = LoadMarkets()
   const news = LoadNews(coinMarketCapMapping)
   const orders = LoadOrders()
+  const trades = LoadTrades()
   const screeningData = LoadScreeningData()
   const noDataAnimation = LoadNoDataAnimation()
   const ohlcvData = LoadOhlcvData()
@@ -358,15 +424,17 @@ export function GetTradingData() {
   const greedAndFearData = LoadGreedAndFear()
 
   return {
-    coinMarketCapMapping: coinMarketCapMapping,
-    exchanges: exchanges,
-    markets: markets,
-    news: news,
-    orders: orders,
-    screeningData: screeningData,
-    noDataAnimation: noDataAnimation,
-    ohlcvData: ohlcvData,
-    orderBookData: orderBookData,
-    greedAndFearData: greedAndFearData,
+    coinMarketCapMapping,
+    cryptoMetaData,
+    exchanges,
+    markets,
+    news,
+    orders,
+    trades,
+    screeningData,
+    noDataAnimation,
+    ohlcvData,
+    orderBookData,
+    greedAndFearData,
   }
 }

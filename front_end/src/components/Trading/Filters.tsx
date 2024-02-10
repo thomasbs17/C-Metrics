@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   Autocomplete,
   Box,
@@ -28,13 +29,14 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router'
 import { tradingDataDef } from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
+import EconomicCalendar from './EconomicCalendar'
 
 // Initialize the modules
 HighchartsMore(Highcharts)
 SolidGauge(Highcharts)
 
-type FilterProps = {
-  data: Array<string>
+interface FilterProps {
+  data: string[]
   handleClose?: any
 }
 
@@ -56,10 +58,15 @@ function TradingTypeFilter() {
       exclusive
       onChange={handleSelect}
     >
-      <ToggleButton value="paper" variant="success">
+      <ToggleButton id="paper-trading-button" value="paper" variant="success">
         Paper
       </ToggleButton>
-      <ToggleButton disabled value="live" variant="error">
+      <ToggleButton
+        id="live-trading-button"
+        disabled
+        value="live"
+        variant="error"
+      >
         Live
       </ToggleButton>
     </ToggleButtonGroup>
@@ -313,10 +320,9 @@ function MultipleSelectChip(props: MultipleSelectChipProps) {
     theme: Theme,
   ) => {
     return {
-      fontWeight:
-        personName.indexOf(name) === -1
-          ? theme.typography.fontWeightRegular
-          : theme.typography.fontWeightMedium,
+      fontWeight: !personName.includes(name)
+        ? theme.typography.fontWeightRegular
+        : theme.typography.fontWeightMedium,
     }
   }
 
@@ -368,8 +374,13 @@ function MultipleSelectChip(props: MultipleSelectChipProps) {
 export function TopBar(data: { tradingData: tradingDataDef }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [modalIsOpen, setModalIsOpen] = useState(false)
-  const handleOpen = () => setModalIsOpen(true)
-  const handleClose = () => setModalIsOpen(false)
+  const [modalType, setModalType] = useState('')
+  const handleOpen = (modalType: string) => (
+    setModalType(modalType), setModalIsOpen(true)
+  )
+  const handleClose = () => {
+    setModalIsOpen(false)
+  }
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
   )
@@ -396,14 +407,16 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
     width: 800,
     bgcolor: 'background.paper',
     border: '2px solid #000',
+    borderRadius: 10,
     boxShadow: 24,
+    height: 600,
     p: 4,
   }
   const [filteredAssetTypes, setFilteredAssetTypes] = useState<string[]>([])
 
   useEffect(() => {
     if (Object.keys(data.tradingData.markets).length !== 0) {
-      let assetTypes: string[] = []
+      const assetTypes: string[] = []
       setFilteredAssetTypes(assetTypes)
       filtersSideAnimation(containerRef, data.tradingData.markets)
     }
@@ -425,8 +438,22 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
           <Button
             variant="text"
             size="large"
-            onClick={handleOpen}
+            onClick={() => {
+              handleOpen('economicCalendar')
+            }}
             sx={{ width: 200 }}
+          >
+            Economic Calendar
+          </Button>
+        </Col>
+        <Col>
+          <Button
+            variant="text"
+            size="large"
+            onClick={() => {
+              handleOpen('pairSelection')
+            }}
+            sx={{ width: 300 }}
           >{`${exchange}: ${pair}`}</Button>
         </Col>
       </Row>
@@ -436,34 +463,48 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
       >
-        <Box sx={modalStyle}>
-          <Typography id="symbol-selection" variant="h6" component="h2">
-            Symbol Selection
-          </Typography>
-          <Row>
-            <Col>
-              <ExchangeFilter data={data.tradingData.exchanges} />
-            </Col>
-            <Col>
-              <MultipleSelectChip
-                label="Networks"
-                options={[]}
-                defaultValue={[]}
-              />
-            </Col>
-            <Col>
-              <MultipleSelectChip
-                label="Asset Types"
-                options={filteredAssetTypes}
-                defaultValue={[]}
-              />
-            </Col>
-          </Row>
-          <PairFilter
-            data={Object.keys(data.tradingData.markets).sort()}
-            handleClose={handleClose}
-          />
-        </Box>
+        {modalType === 'pairSelection' ? (
+          <Box sx={modalStyle}>
+            <Typography id="symbol-selection" variant="h6" component="h2">
+              Symbol Selection
+            </Typography>
+            <Row>
+              <Col>
+                <ExchangeFilter data={data.tradingData.exchanges} />
+              </Col>
+              <Col>
+                <MultipleSelectChip
+                  label="Networks"
+                  options={[]}
+                  defaultValue={[]}
+                />
+              </Col>
+              <Col>
+                <MultipleSelectChip
+                  label="Asset Types"
+                  options={filteredAssetTypes}
+                  defaultValue={[]}
+                />
+              </Col>
+            </Row>
+            <PairFilter
+              data={Object.keys(data.tradingData.markets).sort()}
+              handleClose={handleClose}
+            />
+          </Box>
+        ) : (
+          <Box sx={modalStyle}>
+            <Typography
+              id="symbol-selection"
+              variant="h6"
+              component="h2"
+              sx={{ padding: 2 }}
+            >
+              Economic Calendar
+            </Typography>
+            <EconomicCalendar />
+          </Box>
+        )}
       </Modal>
     </Container>
   )
