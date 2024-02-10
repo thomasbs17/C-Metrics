@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import {
   CircularProgress,
   Table,
@@ -22,8 +22,14 @@ function Screening(data: any) {
     (state: { filters: FilterState }) => state.filters.pair,
   )
 
+  useEffect(() => {
+    if (screeningData.length > 0) {
+      const selectedPairScoring = screeningData[selectedPair]
+      dispatch(filterSlice.actions.setPairScoreDetails(selectedPairScoring))
+    }
+  }, [selectedPair])
+
   const handleClick = (pairDetails: any) => {
-    dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
     dispatch(filterSlice.actions.setPair(pairDetails.pair))
     dispatch(filterSlice.actions.setPairScoreDetails(pairDetails))
     dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
@@ -49,7 +55,7 @@ function Screening(data: any) {
               <u>% to Support</u>
             </TableCell>
             <TableCell align="left" sx={{ fontSize: 9 }}>
-              <u>% to RSI</u>
+              <u>RSI</u>
             </TableCell>
             <TableCell align="left" sx={{ fontSize: 9 }}>
               <u>% to Bollinger</u>
@@ -96,7 +102,7 @@ function Screening(data: any) {
                 {displayAsPercent(pairDetails.distance_to_next_support - 1)}
               </TableCell>
               <TableCell align="left" sx={{ fontSize: 11 }}>
-                {displayAsPercent(pairDetails.distance_to_rsi - 1)}
+                {pairDetails.rsi}
               </TableCell>
               <TableCell align="left" sx={{ fontSize: 11 }}>
                 {displayAsPercent(pairDetails.distance_to_lower_bollinger - 1)}
