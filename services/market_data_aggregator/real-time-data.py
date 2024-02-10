@@ -211,6 +211,7 @@ class MarketDataAggregator:
                     await self.empty_queue()
                     await websocket.close()
                     return
+                await asyncio.sleep(0)
 
     def run_clients_websocket(self):
         start_server = websockets.serve(self.client_server, self.host, self.port)
@@ -219,5 +220,7 @@ class MarketDataAggregator:
 
 
 if __name__ == "__main__":
-    aggregator = MarketDataAggregator(exchanges=["COINBASE"], pairs=["BTC-USD"])
+    aggregator = MarketDataAggregator(
+        exchanges=["COINBASE"], pairs=["BTC-USD", "ETH-USD"]
+    )
     aggregator.run_clients_websocket()
