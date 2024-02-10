@@ -15,6 +15,9 @@
     "@types/node": "^20.9.0",
     "@types/react": "^18.2.18",
     "@types/react-dom": "^18.2.7",
+    "ag-grid-community": "^31.0.3",
+    "ag-grid-enterprise": "^31.0.3",
+    "ag-grid-react": "^31.0.3",
     "axios": "^1.5.1",
     "bootstrap": "^5.3.1",
     "ccxws": "^0.47.0",
@@ -65,7 +68,8 @@
     "@types/react-plotly.js": "^2.6.0",
     "@typescript-eslint/eslint-plugin": "^6.13.2",
     "@typescript-eslint/parser": "^6.13.2",
-    "eslint": "^8.55.0"
+    "eslint": "^8.55.0",
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11"
   },
   "allowedHosts": [
     "localhost"
