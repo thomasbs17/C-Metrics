@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   CircularProgress,
   Table,
@@ -11,6 +11,8 @@ import {
 import { useDispatch } from 'react-redux'
 import { type NewsArticle, type tradingDataDef } from '../DataManagement'
 import { filterSlice } from '../StateManagement'
+import { CellMouseOverEvent, ColDef } from 'ag-grid-community'
+import { AgGridReact } from 'ag-grid-react'
 
 function News(data: { tradingData: tradingDataDef }) {
   const news = data.tradingData.news.sort(
@@ -18,65 +20,42 @@ function News(data: { tradingData: tradingDataDef }) {
   )
   const dispatch = useDispatch()
 
+  const [rowData, setRowData] = useState<NewsArticle[]>(news)
+
+  const [colDefs, setColDefs] = useState<ColDef<NewsArticle>[]>([
+    { field: 'date' },
+    { field: 'media' },
+    { field: 'title', flex: 1 },
+  ])
+
+  function handleHover(article: CellMouseOverEvent<NewsArticle, any>) {
+    if (article.rowIndex) {
+      const hoveredArticle = news[article.rowIndex]
+      dispatch(
+        filterSlice.actions.setSelectedArticle([
+          hoveredArticle.datetime,
+          hoveredArticle.title,
+        ]),
+      )
+    }
+  }
+
   return news.length === 0 ? (
     <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
   ) : (
-    <TableContainer sx={{ maxHeight: 210 }}>
-      <Table stickyHeader aria-label="sticky table" size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell align="left">
-              <u>Date</u>
-            </TableCell>
-            <TableCell align="left">
-              <u>Media</u>
-            </TableCell>
-            <TableCell align="left">
-              <u>Title</u>
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {news.map(
-            (article: NewsArticle, index: number) =>
-              !isNaN(Date.parse(article.datetime)) && (
-                <TableRow
-                  key={index}
-                  sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                  hover
-                  onMouseEnter={() =>
-                    dispatch(
-                      filterSlice.actions.setSelectedArticle([
-                        article.datetime,
-                        article.title,
-                      ]),
-                    )
-                  }
-                  onMouseLeave={() =>
-                    dispatch(filterSlice.actions.setSelectedArticle(['', '']))
-                  }
-                >
-                  <TableCell align="left" width={120}>
-                    {article.date}
-                  </TableCell>
-                  <TableCell align="left" width={150}>
-                    {article.media}
-                  </TableCell>
-                  <TableCell align="left">
-                    <a
-                      href={`https://${article.link}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {article.title}
-                    </a>
-                  </TableCell>
-                </TableRow>
-              ),
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <div
+      className={'ag-theme-quartz-dark'}
+      style={{ width: '100%', height: '180px' }}
+    >
+      <AgGridReact
+        rowData={rowData}
+        columnDefs={colDefs}
+        onCellMouseOver={(t) => handleHover(t)}
+        onCellMouseOut={() =>
+          dispatch(filterSlice.actions.setSelectedArticle(['', '']))
+        }
+      />
+    </div>
   )
 }
 
