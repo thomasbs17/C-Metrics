@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { type FilterState, filterSlice } from './StateManagement'
-import React from 'react'
+import { filterSlice, type FilterState } from './StateManagement'
 
 export interface tradingDataDef {
   coinMarketCapMapping: any
@@ -13,7 +12,7 @@ export interface tradingDataDef {
   trades: Trade[]
   screeningData: any
   noDataAnimation: any
-  ohlcvData: OhlcData
+  ohlcvData: { [key: string]: OhlcData | null }
   orderBookData: any
   greedAndFearData: any
 }
@@ -59,6 +58,45 @@ export interface Trade {
   execution_tmstmp: string
   trade_volume: number
   trade_price: number
+}
+
+export type Holdings = { [asset: string]: [string, number][] }
+export type LatestHoldings = { [asset: string]: number }
+
+export function getHoldingVolumesFromTrades(trades: Trade[]) {
+  let holdings: Holdings = {}
+  let currentHoldings: LatestHoldings = {}
+  const sortedTrades = trades.sort(
+    (
+      a: { execution_tmstmp: string | number | Date },
+      b: { execution_tmstmp: string | number | Date },
+    ) =>
+      new Date(a.execution_tmstmp).getTime() -
+      new Date(b.execution_tmstmp).getTime(),
+  )
+  sortedTrades.forEach((trade: Trade) => {
+    const pair: string = trade.asset_id
+    const tradeVolume =
+      trade.trade_side === 'buy' ? trade.trade_volume : -trade.trade_volume
+    if (!Object.keys(holdings).includes(pair)) {
+      holdings[pair] = [[trade.execution_tmstmp, tradeVolume]]
+      currentHoldings[pair] = tradeVolume
+    } else {
+      let cumulatedPairVolume = holdings[pair][holdings[pair].length - 1][1]
+      cumulatedPairVolume = cumulatedPairVolume + tradeVolume
+      holdings[pair].push([trade.execution_tmstmp, cumulatedPairVolume])
+      currentHoldings[pair] += tradeVolume
+    }
+  })
+  for (const pair in currentHoldings) {
+    if (currentHoldings[pair] === 0) {
+      delete currentHoldings[pair]
+    }
+  }
+  const entries = Object.entries(currentHoldings)
+  entries.sort((a, b) => b[1] - a[1])
+  const sortedHoldings = Object.fromEntries(entries)
+  return { history: holdings, current: sortedHoldings }
 }
 
 export function retrieveInfoFromCoinMarketCap(
@@ -272,68 +310,103 @@ function LoadNoDataAnimation() {
   return animationData
 }
 
-function LoadOhlcvData() {
+function LoadOhlcvData(trades: Trade[]) {
   const dispatch = useDispatch()
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
   )
 
-  const [exchange, pair, ohlcPeriod] = useMemo(
+  const [exchange, selectedPair, ohlcPeriod] = useMemo(
     () => [filterState.exchange, filterState.pair, filterState.ohlcPeriod],
     [filterState.exchange, filterState.pair, filterState.ohlcPeriod],
   )
-  const [ohlcData, setOHLCData] = useState<OhlcData>([])
-  useEffect(() => {
-    async function fetchOHLCData() {
+  const [ohlcData, setOHLCData] = useState<{ [key: string]: OhlcData | null }>(
+    {},
+  )
+
+  async function fetchOHLCData(pair: string) {
+    if (pair !== undefined) {
+      if (!(Object.keys(ohlcData).includes(pair))) {
+        dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
+      }
       try {
         const ohlc_response = await fetch(
           `http://127.0.0.1:8000/ohlc/?exchange=${exchange}&pair=${pair}&timeframe=${ohlcPeriod}`,
         )
-        setOHLCData(await ohlc_response.json())
+        const newOhlcData = await ohlc_response.json()
+        ohlcData[pair] = newOhlcData
+        setOHLCData(ohlcData)
       } catch (error) {
-        setOHLCData([])
-        console.error('Error fetching OHLC data:', error)
-      } finally {
+        ohlcData[pair] = null
+        setOHLCData(ohlcData)
+        console.error(`Error fetching OHLC data: for ${pair}`, error)
+      }
+      if (pair === selectedPair) {
         dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', false]))
       }
     }
+  }
+
+  function loadForAllHoldings() {
+    const holdings = getHoldingVolumesFromTrades(trades)
+    Object.keys(holdings['current']).forEach((pair: string) => {
+      fetchOHLCData(pair)
+    })
+  }
+
+  useEffect(() => {
+    loadForAllHoldings()
     const ohlcInterval = setInterval(() => {
-      fetchOHLCData()
+      loadForAllHoldings()
     }, 60000)
-    fetchOHLCData()
     return () => {
       clearInterval(ohlcInterval)
     }
-  }, [exchange, ohlcPeriod, pair])
+  }, [trades])
+
+  useEffect(() => {
+    const holdings = getHoldingVolumesFromTrades(trades)
+    if (!Object.keys(holdings['current']).includes(selectedPair)) {
+      fetchOHLCData(selectedPair)
+      const ohlcInterval = setInterval(() => {
+        fetchOHLCData(selectedPair)
+      }, 60000)
+      fetchOHLCData(selectedPair)
+      return () => {
+        clearInterval(ohlcInterval)
+      }
+    }
+  }, [selectedPair])
+
   return ohlcData
 }
 
 function formatOrderBook(rawOrderBook: any, isWebSocketFeed: boolean) {
   const formattedBook: OrderBookData = { bid: [], ask: [] }
-  ;['bid', 'ask'].forEach((side: string) => {
-    let cumulativeVolume = 0
-    if (isWebSocketFeed) {
-      const sortedPrices =
-        side === 'bid'
-          ? Object.keys(rawOrderBook[side]).sort(
+    ;['bid', 'ask'].forEach((side: string) => {
+      let cumulativeVolume = 0
+      if (isWebSocketFeed) {
+        const sortedPrices =
+          side === 'bid'
+            ? Object.keys(rawOrderBook[side]).sort(
               (a, b) => parseFloat(b) - parseFloat(a),
             )
-          : Object.keys(rawOrderBook[side]).sort(
+            : Object.keys(rawOrderBook[side]).sort(
               (a, b) => parseFloat(a) - parseFloat(b),
             )
-      formattedBook[side].push([0, parseFloat(sortedPrices[0])])
-      sortedPrices.forEach((price: string) => {
-        cumulativeVolume += rawOrderBook[side][price]
-        formattedBook[side].push([cumulativeVolume, parseFloat(price)])
-      })
-    } else {
-      formattedBook[side].push([0, rawOrderBook[side + 's'][0][0]])
-      rawOrderBook[side + 's'].forEach((level: [number, number, number]) => {
-        cumulativeVolume += level[1]
-        formattedBook[side].push([cumulativeVolume, level[0]])
-      })
-    }
-  })
+        formattedBook[side].push([0, parseFloat(sortedPrices[0])])
+        sortedPrices.forEach((price: string) => {
+          cumulativeVolume += rawOrderBook[side][price]
+          formattedBook[side].push([cumulativeVolume, parseFloat(price)])
+        })
+      } else {
+        formattedBook[side].push([0, rawOrderBook[side + 's'][0][0]])
+        rawOrderBook[side + 's'].forEach((level: [number, number, number]) => {
+          cumulativeVolume += level[1]
+          formattedBook[side].push([cumulativeVolume, level[0]])
+        })
+      }
+    })
   return formattedBook
 }
 
@@ -426,7 +499,7 @@ export function GetTradingData() {
   const trades = LoadTrades()
   const screeningData = LoadScreeningData()
   const noDataAnimation = LoadNoDataAnimation()
-  const ohlcvData = LoadOhlcvData()
+  const ohlcvData = LoadOhlcvData(trades)
   const orderBookData = LoadOrderBook()
   const greedAndFearData = LoadGreedAndFear()
 
