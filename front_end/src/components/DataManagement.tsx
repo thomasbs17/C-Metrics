@@ -326,7 +326,7 @@ function LoadOhlcvData(trades: Trade[]) {
 
   async function fetchOHLCData(pair: string) {
     if (pair !== undefined) {
-      if (!(Object.keys(ohlcData).includes(pair))) {
+      if (!Object.keys(ohlcData).includes(pair)) {
         dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
       }
       try {
@@ -383,30 +383,30 @@ function LoadOhlcvData(trades: Trade[]) {
 
 function formatOrderBook(rawOrderBook: any, isWebSocketFeed: boolean) {
   const formattedBook: OrderBookData = { bid: [], ask: [] }
-    ;['bid', 'ask'].forEach((side: string) => {
-      let cumulativeVolume = 0
-      if (isWebSocketFeed) {
-        const sortedPrices =
-          side === 'bid'
-            ? Object.keys(rawOrderBook[side]).sort(
+  ;['bid', 'ask'].forEach((side: string) => {
+    let cumulativeVolume = 0
+    if (isWebSocketFeed) {
+      const sortedPrices =
+        side === 'bid'
+          ? Object.keys(rawOrderBook[side]).sort(
               (a, b) => parseFloat(b) - parseFloat(a),
             )
-            : Object.keys(rawOrderBook[side]).sort(
+          : Object.keys(rawOrderBook[side]).sort(
               (a, b) => parseFloat(a) - parseFloat(b),
             )
-        formattedBook[side].push([0, parseFloat(sortedPrices[0])])
-        sortedPrices.forEach((price: string) => {
-          cumulativeVolume += rawOrderBook[side][price]
-          formattedBook[side].push([cumulativeVolume, parseFloat(price)])
-        })
-      } else {
-        formattedBook[side].push([0, rawOrderBook[side + 's'][0][0]])
-        rawOrderBook[side + 's'].forEach((level: [number, number, number]) => {
-          cumulativeVolume += level[1]
-          formattedBook[side].push([cumulativeVolume, level[0]])
-        })
-      }
-    })
+      formattedBook[side].push([0, parseFloat(sortedPrices[0])])
+      sortedPrices.forEach((price: string) => {
+        cumulativeVolume += rawOrderBook[side][price]
+        formattedBook[side].push([cumulativeVolume, parseFloat(price)])
+      })
+    } else {
+      formattedBook[side].push([0, rawOrderBook[side + 's'][0][0]])
+      rawOrderBook[side + 's'].forEach((level: [number, number, number]) => {
+        cumulativeVolume += level[1]
+        formattedBook[side].push([cumulativeVolume, level[0]])
+      })
+    }
+  })
   return formattedBook
 }
 
