@@ -1,24 +1,29 @@
 import {
-  CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  CircularProgress
 } from '@mui/material'
+import { ColDef, RowClickedEvent } from 'ag-grid-community'
+import { AgGridReact } from 'ag-grid-react'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   LatestHoldings,
-  Trade,
   getHoldingVolumesFromTrades,
   tradingDataDef,
 } from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
 
+type FormattedHoldings = {
+  pair: string
+  volume: number
+  usdValue: number | string
+}
+
 function Holdings(data: { tradingData: tradingDataDef }) {
   const [currentHoldings, setCurrentHoldings] = useState<LatestHoldings>({})
+  const [formattedHoldings, setFormattedHoldings] = useState<
+    FormattedHoldings[]
+  >([])
+  const [colDefs, setColDefs] = useState<ColDef<FormattedHoldings>[]>([])
   const selectedPair = useSelector(
     (state: { filters: FilterState }) => state.filters.pair,
   )
@@ -27,17 +32,22 @@ function Holdings(data: { tradingData: tradingDataDef }) {
   useEffect(() => {
     const holdings = getHoldingVolumesFromTrades(data.tradingData.trades)
     setCurrentHoldings(holdings.current)
-  }, [data.tradingData.trades])
+    const formattedHoldings: FormattedHoldings[] = []
+    Object.keys(holdings.current).forEach((pair: string) =>
+      formattedHoldings.push({
+        pair: pair,
+        volume: holdings.current[pair],
+        usdValue: getUSDValue(pair),
+      }),
+    )
+    setFormattedHoldings(formattedHoldings)
+    setColDefs([{ field: 'pair', flex: 1, filter: true }, { field: 'volume', flex: 1 }, { field: 'usdValue', flex: 1 }])
+  }, [data.tradingData])
 
-  const handleClick = (pair: string) => {
-    dispatch(filterSlice.actions.setPair(pair))
-  }
-
-  function rowBackGroundColor(pair: string) {
-    if (pair === selectedPair) {
-      return 'green'
-    } else {
-      return 'transparent'
+  const handleClick = (holding: RowClickedEvent<FormattedHoldings, any>) => {
+    if (holding.rowIndex || holding.rowIndex === 0) {
+      const selectedHolding = formattedHoldings[holding.rowIndex]
+      dispatch(filterSlice.actions.setPair(selectedHolding.pair))
     }
   }
 
@@ -51,66 +61,19 @@ function Holdings(data: { tradingData: tradingDataDef }) {
     }
   }
 
-  return Object.keys(currentHoldings).length === 0 ? (
+  const gridOptions = {
+    domLayout: 'autoHeight'
+  };
+
+  return formattedHoldings.length === 0 ? (
     <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
   ) : (
-    <TableContainer sx={{ maxHeight: 170 }}>
-      <Table stickyHeader size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell align="left" sx={{ fontSize: 11 }}>
-              <u>Pair</u>
-            </TableCell>
-            <TableCell align="left">
-              <u>Amount</u>
-            </TableCell>
-            <TableCell align="left">
-              <u>USD value</u>
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {Object.keys(currentHoldings).map((pair: string, index: number) => (
-            <TableRow
-              key={index}
-              onClick={() => {
-                handleClick(pair)
-              }}
-              sx={{
-                '&:last-child td, &:last-child th': { border: 0 },
-                cursor: 'pointer',
-              }}
-              hover
-            >
-              <TableCell
-                align="left"
-                sx={{
-                  backgroundColor: rowBackGroundColor(pair),
-                }}
-              >
-                {pair}
-              </TableCell>
-              <TableCell
-                align="left"
-                sx={{
-                  backgroundColor: rowBackGroundColor(pair),
-                }}
-              >
-                {currentHoldings[pair]}
-              </TableCell>
-              <TableCell
-                align="left"
-                sx={{
-                  backgroundColor: rowBackGroundColor(pair),
-                }}
-              >
-                {getUSDValue(pair)}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <div
+      className={'ag-theme-quartz-dark'}
+      style={{ width: '100%', height: '180px' }}
+    >
+      <AgGridReact rowData={formattedHoldings} columnDefs={colDefs} onRowClicked={(r) => handleClick(r)} />
+    </div>
   )
 }
 
