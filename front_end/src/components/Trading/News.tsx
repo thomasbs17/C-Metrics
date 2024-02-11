@@ -24,13 +24,15 @@ function News(data: { tradingData: tradingDataDef }) {
           field: 'title',
           flex: 1,
           cellRenderer: function (article: CellMouseOverEvent<NewsArticle, any>) {
-            if (article.rowIndex) {
+            if (article.rowIndex || article.rowIndex === 0) {
               const hoveredArticle = news[article.rowIndex]
-              return (
-                <a href={'https://' + hoveredArticle.link} target="_blank">
-                  {hoveredArticle.title}
-                </a>
-              )
+              if (hoveredArticle !== undefined) {
+                return (
+                  <a href={'https://' + hoveredArticle.link} target="_blank">
+                    {hoveredArticle.title}
+                  </a>
+                )
+              }
             }
           },
         },
