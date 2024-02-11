@@ -1,6 +1,4 @@
-import {
-  CircularProgress
-} from '@mui/material'
+import { CircularProgress } from '@mui/material'
 import { CellMouseOverEvent, ColDef } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 import { useEffect, useState } from 'react'
@@ -16,30 +14,27 @@ function News(data: { tradingData: tradingDataDef }) {
   const [colDefs, setColDefs] = useState<ColDef<NewsArticle>[]>([])
 
   useEffect(() => {
-    setColDefs(
-      [
-        { field: 'date' },
-        { field: 'media' },
-        {
-          field: 'title',
-          flex: 1,
-          cellRenderer: function (article: CellMouseOverEvent<NewsArticle, any>) {
-            if (article.rowIndex || article.rowIndex === 0) {
-              const hoveredArticle = news[article.rowIndex]
-              if (hoveredArticle !== undefined) {
-                return (
-                  <a href={'https://' + hoveredArticle.link} target="_blank">
-                    {hoveredArticle.title}
-                  </a>
-                )
-              }
+    setColDefs([
+      { field: 'date' },
+      { field: 'media' },
+      {
+        field: 'title',
+        flex: 1,
+        cellRenderer: function (article: CellMouseOverEvent<NewsArticle, any>) {
+          if (article.rowIndex || article.rowIndex === 0) {
+            const hoveredArticle = news[article.rowIndex]
+            if (hoveredArticle !== undefined) {
+              return (
+                <a href={'https://' + hoveredArticle.link} target="_blank">
+                  {hoveredArticle.title}
+                </a>
+              )
             }
-          },
+          }
         },
-      ]
-    )
+      },
+    ])
   }, [data.tradingData.news])
-
 
   function handleHover(article: CellMouseOverEvent<NewsArticle, any>) {
     if (article.rowIndex) {

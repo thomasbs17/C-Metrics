@@ -1,7 +1,10 @@
 import { Box, Tab, Tabs } from '@mui/material'
 import React from 'react'
 import { Col, Container, Row } from 'react-bootstrap'
+import { Responsive, WidthProvider } from 'react-grid-layout'
+import 'react-grid-layout/css/styles.css'
 import { useDispatch } from 'react-redux'
+import 'react-resizable/css/styles.css'
 import {
   GetTradingData,
   type tradingDataDef,
@@ -11,12 +14,8 @@ import { TradingChart } from '../components/Trading/Chart'
 import CreateOrderWidget from '../components/Trading/CreateOrder'
 import { TopBar } from '../components/Trading/Filters'
 import Holdings from '../components/Trading/Holdings'
-import Orders from '../components/Trading/Orders'
-// import AddRemoveLayout from '../components/ResizablePanel'
-import { Responsive, WidthProvider } from 'react-grid-layout'
-import 'react-grid-layout/css/styles.css'
-import 'react-resizable/css/styles.css'
 import News from '../components/Trading/News'
+import Orders from '../components/Trading/Orders'
 import Screening from '../components/Trading/Screening'
 import Trades from '../components/Trading/TradeHistory'
 
@@ -31,9 +30,7 @@ function BottomLeftContainer(data: { tradingData: tradingDataDef }) {
     dispatch(filterSlice.actions.setOrdersNeedReload(true))
   }
   return (
-    <div
-      style={{ height: '250px' }}
-    >
+    <div style={{ height: '250px' }}>
       <Box sx={{ width: '100%' }}>
         <Tabs
           value={value}
@@ -62,9 +59,7 @@ function BottomRightContainer(data: { tradingData: tradingDataDef }) {
     setValue(newValue)
   }
   return (
-    <div
-      style={{ height: '250px', overflowY: 'hidden' }}
-    >
+    <div style={{ height: '250px', overflowY: 'hidden' }}>
       <Box sx={{ width: '100%' }}>
         <Tabs
           value={value}
@@ -92,7 +87,10 @@ function Trading() {
       <TopBar tradingData={tradingData} />
       <Container fluid>
         <TradingChart tradingData={tradingData} />
-        <Row>
+        <Row
+          className="border border-primary rounded-3 p-3"
+          style={{ height: '250px' }}
+        >
           <Col style={{ maxWidth: '50%' }}>
             <BottomLeftContainer tradingData={tradingData} />
           </Col>

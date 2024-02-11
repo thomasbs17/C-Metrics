@@ -1,6 +1,4 @@
-import {
-  CircularProgress
-} from '@mui/material'
+import { CircularProgress } from '@mui/material'
 import { ColDef, RowClickedEvent } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 import { useEffect, useState } from 'react'
@@ -42,7 +40,11 @@ function Holdings(data: { tradingData: tradingDataDef }) {
       }),
     )
     setFormattedHoldings(formattedHoldings)
-    setColDefs([{ field: 'pair', flex: 1, filter: true }, { field: 'volume', flex: 1 }, { field: 'usdValue', flex: 1 }])
+    setColDefs([
+      { field: 'pair', flex: 1, filter: true },
+      { field: 'volume', flex: 1 },
+      { field: 'usdValue', flex: 1 },
+    ])
   }, [data.tradingData.ohlcvData, data.tradingData.trades])
 
   const handleClick = (holding: RowClickedEvent<FormattedHoldings, any>) => {
@@ -69,7 +71,11 @@ function Holdings(data: { tradingData: tradingDataDef }) {
       className={'ag-theme-quartz-dark'}
       style={{ width: '100%', height: '180px' }}
     >
-      <AgGridReact rowData={formattedHoldings} columnDefs={colDefs} onRowClicked={(r) => handleClick(r)} />
+      <AgGridReact
+        rowData={formattedHoldings}
+        columnDefs={colDefs}
+        onRowClicked={(r) => handleClick(r)}
+      />
     </div>
   )
 }
