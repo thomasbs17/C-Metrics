@@ -44,9 +44,9 @@ function OrderTable({ orders }: TableProps) {
     ])
   }, [orders])
 
-  const handleClick = (holding: RowClickedEvent<Order, any>) => {
-    if (holding.rowIndex || holding.rowIndex === 0) {
-      const order = orders[holding.rowIndex]
+  const handleClick = (clickedOrder: RowClickedEvent<Order, any>) => {
+    const order = clickedOrder.data
+    if (order !== undefined) {
       if (order.order_id !== selectedOrder[2]) {
         dispatch(
           filterSlice.actions.setSelectedOrder([
