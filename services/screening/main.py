@@ -332,11 +332,7 @@ class Screener:
 
 
 async def run_websocket():
-    screener = Screener(
-        exchange_list=["coinbase"],
-        user_symbols_list=["BTC-USD", "ETH-USD"],
-        verbose=True,
-    )
+    screener = Screener(exchange_list=["coinbase"])
     screening_task = asyncio.create_task(screener.run_screening())
     start_server = websockets.serve(screener.run_client_websocket, "localhost", 8795)
     await asyncio.gather(screening_task, start_server)
