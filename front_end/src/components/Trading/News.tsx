@@ -1,39 +1,43 @@
-import React, { useState } from 'react'
 import {
-  CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  CircularProgress
 } from '@mui/material'
+import { CellMouseOverEvent, ColDef } from 'ag-grid-community'
+import { AgGridReact } from 'ag-grid-react'
+import { useEffect, useState } from 'react'
 import { useDispatch } from 'react-redux'
 import { type NewsArticle, type tradingDataDef } from '../DataManagement'
 import { filterSlice } from '../StateManagement'
-import { CellMouseOverEvent, ColDef } from 'ag-grid-community'
-import { AgGridReact } from 'ag-grid-react'
 
 function News(data: { tradingData: tradingDataDef }) {
   const news = data.tradingData.news.sort(
     (a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime(),
   )
   const dispatch = useDispatch()
+  const [colDefs, setColDefs] = useState<ColDef<NewsArticle>[]>([])
 
-  const [rowData, setRowData] = useState<NewsArticle[]>(news)
+  useEffect(() => {
+    setColDefs(
+      [
+        { field: 'date' },
+        { field: 'media' },
+        {
+          field: 'title',
+          flex: 1,
+          cellRenderer: function (article: CellMouseOverEvent<NewsArticle, any>) {
+            if (article.rowIndex) {
+              const hoveredArticle = news[article.rowIndex]
+              return (
+                <a href={'https://' + hoveredArticle.link} target="_blank">
+                  {hoveredArticle.title}
+                </a>
+              )
+            }
+          },
+        },
+      ]
+    )
+  }, [data.tradingData.news])
 
-  const [colDefs, setColDefs] = useState<ColDef<NewsArticle>[]>([
-    { field: 'date' },
-    { field: 'media' },
-    {
-      field: 'title', flex: 1, cellRenderer: function (article: CellMouseOverEvent<NewsArticle, any>) {
-        if (article.rowIndex) {
-          const hoveredArticle = news[article.rowIndex]
-          return <a href={'https://' + hoveredArticle.link} target="_blank">{hoveredArticle.title}</a>
-        }
-      }
-    },
-  ])
 
   function handleHover(article: CellMouseOverEvent<NewsArticle, any>) {
     if (article.rowIndex) {
@@ -55,7 +59,7 @@ function News(data: { tradingData: tradingDataDef }) {
       style={{ width: '100%', height: '180px' }}
     >
       <AgGridReact
-        rowData={rowData}
+        rowData={news}
         columnDefs={colDefs}
         onCellMouseOver={(t) => handleHover(t)}
         onCellMouseOut={() =>
