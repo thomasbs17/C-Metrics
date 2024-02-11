@@ -32,7 +32,6 @@ function BottomLeftContainer(data: { tradingData: tradingDataDef }) {
   }
   return (
     <div
-      className="border border-primary rounded-3 p-3"
       style={{ height: '250px' }}
     >
       <Box sx={{ width: '100%' }}>
@@ -56,40 +55,6 @@ function BottomLeftContainer(data: { tradingData: tradingDataDef }) {
   )
 }
 
-function BottomContainer(data: { tradingData: tradingDataDef }) {
-  const layout = [
-    { i: 'a', x: 2, y: 0, w: 1000, h: 10 },
-    { i: 'b', x: 10, y: 0, w: 10000, h: 10, maxW: 4 },
-  ]
-  return (
-    <ResponsiveGridLayout
-      className="layout"
-      breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-      // layouts={layout}
-      cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-    >
-      <div
-        style={{
-          borderRadius: 10,
-          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        }}
-        key="a"
-      >
-        <BottomLeftContainer tradingData={data.tradingData} />
-      </div>
-      <div
-        style={{
-          borderRadius: 10,
-          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        }}
-        key="b"
-      >
-        <BottomRightContainer tradingData={data.tradingData} />
-      </div>
-    </ResponsiveGridLayout>
-  )
-}
-
 function BottomRightContainer(data: { tradingData: tradingDataDef }) {
   const [value, setValue] = React.useState('news')
 
@@ -98,7 +63,6 @@ function BottomRightContainer(data: { tradingData: tradingDataDef }) {
   }
   return (
     <div
-      className="border border-primary rounded-3 p-3"
       style={{ height: '250px', overflowY: 'hidden' }}
     >
       <Box sx={{ width: '100%' }}>
