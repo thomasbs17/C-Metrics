@@ -1,27 +1,14 @@
-import React from 'react'
-import {
-  Checkbox,
-  CircularProgress,
-  FormControlLabel,
-  Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-} from '@mui/material'
-import { useMemo, useState } from 'react'
-import { Col, Container, Row } from 'react-bootstrap'
+import { CircularProgress } from '@mui/material'
+import { ColDef, RowClickedEvent, SideBarDef } from 'ag-grid-community'
+import 'ag-grid-enterprise'
+import { AgGridReact } from 'ag-grid-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Container } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
 import { type Order, type tradingDataDef } from '../DataManagement'
-import { type FilterState, filterSlice } from '../StateManagement'
+import { filterSlice, type FilterState } from '../StateManagement'
 
 interface TableProps {
-  openOnly: boolean
-  selectedPair: boolean
-  paper: boolean
-  live: boolean
   orders: Order[]
 }
 
@@ -31,13 +18,7 @@ function formatTimeStamp(originalDate: any) {
   return formattedDate
 }
 
-function OrderTable({
-  openOnly,
-  selectedPair,
-  paper,
-  live,
-  orders,
-}: TableProps) {
+function OrderTable({ orders }: TableProps) {
   const dispatch = useDispatch()
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
@@ -47,287 +28,103 @@ function OrderTable({
     [filterState.pair, filterState.selectedOrder],
   )
 
-  function getFilteredOrders() {
-    let filteredOrders = orders.filter((order: Order) => {
-      const isOpen = openOnly ? order.order_status === 'open' : true
-      const isMatchingPair = selectedPair ? order.asset_id === pair : true
-      const isPaperTrading = paper
-        ? order.trading_env === 'paper_trading'
-        : false
-      const isLiveTrading = live ? order.trading_env === 'live' : false
-      return isOpen && isMatchingPair && (isPaperTrading || isLiveTrading)
-    })
-    filteredOrders = filteredOrders.sort(
-      (
-        a: { order_creation_tmstmp: string | number | Date },
-        b: { order_creation_tmstmp: string | number | Date },
-      ) =>
-        new Date(b.order_creation_tmstmp).getTime() -
-        new Date(a.order_creation_tmstmp).getTime(),
-    )
-    return filteredOrders
-  }
+  const [colDefs, setColDefs] = useState<ColDef<Order>[]>([])
 
-  function rowBackGroundColor(order: Order) {
-    if (order.order_id === selectedOrder[2]) {
-      if (order.order_side === 'buy') {
-        return 'green'
+  useEffect(() => {
+    setColDefs([
+      { field: 'order_creation_tmstmp' },
+      { field: 'trading_env', hide: true },
+      { field: 'asset_id' },
+      { field: 'order_side' },
+      { field: 'trading_type', hide: true },
+      { field: 'order_status' },
+      { field: 'fill_pct' },
+      { field: 'order_volume' },
+      { field: 'order_price' },
+    ])
+  }, [orders])
+
+  const handleClick = (holding: RowClickedEvent<Order, any>) => {
+    if (holding.rowIndex || holding.rowIndex === 0) {
+      const order = orders[holding.rowIndex]
+      if (order.order_id !== selectedOrder[2]) {
+        dispatch(
+          filterSlice.actions.setSelectedOrder([
+            order.order_creation_tmstmp,
+            order.order_price,
+            order.order_id,
+          ]),
+        )
+        if (pair !== order['asset_id']) {
+          dispatch(filterSlice.actions.setPair(order.asset_id))
+        }
       } else {
-        return 'red'
-      }
-    } else {
-      return 'transparent'
-    }
-  }
-
-  function rowFontColor(order: Order) {
-    if (order.order_id === selectedOrder[2]) {
-      return 'white'
-    } else {
-      if (order.order_side === 'buy') {
-        return 'green'
-      } else {
-        return 'red'
+        dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
       }
     }
   }
 
-  const handleClick = (order: Order) => {
-    if (order.order_id !== selectedOrder[2]) {
-      dispatch(
-        filterSlice.actions.setSelectedOrder([
-          order.order_creation_tmstmp,
-          order.order_price,
-          order.order_id,
-        ]),
-      )
-      if (pair !== order['asset_id']) {
-        dispatch(filterSlice.actions.setPair(order.asset_id))
-      }
-    } else {
-      dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
+  const defaultColDef = useMemo<ColDef>(() => {
+    return {
+      flex: 1,
+      filter: true,
     }
-  }
+  }, [])
 
-  const filteredOrders = getFilteredOrders()
+  const sideBar = useMemo<
+    SideBarDef | string | string[] | boolean | null
+  >(() => {
+    return {
+      toolPanels: [
+        {
+          id: 'columns',
+          labelDefault: 'Columns',
+          labelKey: 'columns',
+          iconKey: 'columns',
+          toolPanel: 'agColumnsToolPanel',
+          minWidth: 225,
+          width: 225,
+          maxWidth: 225,
+        },
+        {
+          id: 'filters',
+          labelDefault: 'Filters',
+          labelKey: 'filters',
+          iconKey: 'filter',
+          toolPanel: 'agFiltersToolPanel',
+          minWidth: 180,
+          maxWidth: 400,
+          width: 250,
+        },
+      ],
+      position: 'left',
+      defaultToolPanel: 'filters',
+    }
+  }, [])
 
   return orders.length === 0 ? (
     <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
   ) : (
-    <TableContainer sx={{ maxHeight: 170 }}>
-      <Table stickyHeader size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell align="left" sx={{ fontSize: 11 }}>
-              <u>Creation Date</u>
-            </TableCell>
-            <TableCell align="left">
-              <u>Environment</u>
-            </TableCell>
-            <TableCell align="left">
-              <u>Asset</u>
-            </TableCell>
-            <TableCell align="left">
-              <u>Side</u>
-            </TableCell>
-            <TableCell align="left">
-              <u>Type</u>
-            </TableCell>
-            <TableCell align="left">
-              <u>Status</u>
-            </TableCell>
-            <TableCell align="left">
-              <u>Fill %</u>
-            </TableCell>
-            <TableCell align="left">
-              <u>Volume</u>
-            </TableCell>
-            <TableCell align="left">
-              <u>Price</u>
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filteredOrders.map((order: Order, index: number) => (
-            <TableRow
-              key={index}
-              sx={{
-                '&:last-child td, &:last-child th': { border: 0 },
-                cursor: 'pointer',
-              }}
-              hover
-              onClick={() => {
-                handleClick(order)
-              }}
-            >
-              <TableCell
-                align="left"
-                sx={{
-                  color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
-                  fontSize: 11,
-                }}
-              >
-                {formatTimeStamp(order.order_creation_tmstmp)}
-              </TableCell>
-              <TableCell
-                align="left"
-                sx={{
-                  color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
-                }}
-              >
-                {order.trading_env}
-              </TableCell>
-              <TableCell
-                align="left"
-                sx={{
-                  color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
-                }}
-              >
-                {order.asset_id}
-              </TableCell>
-              <TableCell
-                align="left"
-                sx={{
-                  color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
-                }}
-              >
-                {order.order_side}
-              </TableCell>
-              <TableCell
-                align="left"
-                sx={{
-                  color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
-                }}
-              >
-                {order.order_type}
-              </TableCell>
-              <TableCell
-                align="left"
-                sx={{
-                  color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
-                }}
-              >
-                {order.order_status}
-              </TableCell>
-              <TableCell
-                align="left"
-                sx={{
-                  color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
-                }}
-              >
-                {order.fill_pct * 100}%
-              </TableCell>
-              <TableCell
-                align="left"
-                sx={{
-                  color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
-                }}
-              >
-                {order.order_volume.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </TableCell>
-              <TableCell
-                align="left"
-                sx={{
-                  color: rowFontColor(order),
-                  backgroundColor: rowBackGroundColor(order),
-                }}
-              >
-                {order.order_price.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <div
+      className={'ag-theme-quartz-dark'}
+      style={{ width: '100%', height: '180px' }}
+    >
+      <AgGridReact
+        rowData={orders}
+        columnDefs={colDefs}
+        defaultColDef={defaultColDef}
+        // autoGroupColumnDef={autoGroupColumnDef}
+        sideBar={sideBar}
+        onRowClicked={(r) => handleClick(r)}
+      />
+    </div>
   )
 }
 
 function Orders(data: { tradingData: tradingDataDef }) {
-  const [openOnly, setOpenOnly] = useState(true)
-  const [selectedPair, setSelectedPair] = useState(true)
-  const [paper, setPaper] = useState(true)
-  const [live, setLive] = useState(false)
   return (
     <Container>
-      <div style={{ zIndex: 1000, position: 'relative' }}>
-        <Row>
-          <Col xs={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={openOnly}
-                  onChange={() => {
-                    setOpenOnly(!openOnly)
-                  }}
-                  size="small"
-                />
-              }
-              label="Open orders only"
-            />
-          </Col>
-          <Col xs={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={selectedPair}
-                  onChange={() => {
-                    setSelectedPair(!selectedPair)
-                  }}
-                  size="small"
-                />
-              }
-              label="Selected pair only"
-            />
-          </Col>
-          <Col xs={5} style={{ marginTop: -10 }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={paper}
-                  onChange={() => {
-                    setPaper(!paper)
-                  }}
-                />
-              }
-              label="Paper Trading"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={live}
-                  onChange={() => {
-                    setLive(!live)
-                  }}
-                />
-              }
-              label="Live Trading"
-            />
-          </Col>
-        </Row>
-      </div>
-      <OrderTable
-        openOnly={openOnly}
-        selectedPair={selectedPair}
-        paper={paper}
-        live={live}
-        orders={data.tradingData.orders}
-      />
+      <OrderTable orders={data.tradingData.orders} />
     </Container>
   )
 }
