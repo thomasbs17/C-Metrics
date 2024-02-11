@@ -11,6 +11,7 @@ import {
   tradingDataDef,
 } from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
+import './tables.css'
 
 type FormattedHoldings = {
   pair: string
@@ -37,12 +38,12 @@ function Holdings(data: { tradingData: tradingDataDef }) {
       formattedHoldings.push({
         pair: pair,
         volume: holdings.current[pair],
-        usdValue: getUSDValue(pair),
+        usdValue: getUSDValue(pair, holdings.current[pair]),
       }),
     )
     setFormattedHoldings(formattedHoldings)
     setColDefs([{ field: 'pair', flex: 1, filter: true }, { field: 'volume', flex: 1 }, { field: 'usdValue', flex: 1 }])
-  }, [data.tradingData])
+  }, [data.tradingData.ohlcvData, data.tradingData.trades])
 
   const handleClick = (holding: RowClickedEvent<FormattedHoldings, any>) => {
     if (holding.rowIndex || holding.rowIndex === 0) {
@@ -51,19 +52,15 @@ function Holdings(data: { tradingData: tradingDataDef }) {
     }
   }
 
-  function getUSDValue(pair: string) {
+  function getUSDValue(pair: string, volume: number) {
     const ohlcv = data.tradingData.ohlcvData[pair]
     if (ohlcv === undefined || ohlcv === null) {
       return 'N/A'
     } else {
       const lastPrice = ohlcv[ohlcv.length - 1][3]
-      return currentHoldings[pair] * lastPrice
+      return volume * lastPrice
     }
   }
-
-  const gridOptions = {
-    domLayout: 'autoHeight'
-  };
 
   return formattedHoldings.length === 0 ? (
     <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />

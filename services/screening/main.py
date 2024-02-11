@@ -165,9 +165,14 @@ class Screener:
         pair_book = pair_data["book"]
         data = dict()
         for side in ("bid", "ask"):
-            df = pd.DataFrame.from_dict(
-                pair_book[side], orient="index", columns=["volume"]
-            )
+            raw_side = side if side in pair_book else side + "s"
+            if isinstance(pair_book[raw_side], list):
+                df = pd.DataFrame(pair_book[raw_side], columns=["price", "volume"])
+                df.set_index("price", inplace=True)
+            else:
+                df = pd.DataFrame.from_dict(
+                    pair_book[raw_side], orient="index", columns=["volume"]
+                )
             data[side] = df
         spread = float(data["ask"].index[0]) / float(data["bid"].index[0])
         return (data["bid"]["volume"].sum() / data["ask"]["volume"].sum()) / spread
@@ -216,9 +221,10 @@ class Screener:
                     pair_score_df = pd.DataFrame([pair_score])
                     scores = pd.concat([scores, pair_score_df])
         if not scores.empty:
-
             scores["book_score"] = scores["book_score"].apply(
-                lambda x: x / scores["book_score"].max() if scores["book_score"].max() > 0 else 0
+                lambda x: x / scores["book_score"].max()
+                if scores["book_score"].max() > 0
+                else 0
             )
             book_weight = 0.2
             technicals_weight = 0.8
@@ -326,7 +332,11 @@ class Screener:
 
 
 async def run_websocket():
-    screener = Screener(exchange_list=["coinbase"], user_symbols_list=['BTC-USD', 'ETH-USD'])
+    screener = Screener(
+        exchange_list=["coinbase"],
+        user_symbols_list=["BTC-USD", "ETH-USD"],
+        verbose=True,
+    )
     screening_task = asyncio.create_task(screener.run_screening())
     start_server = websockets.serve(screener.run_client_websocket, "localhost", 8795)
     await asyncio.gather(screening_task, start_server)
