@@ -550,7 +550,7 @@ function OhlcChart(props: OhlcChartProps) {
       useHTML: true,
       text:
         props.cryptoInfo !== undefined &&
-        `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name}`,
+        `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name} (${props.pair})`,
       style: {
         fontSize: '20px',
       },
@@ -654,7 +654,7 @@ function OhlcChart(props: OhlcChartProps) {
         text:
           props.cryptoInfo === undefined
             ? ''
-            : `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name}`,
+            : `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name} (${props.pair})`,
         style: {
           fontSize: '20px',
         },
