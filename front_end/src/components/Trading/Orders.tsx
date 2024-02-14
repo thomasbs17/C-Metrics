@@ -1,12 +1,18 @@
 import { CircularProgress } from '@mui/material'
-import { ColDef, RowClickedEvent, SideBarDef } from 'ag-grid-community'
+import {
+  ColDef,
+  GridReadyEvent,
+  RowClickedEvent,
+  SideBarDef,
+} from 'ag-grid-community'
 import 'ag-grid-enterprise'
 import { AgGridReact } from 'ag-grid-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Container } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
 import { type Order, type tradingDataDef } from '../DataManagement'
 import { filterSlice, type FilterState } from '../StateManagement'
+import './tables.css'
 
 interface TableProps {
   orders: Order[]
@@ -19,6 +25,7 @@ function formatTimeStamp(originalDate: any) {
 }
 
 function OrderTable({ orders }: TableProps) {
+  const gridRef = useRef<AgGridReact<Order[]>>(null)
   const dispatch = useDispatch()
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
@@ -30,18 +37,48 @@ function OrderTable({ orders }: TableProps) {
 
   const [colDefs, setColDefs] = useState<ColDef<Order>[]>([])
 
+  function setDefaultGridSettings() {
+    if (gridRef.current && gridRef.current.api) {
+      gridRef.current.api.applyColumnState({
+        state: [{ colId: 'order_creation_tmstmp', sort: 'desc' }],
+        defaultState: { sort: null },
+      })
+      gridRef.current.api
+        .setColumnFilterModel('asset_id', { values: [pair] })
+        .then(() => {
+          gridRef.current!.api.onFilterChanged()
+        })
+    }
+  }
+
   useEffect(() => {
     setColDefs([
       { field: 'order_creation_tmstmp' },
       { field: 'trading_env', hide: true },
-      { field: 'asset_id' },
-      { field: 'order_side' },
+      { field: 'asset_id', filter: 'agSetColumnFilter' },
+      {
+        field: 'order_side',
+        cellRenderer: (params: { value: string }) => {
+          const action = params.value.toLowerCase()
+          let cellClass = ''
+          if (action === 'buy') {
+            cellClass = 'buy-cell'
+          } else if (action === 'sell') {
+            cellClass = 'sell-cell'
+          }
+          return <span className={cellClass}>{action}</span>
+        },
+      },
       { field: 'trading_type', hide: true },
       { field: 'order_status' },
-      { field: 'fill_pct' },
+      {
+        field: 'fill_pct',
+        valueFormatter: (params) => (params.value * 100).toFixed(2) + '%',
+      },
       { field: 'order_volume' },
       { field: 'order_price' },
     ])
+    setDefaultGridSettings()
   }, [orders])
 
   const handleClick = (clickedOrder: RowClickedEvent<Order, any>) => {
@@ -63,6 +100,10 @@ function OrderTable({ orders }: TableProps) {
       }
     }
   }
+
+  const onGridReady = useCallback((event: GridReadyEvent) => {
+    setDefaultGridSettings()
+  }, [])
 
   const defaultColDef = useMemo<ColDef>(() => {
     return {
@@ -99,6 +140,7 @@ function OrderTable({ orders }: TableProps) {
       ],
       position: 'left',
       defaultToolPanel: 'filters',
+      hiddenByDefault: true,
     }
   }, [])
 
@@ -110,12 +152,14 @@ function OrderTable({ orders }: TableProps) {
       style={{ width: '100%', height: '180px' }}
     >
       <AgGridReact
+        ref={gridRef}
         rowData={orders}
         columnDefs={colDefs}
         defaultColDef={defaultColDef}
-        // autoGroupColumnDef={autoGroupColumnDef}
         sideBar={sideBar}
         onRowClicked={(r) => handleClick(r)}
+        onGridReady={onGridReady}
+        rowSelection={'single'}
       />
     </div>
   )
