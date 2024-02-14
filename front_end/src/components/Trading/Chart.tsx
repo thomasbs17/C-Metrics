@@ -28,7 +28,7 @@ import {
   type tradingDataDef,
 } from '../DataManagement'
 import { type FilterState } from '../StateManagement'
-import './charts.css'
+import '../../css/charts.css'
 
 const CHART_HEIGHT = 600
 

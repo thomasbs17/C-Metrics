@@ -11,7 +11,7 @@ import { Container } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
 import { Trade, type tradingDataDef } from '../DataManagement'
 import { filterSlice, type FilterState } from '../StateManagement'
-import './tables.css'
+import '../../css/charts.css'
 
 interface TableProps {
   trades: Trade[]

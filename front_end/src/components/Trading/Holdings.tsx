@@ -9,7 +9,7 @@ import {
   tradingDataDef,
 } from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
-import './tables.css'
+import '../../css/tables.css'
 
 type FormattedHoldings = {
   pair: string
