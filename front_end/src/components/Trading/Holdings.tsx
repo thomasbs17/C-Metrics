@@ -75,6 +75,7 @@ function Holdings(data: { tradingData: tradingDataDef }) {
         rowData={formattedHoldings}
         columnDefs={colDefs}
         onRowClicked={(r) => handleClick(r)}
+        rowSelection={'single'}
       />
     </div>
   )
