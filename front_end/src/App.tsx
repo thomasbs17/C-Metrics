@@ -9,7 +9,8 @@ import Home from './pages/Home'
 import NoPage from './pages/NoPage'
 import Portfolio from './pages/Portfolio'
 import Trading from './pages/Trading'
-import UserRegistrationForm from './pages/User'
+import LogIn from './pages/LogIn'
+import SignUp from './pages/SignUp'
 
 const darkTheme = createTheme({
   components: {
@@ -61,7 +62,8 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/trading" element={<Trading />} />
               <Route path="portfolio" element={<Portfolio />} />
-              <Route path="/registration" element={<UserRegistrationForm />} />
+              <Route path="/sign-in" element={<LogIn />} />
+              <Route path="/sign-up" element={<SignUp />} />
               <Route path="*" element={<NoPage />} />
             </Routes>
           </BrowserRouter>
