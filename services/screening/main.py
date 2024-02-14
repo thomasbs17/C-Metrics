@@ -53,14 +53,17 @@ class Screener:
     async def daily_indicators_refresh(self, exchange: ccxt.Exchange, symbols: dict):
         exchange_name = exchange.name.lower()
         for pair in symbols:
-            if self.verbose:
-                print(f"Computing indicators for {pair}")
-            self.add_technical_indicators(exchange, pair)
-            self.data["exchanges"][exchange_name]["mapping"][pair]["indicators"][
-                "fractals"
-            ] = FractalCandlestickPattern(
-                self.data["exchanges"][exchange_name]["mapping"][pair]["data"]["ohlc"]
-            ).run()
+            if "ohlc" in self.data["exchanges"][exchange_name]["mapping"][pair]["data"]:
+                if self.verbose:
+                    print(f"Computing indicators for {pair}")
+                self.add_technical_indicators(exchange, pair)
+                self.data["exchanges"][exchange_name]["mapping"][pair]["indicators"][
+                    "fractals"
+                ] = FractalCandlestickPattern(
+                    self.data["exchanges"][exchange_name]["mapping"][pair]["data"][
+                        "ohlc"
+                    ]
+                ).run()
 
     def add_technical_indicators(self, exchange: ccxt.Exchange, pair: str):
         exchange_name = exchange.name.lower()
@@ -100,12 +103,15 @@ class Screener:
                 data=ohlc_data,
                 columns=["timestamp", "open", "high", "low", "close", "volume"],
             )
-            self.data["exchanges"][exchange_name]["mapping"][pair]["data"][
-                "ohlc"
-            ] = ohlc_data
-            self.data["exchanges"][exchange_name]["mapping"][pair]["data"][
-                "last"
-            ] = ohlc_data.tail(1)["close"].item()
+            if ohlc_data.empty:
+                print(f"No OHLCV data for {pair}")
+            else:
+                self.data["exchanges"][exchange_name]["mapping"][pair]["data"][
+                    "ohlc"
+                ] = ohlc_data
+                self.data["exchanges"][exchange_name]["mapping"][pair]["data"][
+                    "last"
+                ] = ohlc_data.tail(1)["close"].item()
 
     async def live_refresh(
         self, exchange: ccxt.Exchange, symbols: dict, raw_data: str = None
@@ -142,13 +148,19 @@ class Screener:
             print(f"Could not download order book for {pair}: \n {e}")
 
     async def live_data_refresh(
-        self, exchange: ccxt.Exchange, symbols: dict, raw_data: dict
+        self, exchange: ccxt.Exchange, pairs: dict, raw_data: dict
     ):
         if raw_data:
             await self.read_ws_message(raw_data)
         else:
-            for symbol in symbols:
-                await self.get_pair_book(exchange, symbol)
+            for pair in pairs:
+                if (
+                    "ohlc"
+                    in self.data["exchanges"][exchange.name.lower()]["mapping"][pair][
+                        "data"
+                    ]
+                ):
+                    await self.get_pair_book(exchange, pair)
 
     async def live_indicators_refresh(self, exchange: ccxt.Exchange, symbols: dict):
         self.data["exchanges"][exchange.name.lower()]["scores"] = self.get_scoring(
@@ -215,7 +227,14 @@ class Screener:
     def get_scoring(self, exchange: ccxt.Exchange, symbols: dict) -> pd.DataFrame:
         scores = pd.DataFrame()
         for pair, details in symbols.items():
-            if self.ref_currency and details["quote"] == self.ref_currency:
+            if (
+                self.ref_currency
+                and details["quote"] == self.ref_currency
+                and "ohlc"
+                in self.data["exchanges"][exchange.name.lower()]["mapping"][pair][
+                    "data"
+                ]
+            ):
                 pair_score = self.score_pair(exchange, pair)
                 if pair_score:
                     pair_score_df = pd.DataFrame([pair_score])
