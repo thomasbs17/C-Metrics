@@ -14,6 +14,7 @@ from crypto_station_api.data_sources.coinmarketcap import CoinMarketCap
 from crypto_station_api.models import Orders, Trades
 from crypto_station_api.serializers import OrdersSerializer, TradesSerializer
 from utils.helpers import get_exchange_object
+from asgiref.sync import sync_to_async
 
 coinmarketcap = CoinMarketCap()
 
@@ -28,6 +29,7 @@ def get_exchanges(request):
     return JsonResponse(data, safe=False)
 
 
+@sync_to_async
 @api_view(["GET"])
 def get_ohlc(request):
     exchange = request.query_params.get("exchange")
@@ -38,6 +40,7 @@ def get_ohlc(request):
     return JsonResponse(ohlc_data, safe=False)
 
 
+@sync_to_async
 @api_view(["GET"])
 def get_order_book(request):
     exchange = request.query_params.get("exchange")
@@ -47,6 +50,7 @@ def get_order_book(request):
     return JsonResponse(order_book_data, safe=False)
 
 
+@sync_to_async
 @api_view(["GET"])
 def get_asset_coinmarketcap_mapping(request):
     return JsonResponse(
@@ -57,6 +61,7 @@ def get_asset_coinmarketcap_mapping(request):
     )
 
 
+@sync_to_async
 @api_view(["GET"])
 def get_crypto_meta_data(request):
     crypto_coinmarketcap_id = request.query_params.get("crypto_coinmarketcap_id")
@@ -70,6 +75,7 @@ def get_crypto_meta_data(request):
     )
 
 
+@sync_to_async
 @api_view(["GET"])
 def get_exchange_markets(request):
     exchange = request.query_params.get("exchange")
@@ -77,6 +83,7 @@ def get_exchange_markets(request):
     return JsonResponse(exchange.load_markets(), safe=False)
 
 
+@sync_to_async
 @api_view(["GET"])
 def get_news(request):
     pair = request.query_params.get("search_term")
@@ -87,6 +94,7 @@ def get_news(request):
     return JsonResponse(data, safe=False)
 
 
+@sync_to_async
 @api_view(["GET"])
 def get_public_trades(request):
     exchange = request.query_params.get("exchange")
@@ -96,6 +104,7 @@ def get_public_trades(request):
     return JsonResponse(data, safe=False)
 
 
+@sync_to_async
 @api_view(["POST"])
 def post_new_order(request):
     new_order = Orders(
