@@ -45,3 +45,4 @@ front_end/yarn.lock
 crypto_station_api/.idea/*
 feedhandler.log
 test.py
+ta-lib/*
