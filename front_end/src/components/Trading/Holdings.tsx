@@ -31,7 +31,7 @@ function Holdings(data: { tradingData: tradingDataDef }) {
   useEffect(() => {
     const holdings = getHoldingVolumesFromTrades(data.tradingData.trades)
     setCurrentHoldings(holdings.current)
-    const formattedHoldings: FormattedHoldings[] = []
+    let formattedHoldings: FormattedHoldings[] = []
     Object.keys(holdings.current).forEach((pair: string) =>
       formattedHoldings.push({
         pair: pair,
@@ -39,6 +39,7 @@ function Holdings(data: { tradingData: tradingDataDef }) {
         usdValue: getUSDValue(pair, holdings.current[pair]),
       }),
     )
+    formattedHoldings = formattedHoldings.sort((a, b) => (typeof a.usdValue === 'string' || typeof b.usdValue === 'string') ? 0 : b.usdValue - a.usdValue);
     setFormattedHoldings(formattedHoldings)
     setColDefs([
       { field: 'pair', flex: 1, filter: true },
