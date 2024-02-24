@@ -167,9 +167,7 @@ function OrderTable({ orders }: TableProps) {
 
 function Orders(data: { tradingData: tradingDataDef }) {
   return (
-    <Container>
-      <OrderTable orders={data.tradingData.orders} />
-    </Container>
+    <OrderTable orders={data.tradingData.orders} />
   )
 }
 

@@ -72,7 +72,7 @@ function BottomRightContainer(data: { tradingData: tradingDataDef }) {
         </Tabs>
         {value === 'news' && <News tradingData={data.tradingData} />}
         {value === 'screening' && (
-          <Screening screeningData={data.tradingData.screeningData} />
+          <Screening tradingData={data.tradingData} />
         )}
       </Box>
     </div>

@@ -160,9 +160,7 @@ function TradeTable({ trades }: TableProps) {
 
 function Trades(data: { tradingData: tradingDataDef }) {
   return (
-    <Container>
-      <TradeTable trades={data.tradingData.trades} />
-    </Container>
+    <TradeTable trades={data.tradingData.trades} />
   )
 }
 
