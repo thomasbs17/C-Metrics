@@ -15,6 +15,7 @@ from crypto_station_api.models import Orders, Trades
 from crypto_station_api.serializers import OrdersSerializer, TradesSerializer
 from utils.helpers import get_exchange_object
 from asgiref.sync import sync_to_async
+from ccxt.base import errors
 
 coinmarketcap = CoinMarketCap()
 
@@ -36,8 +37,11 @@ def get_ohlc(request):
     timeframe = request.query_params.get("timeframe")
     pair = request.query_params.get("pair")
     exchange = get_exchange_object(exchange, async_mode=False)
-    ohlc_data = exchange.fetch_ohlcv(symbol=pair, timeframe=timeframe, limit=300)
-    return JsonResponse(ohlc_data, safe=False)
+    try:
+        ohlc_data = exchange.fetch_ohlcv(symbol=pair, timeframe=timeframe, limit=300)
+        return JsonResponse(ohlc_data, safe=False)
+    except errors.BadSymbol:
+        return JsonResponse(None, safe=False)
 
 
 @sync_to_async
@@ -46,8 +50,11 @@ def get_order_book(request):
     exchange = request.query_params.get("exchange")
     pair = request.query_params.get("pair")
     exchange = get_exchange_object(exchange, async_mode=False)
-    order_book_data = exchange.fetch_order_book(symbol=pair, limit=10000)
-    return JsonResponse(order_book_data, safe=False)
+    try:
+        order_book_data = exchange.fetch_order_book(symbol=pair, limit=10000)
+        return JsonResponse(order_book_data, safe=False)
+    except errors.BadSymbol:
+        return JsonResponse(None, safe=False)
 
 
 @sync_to_async
