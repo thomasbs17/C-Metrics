@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   CircularProgress,
   FormControlLabel,
@@ -18,13 +17,14 @@ import FullScreen from 'highcharts/modules/full-screen.js'
 import PriceIndicator from 'highcharts/modules/price-indicator.js'
 import StockTools from 'highcharts/modules/stock-tools'
 import DarkTheme from 'highcharts/themes/brand-dark'
+import Lottie from 'lottie-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Row } from 'react-bootstrap'
 import { useSelector } from 'react-redux'
 import {
+  retrieveInfoFromCoinMarketCap,
   type OhlcData,
   type OrderBookData,
-  retrieveInfoFromCoinMarketCap,
   type tradingDataDef,
 } from '../DataManagement'
 import { type FilterState } from '../StateManagement'
@@ -115,7 +115,7 @@ interface BookChartProps {
 }
 
 interface OhlcChartProps {
-  data: OhlcData
+  data: OhlcData | null
   exchange: string
   pair: string
   selectedArticle: [string, string]
@@ -236,6 +236,7 @@ function OrderBookChart(props: BookChartProps) {
     chart: {
       backgroundColor: 'transparent',
       height: CHART_HEIGHT - 215,
+      animation: false,
       zooming: {
         mouseWheel: { enabled: true, type: 'x' },
       },
@@ -330,21 +331,11 @@ function OrderBookChart(props: BookChartProps) {
     }
   }
 
-  function filterData() {
+  function filterData(bookDepthPct: number = 0.95) {
     const bids = props.data.bid
     const asks = props.data.ask
-    const lastBid = bids[bids.length - 1][1]
-    const lastAsk = asks[asks.length - 1][1]
-    const inRangeDistance =
-      lastAsk / asks[0][1] > bids[0][1] / lastBid
-        ? bids[0][1] / lastBid
-        : lastAsk / asks[0][1]
-    const filteredBids = bids.filter(
-      (bid) => bids[0][1] / bid[1] <= inRangeDistance,
-    )
-    const filteredAsks = asks.filter(
-      (ask) => ask[1] / asks[0][1] <= inRangeDistance,
-    )
+    const filteredBids = bids.slice(0, Math.ceil(bids.length * bookDepthPct))
+    const filteredAsks = asks.filter((ask) => ask[1] - asks[0][1] <= bids[0][1])
     return { bids: filteredBids, asks: filteredAsks }
   }
 
@@ -386,9 +377,11 @@ function OrderBookChart(props: BookChartProps) {
           width: 0.5,
           label: { text: 'support', align: 'right', style: { color: 'red' } },
           id: 'supportLine',
-          value: Object.keys(props.pairScoreDetails).includes('next_support')
-            ? props.pairScoreDetails.next_support
-            : null,
+          value:
+            props.pairScoreDetails !== undefined &&
+            Object.keys(props.pairScoreDetails).includes('next_support')
+              ? props.pairScoreDetails.next_support
+              : null,
         })
         HighchartSeries.yAxis.addPlotLine({
           color: 'green',
@@ -399,15 +392,22 @@ function OrderBookChart(props: BookChartProps) {
             style: { color: 'green' },
           },
           id: 'resistanceLine',
-          value: Object.keys(props.pairScoreDetails).includes('next_resistance')
-            ? props.pairScoreDetails.next_resistance
-            : null,
+          value:
+            props.pairScoreDetails !== undefined &&
+            Object.keys(props.pairScoreDetails).includes('next_resistance')
+              ? props.pairScoreDetails.next_resistance
+              : null,
         })
       })
     }
   }, [props.pairScoreDetails, props.selectedOrder])
 
   function afterSetExtremes(this: any, e: any) {
+    let bookSideDetails = { ask: {}, bid: {} }
+    Object.keys(bookSideDetails).forEach((side: string) => {
+      const amountOfQuotes = props.data[side].length
+    })
+
     this.setExtremes(0, this.max)
     const charts = Highcharts.charts
     let orderBookChart: any
@@ -550,7 +550,7 @@ function OhlcChart(props: OhlcChartProps) {
       useHTML: true,
       text:
         props.cryptoInfo !== undefined &&
-        `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name}`,
+        `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name} (${props.pair})`,
       style: {
         fontSize: '20px',
       },
@@ -622,7 +622,12 @@ function OhlcChart(props: OhlcChartProps) {
   })
 
   useEffect(() => {
-    if (chartRef.current && chartRef.current.chart) {
+    if (
+      chartRef.current &&
+      chartRef.current.chart &&
+      props.data !== undefined &&
+      props.data !== null
+    ) {
       chartRef.current.chart.series[0].setData(props.data)
       chartRef.current.chart.series[1].setData(props.volumeArray)
     }
@@ -649,7 +654,7 @@ function OhlcChart(props: OhlcChartProps) {
         text:
           props.cryptoInfo === undefined
             ? ''
-            : `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name}`,
+            : `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name} (${props.pair})`,
         style: {
           fontSize: '20px',
         },
@@ -666,18 +671,22 @@ function OhlcChart(props: OhlcChartProps) {
         width: 0.5,
         label: { text: 'support', style: { color: 'red' } },
         id: 'supportLine',
-        value: Object.keys(props.pairScoreDetails).includes('next_support')
-          ? props.pairScoreDetails.next_support
-          : null,
+        value:
+          props.pairScoreDetails !== undefined &&
+          Object.keys(props.pairScoreDetails).includes('next_support')
+            ? props.pairScoreDetails.next_support
+            : null,
       })
       chartRef.current.chart.series[0].yAxis.addPlotLine({
         color: 'green',
         width: 0.5,
         label: { text: 'resistance', style: { color: 'green' } },
         id: 'resistanceLine',
-        value: Object.keys(props.pairScoreDetails).includes('next_resistance')
-          ? props.pairScoreDetails.next_resistance
-          : null,
+        value:
+          props.pairScoreDetails !== undefined &&
+          Object.keys(props.pairScoreDetails).includes('next_resistance')
+            ? props.pairScoreDetails.next_resistance
+            : null,
       })
       chartRef.current.chart.series[0].xAxis.addPlotLine({
         color: 'white',
@@ -821,23 +830,31 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
     (state: { filters: FilterState }) => state.filters,
   )
 
-  const [exchange, pair, selectedOrder, pairScoreDetails, selectedArticle] =
-    useMemo(
-      () => [
-        filterState.exchange,
-        filterState.pair,
-        filterState.selectedOrder,
-        filterState.pairScoreDetails,
-        filterState.selectedArticle,
-      ],
-      [
-        filterState.exchange,
-        filterState.pair,
-        filterState.selectedOrder,
-        filterState.pairScoreDetails,
-        filterState.selectedArticle,
-      ],
-    )
+  const [
+    exchange,
+    pair,
+    selectedOrder,
+    pairScoreDetails,
+    selectedArticle,
+    loadingComponents,
+  ] = useMemo(
+    () => [
+      filterState.exchange,
+      filterState.pair,
+      filterState.selectedOrder,
+      filterState.pairScoreDetails,
+      filterState.selectedArticle,
+      filterState.loadingComponents,
+    ],
+    [
+      filterState.exchange,
+      filterState.pair,
+      filterState.selectedOrder,
+      filterState.pairScoreDetails,
+      filterState.selectedArticle,
+      filterState.loadingComponents,
+    ],
+  )
 
   const [cryptoInfo, setCryptoInfo] = useState<any>({})
   const [cryptoMetaData, setCryptoMetaData] = useState<any>({})
@@ -865,12 +882,17 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
   ])
 
   useEffect(() => {
-    const volumeArrayData = data.tradingData.ohlcvData.map((item) => [
-      item[0],
-      item[5],
-    ])
-    setVolumeArray(volumeArrayData)
-  }, [data.tradingData.ohlcvData])
+    if (
+      Object.keys(data.tradingData.ohlcvData).includes(pair) &&
+      data.tradingData.ohlcvData[pair]
+    ) {
+      const volumeArrayData = data.tradingData.ohlcvData[pair]!.map((item) => [
+        item[0],
+        item[5],
+      ])
+      setVolumeArray(volumeArrayData)
+    }
+  }, [data.tradingData.ohlcvData[pair]])
 
   let decimalPlaces = 2
   try {
@@ -883,13 +905,19 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
     <div style={{ height: CHART_HEIGHT }}>
       <Row style={{ height: CHART_HEIGHT }}>
         <Col sm={10} style={{ zIndex: 1 }}>
-          {data.tradingData.ohlcvData.length === 0 ? (
+          {loadingComponents['ohlcv'] && (
             <CircularProgress
               style={{ position: 'absolute', top: '30%', left: '40%' }}
             />
+          )}
+          {data.tradingData.ohlcvData[pair] === null ? (
+            <Lottie
+              animationData={data.tradingData.noDataAnimation}
+              style={{ height: 600 }}
+            />
           ) : (
             <OhlcChart
-              data={data.tradingData.ohlcvData}
+              data={data.tradingData.ohlcvData[pair]}
               exchange={exchange}
               pair={pair}
               selectedArticle={selectedArticle}

@@ -2,30 +2,26 @@ import asyncio
 import json
 import math
 import multiprocessing
-from datetime import datetime as dt
 import os
-from queue import Empty
 import sys
+from datetime import datetime as dt
+from queue import Empty
 
 import websockets
 from cryptofeed import FeedHandler
 from cryptofeed.defines import TRADES, L2_BOOK
 from cryptofeed.exchanges import EXCHANGE_MAP
-
-BASE_CONFIG = {
-    "log": {"filename": "demo.log", "level": "DEBUG", "disabled": True},
-    "backend_multiprocessing": True,
-}
+from dotenv import load_dotenv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from utils.helpers import get_api_keys
 
-import json
 
-from dotenv import load_dotenv
-
-
+BASE_CONFIG = {
+    "log": {"filename": "demo.log", "level": "DEBUG", "disabled": True},
+    "backend_multiprocessing": True,
+}
 load_dotenv(verbose=True)
 
 
@@ -37,7 +33,7 @@ class MarketDataAggregator:
         self,
         exchanges: list = None,
         pairs: list = None,
-        ref_curreny: str = None,
+        ref_currency: str = None,
         max_cpu_amount: int = None,
     ):
         self.cpu_amount = (
@@ -49,7 +45,7 @@ class MarketDataAggregator:
             else EXCHANGE_MAP
         )
         self.pairs = pairs
-        self.ref_currency = ref_curreny
+        self.ref_currency = ref_currency
         self.markets = self.get_markets()
         self.clients = list()
         self.client_queue = multiprocessing.Queue()
@@ -145,13 +141,11 @@ class MarketDataAggregator:
             process.start()
 
     async def send_to_aggregator_process(
-        self, websocket, path: str, session_id: str, params: dict
+        self, websocket, session_id: str, params: dict
     ):
         if session_id not in self.clients:
             self.clients.append(session_id)
-            print(
-                f"New session: {websocket.id} with parameters: {params} (process: {self})"
-            )
+            print(f"New session: {websocket.id} with parameters: {params}")
             self.client_queue.put(session_id)
 
     @staticmethod
@@ -205,9 +199,7 @@ class MarketDataAggregator:
             await websocket.close()
         else:
             while True:
-                await self.send_to_aggregator_process(
-                    websocket, path, session_id, params
-                )
+                await self.send_to_aggregator_process(websocket, session_id, params)
                 try:
                     await self.send_to_client(websocket, params)
                     if (dt.now() - heartbeat_tmstmp).seconds > 1:
@@ -219,6 +211,7 @@ class MarketDataAggregator:
                     await self.empty_queue()
                     await websocket.close()
                     return
+                await asyncio.sleep(0)
 
     def run_clients_websocket(self):
         start_server = websockets.serve(self.client_server, self.host, self.port)
@@ -227,5 +220,7 @@ class MarketDataAggregator:
 
 
 if __name__ == "__main__":
-    aggregator = MarketDataAggregator(exchanges=["COINBASE"], pairs=["BTC-USD"])
+    aggregator = MarketDataAggregator(
+        exchanges=["COINBASE"], pairs=["BTC-USD", "ETH-USD"]
+    )
     aggregator.run_clients_websocket()

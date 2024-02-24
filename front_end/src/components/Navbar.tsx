@@ -16,7 +16,7 @@ const pages: any = {
   Home: 'home',
   Trading: 'trading',
   Portfolio: 'portfolio',
-  'Sign Up': 'registration',
+  'Log In': 'sign-in',
 }
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout']
 

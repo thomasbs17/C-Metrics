@@ -47,14 +47,13 @@ class Screener:
             self.data["refresh_tmstmp"]["daily"] = date.today()
 
     async def daily_data_refresh(self, exchange: ccxt.Exchange, symbols: dict):
-        for pair, details in symbols.items():
-            if self.ref_currency and details["quote"] == self.ref_currency:
-                await self.get_pair_ohlcv(exchange, pair)
+        for pair in symbols:
+            await self.get_pair_ohlcv(exchange, pair)
 
     async def daily_indicators_refresh(self, exchange: ccxt.Exchange, symbols: dict):
         exchange_name = exchange.name.lower()
-        for pair, details in symbols.items():
-            if self.ref_currency and details["quote"] == self.ref_currency:
+        for pair in symbols:
+            if "ohlc" in self.data["exchanges"][exchange_name]["mapping"][pair]["data"]:
                 if self.verbose:
                     print(f"Computing indicators for {pair}")
                 self.add_technical_indicators(exchange, pair)
@@ -104,17 +103,23 @@ class Screener:
                 data=ohlc_data,
                 columns=["timestamp", "open", "high", "low", "close", "volume"],
             )
-            self.data["exchanges"][exchange_name]["mapping"][pair]["data"][
-                "ohlc"
-            ] = ohlc_data
+            if ohlc_data.empty:
+                print(f"No OHLCV data for {pair}")
+            else:
+                self.data["exchanges"][exchange_name]["mapping"][pair]["data"][
+                    "ohlc"
+                ] = ohlc_data
+                self.data["exchanges"][exchange_name]["mapping"][pair]["data"][
+                    "last"
+                ] = ohlc_data.tail(1)["close"].item()
 
-    async def live_refresh(self, exchange: ccxt.Exchange, symbols: dict, raw_data: str):
+    async def live_refresh(
+        self, exchange: ccxt.Exchange, symbols: dict, raw_data: str = None
+    ):
         await self.live_data_refresh(exchange, symbols, raw_data)
         await self.live_indicators_refresh(exchange, symbols)
 
-    async def live_data_refresh(
-        self, exchange: ccxt.Exchange, symbols: dict, raw_data: dict
-    ):
+    async def read_ws_message(self, raw_data: dict):
         data = json.loads(raw_data)
         for method in data:
             exchange = data[method]["exchange"].lower()
@@ -131,6 +136,32 @@ class Screener:
                         "book"
                     ] = data[method][method]
 
+    async def get_pair_book(self, exchange: ccxt.Exchange, pair: str):
+        if self.verbose:
+            print(f"Downloading Order Book data for {pair}")
+        try:
+            order_book = await exchange.fetch_order_book(symbol=pair, limit=100)
+            self.data["exchanges"][exchange.name.lower()]["mapping"][pair]["data"][
+                "book"
+            ] = order_book
+        except Exception as e:
+            print(f"Could not download order book for {pair}: \n {e}")
+
+    async def live_data_refresh(
+        self, exchange: ccxt.Exchange, pairs: dict, raw_data: dict
+    ):
+        if raw_data:
+            await self.read_ws_message(raw_data)
+        else:
+            for pair in pairs:
+                if (
+                    "ohlc"
+                    in self.data["exchanges"][exchange.name.lower()]["mapping"][pair][
+                        "data"
+                    ]
+                ):
+                    await self.get_pair_book(exchange, pair)
+
     async def live_indicators_refresh(self, exchange: ccxt.Exchange, symbols: dict):
         self.data["exchanges"][exchange.name.lower()]["scores"] = self.get_scoring(
             exchange, symbols
@@ -140,28 +171,33 @@ class Screener:
         self, exchange: ccxt.Exchange, pair: str, depth: int = 50
     ) -> float:
         exchange_name = exchange.name.lower()
-        if "book" not in self.data["exchanges"][exchange_name]["mapping"][pair]["data"]:
+        pair_data = self.data["exchanges"][exchange_name]["mapping"][pair]["data"]
+        if "book" not in pair_data:
             return 0
-        pair_book = self.data["exchanges"][exchange_name]["mapping"][pair]["data"]
-        columns = (
-            ["price", "volume", "timestamp"]
-            if len(pair_book["bids"][0]) == 3
-            else ["price", "volume"]
-        )
-        bids = pd.DataFrame(pair_book["bids"], columns=columns).head(depth)
-        asks = pd.DataFrame(pair_book["asks"], columns=columns).head(depth)
-        spread = asks.loc[0, "price"] / bids.loc[0, "price"]
-        return (bids["volume"].sum() / asks["volume"].sum()) / spread
+        pair_book = pair_data["book"]
+        data = dict()
+        for side in ("bid", "ask"):
+            raw_side = side if side in pair_book else side + "s"
+            if isinstance(pair_book[raw_side], list):
+                df = pd.DataFrame(pair_book[raw_side], columns=["price", "volume"])
+                df.set_index("price", inplace=True)
+            else:
+                df = pd.DataFrame.from_dict(
+                    pair_book[raw_side], orient="index", columns=["volume"]
+                )
+            data[side] = df
+        spread = float(data["ask"].index[0]) / float(data["bid"].index[0])
+        return (data["bid"]["volume"].sum() / data["ask"]["volume"].sum()) / spread
 
     def score_pair(self, exchange: ccxt.Exchange, pair: str) -> dict:
         exchange_name = exchange.name.lower()
-        levels = self.data["exchanges"][exchange_name]["mapping"][pair]["indicators"][
-            "fractals"
-        ]
-        ohlc = self.data["exchanges"][exchange_name]["mapping"][pair]["data"]["ohlc"]
-        last_close = self.data["exchanges"][exchange_name]["mapping"][pair]["data"][
-            "last"
-        ]
+        pair_data = self.data["exchanges"][exchange_name]["mapping"][pair]
+        levels = pair_data["indicators"]["fractals"]
+        ohlc = pair_data["data"]["ohlc"]
+        if "last" not in pair_data["data"]:
+            last_close = pair_data["data"]["ohlc"].tail(1)["close"].item()
+        else:
+            last_close = pair_data["data"]["last"]
         supports = [level for level in levels if level < last_close]
         resistances = [level for level in levels if level > last_close]
         details = dict()
@@ -191,26 +227,44 @@ class Screener:
     def get_scoring(self, exchange: ccxt.Exchange, symbols: dict) -> pd.DataFrame:
         scores = pd.DataFrame()
         for pair, details in symbols.items():
-            if self.ref_currency and details["quote"] == self.ref_currency:
+            if (
+                self.ref_currency
+                and details["quote"] == self.ref_currency
+                and "ohlc"
+                in self.data["exchanges"][exchange.name.lower()]["mapping"][pair][
+                    "data"
+                ]
+            ):
                 pair_score = self.score_pair(exchange, pair)
                 if pair_score:
                     pair_score_df = pd.DataFrame([pair_score])
                     scores = pd.concat([scores, pair_score_df])
-        scores["book_score"] = scores["book_score"].apply(
-            lambda x: x / scores["book_score"].max()
-        )
-        book_weight = 0.2
-        technicals_weight = 0.8
-        scores["score"] = scores.apply(
-            lambda x: (x["book_score"] * book_weight)
-            + (x["technicals_score"] * technicals_weight),
-            axis=1,
-        )
-        return scores.sort_values(by="score", ascending=False)
+        if not scores.empty:
+            scores["book_score"] = scores["book_score"].apply(
+                lambda x: x / scores["book_score"].max()
+                if scores["book_score"].max() > 0
+                else 0
+            )
+            book_weight = 0.2
+            technicals_weight = 0.8
+            scores["score"] = scores.apply(
+                lambda x: (x["book_score"] * book_weight)
+                + (x["technicals_score"] * technicals_weight),
+                axis=1,
+            )
+            return scores.sort_values(by="score", ascending=False)
 
     def print_scores(self, exchange: str, top_score_amount: int = 10):
-        top_scores = self.data["exchanges"][exchange]["scores"].head(top_score_amount)
-        print(top_scores.to_string())
+        scores = self.data["exchanges"][exchange]["scores"]
+        if scores is not None:
+            top_scores = scores.head(top_score_amount)
+            print(top_scores.to_string())
+
+    async def is_pair_in_scope(self, details: dict) -> bool:
+        if not self.user_symbols_list or details["id"] in self.user_symbols_list:
+            if not self.ref_currency or details["quote"] == self.ref_currency:
+                return True
+        return False
 
     async def get_exchanges_mappings(self):
         for exchange in self.exchange_list:
@@ -220,10 +274,7 @@ class Screener:
             symbols = await exchange_object.load_markets()
             filtered_symbols = dict()
             for symbol, details in symbols.items():
-                if (
-                    not self.user_symbols_list
-                    or details["id"] in self.user_symbols_list
-                ):
+                if await self.is_pair_in_scope(details):
                     filtered_symbols[symbol] = details
                     if details["id"] not in self.all_symbols:
                         self.all_symbols.append(details["id"])
@@ -235,15 +286,13 @@ class Screener:
         all_exchanges = list(self.data["exchanges"].keys())
         pair_str = ",".join(self.all_symbols)
         return f"{WS_URL}?exchange={','.join(all_exchanges)}?trades={pair_str}?book={pair_str}"
-        # return f"{WS_URL}?exchange={','.join(all_exchanges)}?trades={pair_str}"
 
     async def handle_unavailable_server(self):
         for exchange in self.data["exchanges"]:
             await self.data["exchanges"][exchange]["object"].close()
         print("The Real Time Data service is down.")
 
-    async def run_screening(self):
-        await self.get_exchanges_mappings()
+    async def run_with_ws(self):
         uri = await self.get_ws_uri()
         try:
             async with websockets.connect(uri, ping_interval=None) as server_ws:
@@ -262,34 +311,47 @@ class Screener:
                     except (
                         websockets.ConnectionClosedError or asyncio.IncompleteReadError
                     ):
+                        exchange_object.close()
                         await self.handle_unavailable_server()
                         break
                     await asyncio.sleep(0)
         except ConnectionRefusedError:
             await self.handle_unavailable_server()
 
+    async def run_with_api(self):
+        symbols = self.data["exchanges"]["coinbase"]["mapping"]
+        exchange_object = self.data["exchanges"]["coinbase"]["object"]
+        while True:
+            await self.daily_refresh(exchange_object, symbols)
+            await self.live_refresh(exchange_object, symbols)
+            if self.verbose:
+                self.print_scores(exchange_object.name.lower())
+
+    async def run_screening(self):
+        await self.get_exchanges_mappings()
+        await self.run_with_ws()
+        await self.run_with_api()
+
     async def run_client_websocket(self, client_ws):
         while True:
             exchange_name = "coinbase"  # TODO: to be updated
-            if "scores" in self.data["exchanges"][exchange_name]:
+            if self.data["exchanges"][exchange_name].get("scores") is not None:
                 ws_data = self.data["exchanges"][exchange_name]["scores"].to_json(
                     orient="records"
                 )
-            try:
-                await client_ws.send(ws_data)
-                await asyncio.sleep(0)
-            except (
-                websockets.exceptions.ConnectionClosedError
-                or websockets.exceptions.ConnectionClosedOK
-            ):
-                await client_ws.close()
-                return
+                try:
+                    await client_ws.send(ws_data)
+                except (
+                    websockets.exceptions.ConnectionClosedError
+                    or websockets.exceptions.ConnectionClosedOK
+                ):
+                    await client_ws.close()
+                    return
+            await asyncio.sleep(1)
 
 
 async def run_websocket():
-    screener = Screener(
-        exchange_list=["coinbase"], verbose=True, user_symbols_list=["BTC-USD"]
-    )
+    screener = Screener(exchange_list=["coinbase"])
     screening_task = asyncio.create_task(screener.run_screening())
     start_server = websockets.serve(screener.run_client_websocket, "localhost", 8795)
     await asyncio.gather(screening_task, start_server)
