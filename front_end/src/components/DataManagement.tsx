@@ -104,15 +104,15 @@ export function retrieveInfoFromCoinMarketCap(
   coinMarketCapMapping: any,
 ): any {
   const base = pair.slice(0, pair.search('/'))
-  let assetInfo
+  let assetInfo: any[] = [];
   if (Object.keys(coinMarketCapMapping).length > 0) {
     coinMarketCapMapping.data.forEach((element: any) => {
       if (element.symbol === base) {
-        assetInfo = element
+        assetInfo.push(element)
       }
     })
   }
-  return assetInfo
+  return assetInfo[0]
 }
 
 function LoadStaticData(endpoint: string) {
@@ -269,6 +269,7 @@ function LoadScreeningData(throtle: number = 1000) {
     const socket = new WebSocket(wsUrl)
     socket.onerror = () => {
       console.error('Error with screening service')
+      setScreeningData(false)
     }
     socket.onopen = () => {
       console.log('Connected to screening service')
