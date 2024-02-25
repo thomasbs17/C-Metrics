@@ -150,7 +150,7 @@ class OnStartChecker:
         trades_df.loc[:, "insert_tmstmp"] = dt.now()
         trades_df["execution_tmstmp"] = (
             trades_df["order_id"].apply(lambda x: self.filled_orders[x])
-            if updates_orders_df is None
+            if updates_orders_df is not None
             else dt.now()
         )
         return trades_df
