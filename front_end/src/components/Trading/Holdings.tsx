@@ -2,14 +2,14 @@ import { CircularProgress } from '@mui/material'
 import { ColDef, RowClickedEvent } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 import { useEffect, useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
+import { useDispatch } from 'react-redux'
+import '../../css/tables.css'
 import {
   LatestHoldings,
   getHoldingVolumesFromTrades,
   tradingDataDef
 } from '../DataManagement'
-import { FilterState, filterSlice } from '../StateManagement'
-import '../../css/tables.css'
+import { filterSlice } from '../StateManagement'
 
 type FormattedHoldings = {
   pair: string
@@ -23,19 +23,15 @@ function Holdings(data: { tradingData: tradingDataDef }) {
     FormattedHoldings[]
   >([])
   const [colDefs, setColDefs] = useState<ColDef<FormattedHoldings>[]>([])
-  const selectedPair = useSelector(
-    (state: { filters: FilterState }) => state.filters.pair,
-  )
   const dispatch = useDispatch()
 
-  useEffect(() => {
-    const holdings = getHoldingVolumesFromTrades(data.tradingData.trades)
-    setCurrentHoldings(holdings.current)
+
+  async function prepareTable() {
     let formattedHoldings: FormattedHoldings[] = []
-    Object.keys(holdings.current).forEach((pair: string) =>
+    Object.keys(currentHoldings).forEach((pair: string) =>
       formattedHoldings.push({
         pair: pair,
-        volume: holdings.current[pair],
+        volume: currentHoldings[pair],
         usdValue: getUSDValue(pair),
       }),
     )
@@ -43,10 +39,19 @@ function Holdings(data: { tradingData: tradingDataDef }) {
     setFormattedHoldings(formattedHoldings)
     setColDefs([
       { field: 'pair', flex: 1, filter: true },
-      { field: 'volume', flex: 1 },
-      { field: 'usdValue', flex: 1 },
+      { field: 'volume', flex: 1, cellRenderer: 'agAnimateShowChangeCellRenderer' },
+      { field: 'usdValue', flex: 1, cellRenderer: 'agAnimateShowChangeCellRenderer' },
     ])
-  }, [data.tradingData.ohlcvData, data.tradingData.trades])
+  }
+
+  useEffect(() => {
+    const holdings = getHoldingVolumesFromTrades(data.tradingData.trades)
+    setCurrentHoldings(holdings.current)
+  }, [JSON.stringify(data.tradingData.latestPrices), JSON.stringify(data.tradingData.trades)])
+
+  useEffect(() => {
+    prepareTable()
+  }, [currentHoldings])
 
   const handleClick = (holding: RowClickedEvent<FormattedHoldings, any>) => {
     if (holding.rowIndex || holding.rowIndex === 0) {
@@ -76,6 +81,7 @@ function Holdings(data: { tradingData: tradingDataDef }) {
         columnDefs={colDefs}
         onRowClicked={(r) => handleClick(r)}
         rowSelection={'single'}
+      // onGridReady={onGridReady}
       />
     </div>
   )
