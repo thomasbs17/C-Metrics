@@ -1,9 +1,4 @@
-import {
-  CircularProgress,
-  FormControlLabel,
-  Switch,
-  Typography,
-} from '@mui/material'
+import { CircularProgress, Typography } from '@mui/material'
 import HighchartsReact, {
   type HighchartsReactRefObject,
 } from 'highcharts-react-official'
@@ -21,6 +16,7 @@ import Lottie from 'lottie-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Row } from 'react-bootstrap'
 import { useSelector } from 'react-redux'
+import '../../css/charts.css'
 import {
   retrieveInfoFromCoinMarketCap,
   type OhlcData,
@@ -28,7 +24,6 @@ import {
   type tradingDataDef,
 } from '../DataManagement'
 import { type FilterState } from '../StateManagement'
-import '../../css/charts.css'
 
 const CHART_HEIGHT = 600
 
@@ -229,8 +224,7 @@ function OrderBookChart(props: BookChartProps) {
     ],
     stockTools: {
       gui: {
-        buttons: ['fullScreen'],
-        toolbarClassName: 'test',
+        enabled: false,
       },
     },
     chart: {
@@ -449,17 +443,6 @@ function OrderBookChart(props: BookChartProps) {
         highcharts={Highcharts}
         options={chartOptions}
         ref={orderBookChartRef}
-      />
-      <FormControlLabel
-        style={{ marginLeft: '50px' }}
-        control={<Switch />}
-        label={
-          <Typography fontSize={'10px'}>Synchrnoize with main chart</Typography>
-        }
-        value={synchCharts}
-        onChange={(e, checked) => {
-          setSynchCharts(checked)
-        }}
       />
     </div>
   )
@@ -722,8 +705,55 @@ function OhlcChart(props: OhlcChartProps) {
   )
 }
 
-function GreedAndFear(props: GreedAndFearChartProps) {
+export function GreedAndFear(props: GreedAndFearChartProps) {
   const chartRef = useRef<HighchartsReactRefObject>(null)
+  const [categoryColor, setCategoryColor] = useState<string>('')
+  const indexRanges = [
+    {
+      from: 0,
+      to: 24,
+      color: '#8B0000',
+    },
+    {
+      from: 25,
+      to: 44,
+      color: '#FF0000',
+    },
+    {
+      from: 45,
+      to: 55,
+      color: 'orange',
+    },
+    {
+      from: 56,
+      to: 75,
+      color: '#008000',
+    },
+    {
+      from: 76,
+      to: 100,
+      color: '#006400',
+    },
+  ]
+
+  function getColor(currentValue: number) {
+    let color = ''
+    indexRanges.forEach((rangeDetails) => {
+      if (
+        rangeDetails['from'] <= currentValue &&
+        rangeDetails['to'] > currentValue
+      ) {
+        color = rangeDetails['color']
+      }
+    })
+    return color
+  }
+
+  useEffect(() => {
+    const catColor = getColor(props.data.data[0].value)
+    setCategoryColor(catColor)
+  }, [props.data.data[0].value])
+
   const [chartOptions] = useState<any>({
     credits: { enabled: false },
     chart: {
@@ -750,33 +780,7 @@ function GreedAndFear(props: GreedAndFearChartProps) {
       minorTickLength: 1,
       minorGridLineWidth: 0,
       title: null,
-      plotBands: [
-        {
-          from: 0,
-          to: 24,
-          color: '#8B0000',
-        },
-        {
-          from: 25,
-          to: 44,
-          color: '#FF0000',
-        },
-        {
-          from: 45,
-          to: 55,
-          color: 'orange',
-        },
-        {
-          from: 56,
-          to: 75,
-          color: '#008000',
-        },
-        {
-          from: 76,
-          to: 100,
-          color: '#006400',
-        },
-      ],
+      plotBands: indexRanges,
     },
     legend: {
       enabled: false,
@@ -807,7 +811,7 @@ function GreedAndFear(props: GreedAndFearChartProps) {
       }}
     >
       <span>Greed & Fear:</span>
-      <span style={{ color: 'red' }}>
+      <span style={{ color: categoryColor }}>
         {Object.keys(props.data).length !== 0 &&
           ` ${props.data.data[0].value} (${props.data.data[0].value_classification})`}
       </span>
@@ -940,9 +944,6 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
                 pairScoreDetails={pairScoreDetails}
               />
             )}
-          {Object.keys(data.tradingData.greedAndFearData).length !== 0 && (
-            <GreedAndFear data={data.tradingData.greedAndFearData} />
-          )}
         </Col>
       </Row>
     </div>

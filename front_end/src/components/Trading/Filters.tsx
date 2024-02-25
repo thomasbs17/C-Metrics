@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   Autocomplete,
   Box,
@@ -23,12 +22,13 @@ import {
 import Highcharts from 'highcharts'
 import HighchartsMore from 'highcharts/highcharts-more'
 import SolidGauge from 'highcharts/modules/solid-gauge'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Container, Row, ToggleButton } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router'
 import { tradingDataDef } from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
+import { GreedAndFear } from './Chart'
 import EconomicCalendar from './EconomicCalendar'
 
 // Initialize the modules
@@ -457,6 +457,11 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
             sx={{ width: 300 }}
           >{`${exchange}: ${pair}`}</Button>
         </Col>
+        {Object.keys(data.tradingData.greedAndFearData).length !== 0 && (
+          <Col>
+            <GreedAndFear data={data.tradingData.greedAndFearData} />
+          </Col>
+        )}
       </Row>
       <Modal
         open={modalIsOpen}
