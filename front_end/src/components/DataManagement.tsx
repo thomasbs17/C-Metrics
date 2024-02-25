@@ -12,7 +12,8 @@ export interface tradingDataDef {
   trades: Trade[]
   screeningData: any
   noDataAnimation: any
-  ohlcvData: { [key: string]: OhlcData | null }
+  ohlcvData: { [key: string]: OhlcData | null },
+  latestPrices: LatestPrices,
   orderBookData: any
   greedAndFearData: any
 }
@@ -62,6 +63,7 @@ export interface Trade {
 
 export type Holdings = { [asset: string]: [string, number][] }
 export type LatestHoldings = { [asset: string]: number }
+type LatestPrices = { [pair: string]: number }
 
 export function getHoldingVolumesFromTrades(trades: Trade[]) {
   let holdings: Holdings = {}
@@ -312,7 +314,7 @@ function LoadNoDataAnimation() {
   return animationData
 }
 
-function LoadOhlcvData(trades: Trade[]) {
+function LoadOhlcvData() {
   const dispatch = useDispatch()
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
@@ -349,38 +351,73 @@ function LoadOhlcvData(trades: Trade[]) {
     }
   }
 
+  useEffect(() => {
+    fetchOHLCData(selectedPair)
+    const ohlcInterval = setInterval(() => {
+      fetchOHLCData(selectedPair)
+    }, 60000)
+    fetchOHLCData(selectedPair)
+    return () => {
+      clearInterval(ohlcInterval)
+    }
+  }, [selectedPair])
+
+  return ohlcData
+}
+
+
+function LoadLatestPrices(trades: Trade[]) {
+  const [latestPrices, setLatestPrices] = useState<LatestPrices>({})
+  const selectedPair = useSelector(
+    (state: { filters: FilterState }) => state.filters.pair,
+  )
+
+  async function fetchLatestPrice(pair: string) {
+    if (pair !== undefined) {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/public_trades/?exchange=coinbase&pair=${pair}`);
+        const latestPublicTrades = await response.json()
+        const latestPrice = latestPublicTrades[latestPublicTrades.length - 1]['price'] || 0;
+        latestPrices[pair] = latestPrice
+        setLatestPrices(latestPrices)
+      } catch (error) {
+        console.error(`Error fetching latest price for ${pair}`, error)
+      }
+    }
+  }
+
   function loadForAllHoldings() {
     const holdings = getHoldingVolumesFromTrades(trades)
     Object.keys(holdings['current']).forEach((pair: string) => {
-      fetchOHLCData(pair)
+      fetchLatestPrice(pair)
     })
   }
 
   useEffect(() => {
     loadForAllHoldings()
-    const ohlcInterval = setInterval(() => {
+    const pricesInterval = setInterval(() => {
       loadForAllHoldings()
-    }, 60000)
+    }, 10000)
     return () => {
-      clearInterval(ohlcInterval)
+      clearInterval(pricesInterval)
     }
   }, [trades])
 
   useEffect(() => {
     const holdings = getHoldingVolumesFromTrades(trades)
     if (!Object.keys(holdings['current']).includes(selectedPair)) {
-      fetchOHLCData(selectedPair)
+      fetchLatestPrice(selectedPair)
       const ohlcInterval = setInterval(() => {
-        fetchOHLCData(selectedPair)
-      }, 60000)
-      fetchOHLCData(selectedPair)
+        fetchLatestPrice(selectedPair)
+      }, 10000)
+      fetchLatestPrice(selectedPair)
       return () => {
         clearInterval(ohlcInterval)
       }
     }
   }, [selectedPair])
 
-  return ohlcData
+  return latestPrices
 }
 
 function formatOrderBook(rawOrderBook: any, isWebSocketFeed: boolean) {
@@ -501,7 +538,8 @@ export function GetTradingData() {
   const trades = LoadTrades()
   const screeningData = LoadScreeningData()
   const noDataAnimation = LoadNoDataAnimation()
-  const ohlcvData = LoadOhlcvData(trades)
+  const ohlcvData = LoadOhlcvData()
+  const latestPrices = LoadLatestPrices(trades)
   const orderBookData = LoadOrderBook()
   const greedAndFearData = LoadGreedAndFear()
 
@@ -516,6 +554,7 @@ export function GetTradingData() {
     screeningData,
     noDataAnimation,
     ohlcvData,
+    latestPrices,
     orderBookData,
     greedAndFearData,
   }

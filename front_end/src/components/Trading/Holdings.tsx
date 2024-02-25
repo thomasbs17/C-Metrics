@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import {
   LatestHoldings,
   getHoldingVolumesFromTrades,
-  tradingDataDef,
+  tradingDataDef
 } from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
 import '../../css/tables.css'
@@ -55,13 +55,12 @@ function Holdings(data: { tradingData: tradingDataDef }) {
     }
   }
 
-  function getUSDValue(pair: string, volume: number) {
-    const ohlcv = data.tradingData.ohlcvData[pair]
-    if (ohlcv === undefined || ohlcv === null) {
+  function getUSDValue(pair: string) {
+    const lastPrice = data.tradingData.latestPrices[pair]
+    if (lastPrice === undefined || lastPrice === null) {
       return 'N/A'
     } else {
-      const lastPrice = ohlcv[ohlcv.length - 1][3]
-      return volume * lastPrice
+      return currentHoldings[pair] * lastPrice
     }
   }
 
