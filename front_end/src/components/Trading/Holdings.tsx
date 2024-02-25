@@ -36,7 +36,7 @@ function Holdings(data: { tradingData: tradingDataDef }) {
       formattedHoldings.push({
         pair: pair,
         volume: holdings.current[pair],
-        usdValue: getUSDValue(pair, holdings.current[pair]),
+        usdValue: getUSDValue(pair),
       }),
     )
     formattedHoldings = formattedHoldings.sort((a, b) => (typeof a.usdValue === 'string' || typeof b.usdValue === 'string') ? 0 : b.usdValue - a.usdValue);
