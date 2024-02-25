@@ -7,7 +7,7 @@ import '../../css/tables.css'
 import {
   LatestHoldings,
   getHoldingVolumesFromTrades,
-  tradingDataDef
+  tradingDataDef,
 } from '../DataManagement'
 import { filterSlice } from '../StateManagement'
 
@@ -25,7 +25,6 @@ function Holdings(data: { tradingData: tradingDataDef }) {
   const [colDefs, setColDefs] = useState<ColDef<FormattedHoldings>[]>([])
   const dispatch = useDispatch()
 
-
   async function prepareTable() {
     let formattedHoldings: FormattedHoldings[] = []
     Object.keys(currentHoldings).forEach((pair: string) =>
@@ -35,19 +34,34 @@ function Holdings(data: { tradingData: tradingDataDef }) {
         usdValue: getUSDValue(pair),
       }),
     )
-    formattedHoldings = formattedHoldings.sort((a, b) => (typeof a.usdValue === 'string' || typeof b.usdValue === 'string') ? 0 : b.usdValue - a.usdValue);
+    formattedHoldings = formattedHoldings.sort((a, b) =>
+      typeof a.usdValue === 'string' || typeof b.usdValue === 'string'
+        ? 0
+        : b.usdValue - a.usdValue,
+    )
     setFormattedHoldings(formattedHoldings)
     setColDefs([
       { field: 'pair', flex: 1, filter: true },
-      { field: 'volume', flex: 1, cellRenderer: 'agAnimateShowChangeCellRenderer' },
-      { field: 'usdValue', flex: 1, cellRenderer: 'agAnimateShowChangeCellRenderer' },
+      {
+        field: 'volume',
+        flex: 1,
+        cellRenderer: 'agAnimateShowChangeCellRenderer',
+      },
+      {
+        field: 'usdValue',
+        flex: 1,
+        cellRenderer: 'agAnimateShowChangeCellRenderer',
+      },
     ])
   }
 
   useEffect(() => {
     const holdings = getHoldingVolumesFromTrades(data.tradingData.trades)
     setCurrentHoldings(holdings.current)
-  }, [JSON.stringify(data.tradingData.latestPrices), JSON.stringify(data.tradingData.trades)])
+  }, [
+    JSON.stringify(data.tradingData.latestPrices),
+    JSON.stringify(data.tradingData.trades),
+  ])
 
   useEffect(() => {
     prepareTable()
@@ -81,7 +95,7 @@ function Holdings(data: { tradingData: tradingDataDef }) {
         columnDefs={colDefs}
         onRowClicked={(r) => handleClick(r)}
         rowSelection={'single'}
-      // onGridReady={onGridReady}
+        // onGridReady={onGridReady}
       />
     </div>
   )

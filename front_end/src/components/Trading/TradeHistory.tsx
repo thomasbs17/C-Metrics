@@ -159,9 +159,7 @@ function TradeTable({ trades }: TableProps) {
 }
 
 function Trades(data: { tradingData: tradingDataDef }) {
-  return (
-    <TradeTable trades={data.tradingData.trades} />
-  )
+  return <TradeTable trades={data.tradingData.trades} />
 }
 
 export default Trades

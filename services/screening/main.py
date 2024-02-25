@@ -53,7 +53,7 @@ class ExchangeScreener:
         try:
             self.data[pair]["ohlcv"].ta.strategy(CustomStrategy)
         except Exception as e:
-            print(f'Could not compute all indicators for {pair}:\n \n {e}')
+            print(f"Could not compute all indicators for {pair}:\n \n {e}")
 
     async def get_pair_ohlcv(self, pair: str):
         if "ohlcv" not in self.data[pair]:
@@ -293,9 +293,7 @@ class Screener:
     async def run_client_websocket(self, client_ws):
         while True:
             if self.screener.data.get("scores") is not None:
-                ws_data = self.screener.data["scores"].to_json(
-                    orient="records"
-                )
+                ws_data = self.screener.data["scores"].to_json(orient="records")
                 try:
                     await client_ws.send(ws_data)
                 except (

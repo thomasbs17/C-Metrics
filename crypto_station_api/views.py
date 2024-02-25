@@ -107,8 +107,11 @@ def get_public_trades(request):
     exchange = request.query_params.get("exchange")
     pair = request.query_params.get("pair")
     exchange = get_exchange_object(exchange, async_mode=False)
-    data = exchange.fetch_trades(symbol=pair, limit=1000)
-    return JsonResponse(data, safe=False)
+    try:
+        data = exchange.fetch_trades(symbol=pair, limit=1000)
+        return JsonResponse(data, safe=False)
+    except errors.BadSymbol:
+        return JsonResponse(None, safe=False)
 
 
 @sync_to_async

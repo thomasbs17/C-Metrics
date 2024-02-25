@@ -12,8 +12,8 @@ export interface tradingDataDef {
   trades: Trade[]
   screeningData: any
   noDataAnimation: any
-  ohlcvData: { [key: string]: OhlcData | null },
-  latestPrices: LatestPrices,
+  ohlcvData: { [key: string]: OhlcData | null }
+  latestPrices: LatestPrices
   orderBookData: any
   greedAndFearData: any
 }
@@ -106,7 +106,7 @@ export function retrieveInfoFromCoinMarketCap(
   coinMarketCapMapping: any,
 ): any {
   const base = pair.slice(0, pair.search('/'))
-  let assetInfo: any[] = [];
+  let assetInfo: any[] = []
   if (Object.keys(coinMarketCapMapping).length > 0) {
     coinMarketCapMapping.data.forEach((element: any) => {
       if (element.symbol === base) {
@@ -365,7 +365,6 @@ function LoadOhlcvData() {
   return ohlcData
 }
 
-
 function LoadLatestPrices(trades: Trade[]) {
   const [latestPrices, setLatestPrices] = useState<LatestPrices>({})
   const selectedPair = useSelector(
@@ -375,9 +374,12 @@ function LoadLatestPrices(trades: Trade[]) {
   async function fetchLatestPrice(pair: string) {
     if (pair !== undefined) {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/public_trades/?exchange=coinbase&pair=${pair}`);
+        const response = await fetch(
+          `http://127.0.0.1:8000/public_trades/?exchange=coinbase&pair=${pair}`,
+        )
         const latestPublicTrades = await response.json()
-        const latestPrice = latestPublicTrades[latestPublicTrades.length - 1]['price'] || 0;
+        const latestPrice =
+          latestPublicTrades[latestPublicTrades.length - 1]['price'] || 0
         latestPrices[pair] = latestPrice
         setLatestPrices(latestPrices)
       } catch (error) {
@@ -415,7 +417,7 @@ function LoadLatestPrices(trades: Trade[]) {
         clearInterval(ohlcInterval)
       }
     }
-  }, [selectedPair])
+  }, [])
 
   return latestPrices
 }

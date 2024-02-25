@@ -69,22 +69,22 @@ function LinearGauge(H: any) {
       if (!markLine) {
         const path = inverted
           ? [
-            'M',
-            0,
-            0,
-            'L',
-            -5,
-            -5,
-            'L',
-            5,
-            -5,
-            'L',
-            0,
-            0,
-            'L',
-            0,
-            0 + xAxis.len,
-          ]
+              'M',
+              0,
+              0,
+              'L',
+              -5,
+              -5,
+              'L',
+              5,
+              -5,
+              'L',
+              0,
+              0,
+              'L',
+              0,
+              0 + xAxis.len,
+            ]
           : ['M', 0, 0, 'L', -5, -5, 'L', -5, 5, 'L', 0, 0, 'L', xAxis.len, 0]
         markLine = this.markLine = chart.renderer
           .path(path)
@@ -379,7 +379,7 @@ function OrderBookChart(props: BookChartProps) {
           id: 'supportLine',
           value:
             props.pairScoreDetails !== undefined &&
-              Object.keys(props.pairScoreDetails).includes('next_support')
+            Object.keys(props.pairScoreDetails).includes('next_support')
               ? props.pairScoreDetails.next_support
               : null,
         })
@@ -394,7 +394,7 @@ function OrderBookChart(props: BookChartProps) {
           id: 'resistanceLine',
           value:
             props.pairScoreDetails !== undefined &&
-              Object.keys(props.pairScoreDetails).includes('next_resistance')
+            Object.keys(props.pairScoreDetails).includes('next_resistance')
               ? props.pairScoreDetails.next_resistance
               : null,
         })
@@ -673,7 +673,7 @@ function OhlcChart(props: OhlcChartProps) {
         id: 'supportLine',
         value:
           props.pairScoreDetails !== undefined &&
-            Object.keys(props.pairScoreDetails).includes('next_support')
+          Object.keys(props.pairScoreDetails).includes('next_support')
             ? props.pairScoreDetails.next_support
             : null,
       })
@@ -684,7 +684,7 @@ function OhlcChart(props: OhlcChartProps) {
         id: 'resistanceLine',
         value:
           props.pairScoreDetails !== undefined &&
-            Object.keys(props.pairScoreDetails).includes('next_resistance')
+          Object.keys(props.pairScoreDetails).includes('next_resistance')
             ? props.pairScoreDetails.next_resistance
             : null,
       })
@@ -884,22 +884,22 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
   useEffect(() => {
     if (
       Object.keys(data.tradingData.ohlcvData).includes(pair) &&
-      data.tradingData.ohlcvData
+      data.tradingData.ohlcvData[pair]
     ) {
-      const volumeArrayData = data.tradingData.ohlcvData!.map((item) => [
+      const volumeArrayData = data.tradingData.ohlcvData[pair]!.map((item) => [
         item[0],
         item[5],
       ])
       setVolumeArray(volumeArrayData)
     }
-  }, [data.tradingData.ohlcvData])
+  }, [data.tradingData.ohlcvData[pair]])
 
   let decimalPlaces = 2
   try {
     decimalPlaces = data.tradingData.markets[pair].precision.price
       .toString()
       .split('.')[1].length
-  } catch { }
+  } catch {}
 
   return (
     <div style={{ height: CHART_HEIGHT }}>
@@ -910,14 +910,14 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
               style={{ position: 'absolute', top: '30%', left: '40%' }}
             />
           )}
-          {data.tradingData.ohlcvData === null ? (
+          {data.tradingData.ohlcvData[pair] === null ? (
             <Lottie
               animationData={data.tradingData.noDataAnimation}
               style={{ height: 600 }}
             />
           ) : (
             <OhlcChart
-              data={data.tradingData.ohlcvData}
+              data={data.tradingData.ohlcvData[pair]}
               exchange={exchange}
               pair={pair}
               selectedArticle={selectedArticle}
