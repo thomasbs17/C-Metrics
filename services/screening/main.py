@@ -144,7 +144,10 @@ class ExchangeScreener:
             self.data[pair] = dict()
         await self.get_pair_ohlcv(pair)
         await self.get_pair_book(pair)
-        if self.data[pair]["ohlcv"] is not None and self.data[pair]["book"] is not None:
+        if (
+            self.data[pair].get("ohlcv") is not None
+            and self.data[pair].get("book") is not None
+        ):
             scoring = dict()
             await self.add_technical_indicators(pair)
             levels = FractalCandlestickPattern(self.data[pair]["ohlcv"]).run()
@@ -181,7 +184,7 @@ class ExchangeScreener:
             else:
                 scoring["technicals_score"] = 0
             scoring["pair"] = pair
-        return scoring
+            return scoring
 
     async def get_scoring(self, pairs_to_screen: list = None) -> pd.DataFrame:
         scores = self.data.get("scores", pd.DataFrame(columns=["pair"]))
@@ -240,23 +243,6 @@ class ExchangeScreener:
         except ConnectionRefusedError:
             await handle_unavailable_server()
 
-    async def run_client_websocket(self, client_ws):
-        while True:
-            exchange_name = "coinbase"  # TODO: to be updated
-            if self.data["exchanges"][exchange_name].get("scores") is not None:
-                ws_data = self.data["exchanges"][exchange_name]["scores"].to_json(
-                    orient="records"
-                )
-                try:
-                    await client_ws.send(ws_data)
-                except (
-                    websockets.exceptions.ConnectionClosedError
-                    or websockets.exceptions.ConnectionClosedOK
-                ):
-                    await client_ws.close()
-                    return
-            await asyncio.sleep(1)
-
 
 class Screener:
     def __init__(
@@ -299,13 +285,29 @@ class Screener:
             )
             await screener.screen_exchange()
 
+    async def run_client_websocket(self, client_ws):
+        while True:
+            exchange_name = "coinbase"  # TODO: to be updated
+            if self.data["exchanges"][exchange_name].get("scores") is not None:
+                ws_data = self.data["exchanges"][exchange_name]["scores"].to_json(
+                    orient="records"
+                )
+                try:
+                    await client_ws.send(ws_data)
+                except (
+                    websockets.exceptions.ConnectionClosedError
+                    or websockets.exceptions.ConnectionClosedOK
+                ):
+                    await client_ws.close()
+                    return
+            await asyncio.sleep(1)
+
 
 async def run_websocket():
     screener = Screener(exchange_list=["coinbase"], verbose=True)
-    await screener.run_screening()
-    # screening_task = asyncio.create_task(screener.run_screening())
-    # start_server = websockets.serve(screener.run_client_websocket, "localhost", 8795)
-    # await asyncio.gather(screening_task, start_server)
+    screening_task = asyncio.create_task(screener.run_screening())
+    start_server = websockets.serve(screener.run_client_websocket, "localhost", 8795)
+    await asyncio.gather(screening_task, start_server)
 
 
 if __name__ == "__main__":
