@@ -17,9 +17,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from utils.helpers import get_exchange_object
 
 WS_URL = "ws://localhost:8768"
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-LOG = logging.getLogger('screening_service')
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+LOG = logging.getLogger("screening_service")
 LOG.setLevel(logging.INFO)
+
 
 async def handle_unavailable_server():
     LOG.error("The Real Time Data service is down.")
@@ -170,6 +171,11 @@ class ExchangeScreener:
             await self.add_technical_indicators(pair)
             levels = FractalCandlestickPattern(self.data[pair]["ohlcv"]).run()
             scoring["close"] = self.data[pair]["ohlcv"]["close"].iloc[-1]
+            scoring["24h_change"] = (
+                self.data[pair]["ohlcv"]["close"].iloc[-1]
+                / self.data[pair]["ohlcv"]["open"].iloc[-1]
+                - 1
+            )
             scoring["rsi"] = (
                 int(self.data[pair]["ohlcv"]["RSI_14"].iloc[-1])
                 if "RSI_14" in self.data[pair]["ohlcv"].columns
@@ -301,7 +307,9 @@ class Screener:
 
     async def run_client_websocket(self, client_ws):
         self.screener.updated = True
-        LOG.info(f'New client connected to screening service - session ID: {client_ws.id}')
+        LOG.info(
+            f"New client connected to screening service - session ID: {client_ws.id}"
+        )
         last_sent = dt.now() - timedelta(seconds=20)
         while True:
             if not self.screener.scores.empty and (dt.now() - last_sent).seconds > 10:

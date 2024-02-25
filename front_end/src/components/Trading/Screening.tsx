@@ -18,7 +18,8 @@ function Screening(data: { tradingData: tradingDataDef }) {
   const [columnDefs] = useState<ColDef[]>([
     { field: 'pair' },
     { field: 'close' },
-    { field: 'next_support', filter: 'agSetColumnFilter' },
+    { field: '24h_change' },
+    { field: 'next_support' },
     { field: 'next_resistance' },
     { field: 'support_dist' },
     { field: 'rsi' },
