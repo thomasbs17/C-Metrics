@@ -24,6 +24,7 @@
     "highcharts-react-official": "^3.2.1",
     "lottie-react": "^2.4.0",
     "plotly.js": "^2.25.1",
+    "prettier": "^3.2.5",
     "react": "^18.2.0",
     "react-bootstrap": "^2.8.0",
     "react-dom": "^18.2.0",
