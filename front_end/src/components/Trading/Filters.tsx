@@ -244,7 +244,7 @@ function NavigationMenu() {
     Home: '',
     Trading: 'trading',
     Portfolio: 'portfolio',
-    'Sign Up': 'registration',
+    'Sign In': 'sign-in',
   }
 
   return (

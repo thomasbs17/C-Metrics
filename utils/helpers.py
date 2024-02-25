@@ -30,7 +30,7 @@ def get_api_keys(exchange: str, websocket: bool = False) -> dict:
             return dict(apiKey=key, secret=secret)
 
 
-def get_exchange_object(exchange: str, async_mode: bool) -> ccxt.Exchange:
+def get_exchange_object(exchange: str, async_mode: bool) -> ccxt.Exchange or async_ccxt.Exchange:
     module = async_ccxt if async_mode else ccxt
     exchange_class = getattr(module, exchange)
     keys = get_api_keys(exchange)

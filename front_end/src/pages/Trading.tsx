@@ -1,7 +1,10 @@
 import { Box, Tab, Tabs } from '@mui/material'
 import React from 'react'
 import { Col, Container, Row } from 'react-bootstrap'
+import { Responsive, WidthProvider } from 'react-grid-layout'
+import 'react-grid-layout/css/styles.css'
 import { useDispatch } from 'react-redux'
+import 'react-resizable/css/styles.css'
 import {
   GetTradingData,
   type tradingDataDef,
@@ -11,12 +14,8 @@ import { TradingChart } from '../components/Trading/Chart'
 import CreateOrderWidget from '../components/Trading/CreateOrder'
 import { TopBar } from '../components/Trading/Filters'
 import Holdings from '../components/Trading/Holdings'
-import Orders from '../components/Trading/Orders'
-// import AddRemoveLayout from '../components/ResizablePanel'
-import { Responsive, WidthProvider } from 'react-grid-layout'
-import 'react-grid-layout/css/styles.css'
-import 'react-resizable/css/styles.css'
 import News from '../components/Trading/News'
+import Orders from '../components/Trading/Orders'
 import Screening from '../components/Trading/Screening'
 import Trades from '../components/Trading/TradeHistory'
 
@@ -31,10 +30,7 @@ function BottomLeftContainer(data: { tradingData: tradingDataDef }) {
     dispatch(filterSlice.actions.setOrdersNeedReload(true))
   }
   return (
-    <div
-      className="border border-primary rounded-3 p-3"
-      style={{ height: '250px' }}
-    >
+    <div style={{ height: '250px' }}>
       <Box sx={{ width: '100%' }}>
         <Tabs
           value={value}
@@ -56,40 +52,6 @@ function BottomLeftContainer(data: { tradingData: tradingDataDef }) {
   )
 }
 
-function BottomContainer(data: { tradingData: tradingDataDef }) {
-  const layout = [
-    { i: 'a', x: 2, y: 0, w: 1000, h: 10 },
-    { i: 'b', x: 10, y: 0, w: 10000, h: 10, maxW: 4 },
-  ]
-  return (
-    <ResponsiveGridLayout
-      className="layout"
-      breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-      // layouts={layout}
-      cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-    >
-      <div
-        style={{
-          borderRadius: 10,
-          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        }}
-        key="a"
-      >
-        <BottomLeftContainer tradingData={data.tradingData} />
-      </div>
-      <div
-        style={{
-          borderRadius: 10,
-          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        }}
-        key="b"
-      >
-        <BottomRightContainer tradingData={data.tradingData} />
-      </div>
-    </ResponsiveGridLayout>
-  )
-}
-
 function BottomRightContainer(data: { tradingData: tradingDataDef }) {
   const [value, setValue] = React.useState('news')
 
@@ -97,10 +59,7 @@ function BottomRightContainer(data: { tradingData: tradingDataDef }) {
     setValue(newValue)
   }
   return (
-    <div
-      className="border border-primary rounded-3 p-3"
-      style={{ height: '250px', overflowY: 'hidden' }}
-    >
+    <div style={{ height: '250px', overflowY: 'hidden' }}>
       <Box sx={{ width: '100%' }}>
         <Tabs
           value={value}
@@ -113,7 +72,7 @@ function BottomRightContainer(data: { tradingData: tradingDataDef }) {
         </Tabs>
         {value === 'news' && <News tradingData={data.tradingData} />}
         {value === 'screening' && (
-          <Screening screeningData={data.tradingData.screeningData} />
+          <Screening tradingData={data.tradingData} />
         )}
       </Box>
     </div>
@@ -128,7 +87,10 @@ function Trading() {
       <TopBar tradingData={tradingData} />
       <Container fluid>
         <TradingChart tradingData={tradingData} />
-        <Row>
+        <Row
+          className="border border-primary rounded-3 p-3"
+          style={{ height: '250px' }}
+        >
           <Col style={{ maxWidth: '50%' }}>
             <BottomLeftContainer tradingData={tradingData} />
           </Col>

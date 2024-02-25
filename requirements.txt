@@ -9,7 +9,6 @@ cryptofeed==2.4.0
 pandas==2.2.0
 redis==5.0.1
 msgpack==1.0.7
-pandas-ta==0.3.14b
 websockets==12.0
 sqlalchemy==2.0.27
 
@@ -19,3 +18,13 @@ sqlalchemy==2.0.27
 # sudo apt-get update
 # sudo apt-get install libpq-dev python2-dev python2 python-dev-is-python3
 psycopg2==2.9.9
+
+# TA-Lib Installation:
+# curl -SLO http://downloads.sourceforge.net/project/ta-lib/ta-lib/0.4.0/ta-lib-0.4.0-src.tar.gz
+# tar -xzf ta-lib-0.4.0-src.tar.gz
+# cd ta-lib/
+# ./configure --prefix=/usr
+# make
+# sudo make install
+TA-Lib==0.4.28
+pandas-ta==0.3.14b

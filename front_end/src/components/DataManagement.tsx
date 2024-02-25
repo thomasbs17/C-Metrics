@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { type FilterState, filterSlice } from './StateManagement'
-import React from 'react'
+import { filterSlice, type FilterState } from './StateManagement'
 
 export interface tradingDataDef {
   coinMarketCapMapping: any
@@ -13,7 +12,8 @@ export interface tradingDataDef {
   trades: Trade[]
   screeningData: any
   noDataAnimation: any
-  ohlcvData: OhlcData
+  ohlcvData: { [key: string]: OhlcData | null },
+  latestPrices: LatestPrices,
   orderBookData: any
   greedAndFearData: any
 }
@@ -61,20 +61,60 @@ export interface Trade {
   trade_price: number
 }
 
+export type Holdings = { [asset: string]: [string, number][] }
+export type LatestHoldings = { [asset: string]: number }
+type LatestPrices = { [pair: string]: number }
+
+export function getHoldingVolumesFromTrades(trades: Trade[]) {
+  let holdings: Holdings = {}
+  let currentHoldings: LatestHoldings = {}
+  const sortedTrades = trades.sort(
+    (
+      a: { execution_tmstmp: string | number | Date },
+      b: { execution_tmstmp: string | number | Date },
+    ) =>
+      new Date(a.execution_tmstmp).getTime() -
+      new Date(b.execution_tmstmp).getTime(),
+  )
+  sortedTrades.forEach((trade: Trade) => {
+    const pair: string = trade.asset_id
+    const tradeVolume =
+      trade.trade_side === 'buy' ? trade.trade_volume : -trade.trade_volume
+    if (!Object.keys(holdings).includes(pair)) {
+      holdings[pair] = [[trade.execution_tmstmp, tradeVolume]]
+      currentHoldings[pair] = tradeVolume
+    } else {
+      let cumulatedPairVolume = holdings[pair][holdings[pair].length - 1][1]
+      cumulatedPairVolume = cumulatedPairVolume + tradeVolume
+      holdings[pair].push([trade.execution_tmstmp, cumulatedPairVolume])
+      currentHoldings[pair] += tradeVolume
+    }
+  })
+  for (const pair in currentHoldings) {
+    if (currentHoldings[pair] === 0) {
+      delete currentHoldings[pair]
+    }
+  }
+  const entries = Object.entries(currentHoldings)
+  entries.sort((a, b) => b[1] - a[1])
+  const sortedHoldings = Object.fromEntries(entries)
+  return { history: holdings, current: sortedHoldings }
+}
+
 export function retrieveInfoFromCoinMarketCap(
   pair: string,
   coinMarketCapMapping: any,
 ): any {
   const base = pair.slice(0, pair.search('/'))
-  let assetInfo
+  let assetInfo: any[] = [];
   if (Object.keys(coinMarketCapMapping).length > 0) {
     coinMarketCapMapping.data.forEach((element: any) => {
       if (element.symbol === base) {
-        assetInfo = element
+        assetInfo.push(element)
       }
     })
   }
-  return assetInfo
+  return assetInfo[0]
 }
 
 function LoadStaticData(endpoint: string) {
@@ -231,9 +271,11 @@ function LoadScreeningData(throtle: number = 1000) {
     const socket = new WebSocket(wsUrl)
     socket.onerror = () => {
       console.error('Error with screening service')
+      setScreeningData(false)
     }
     socket.onopen = () => {
       console.log('Connected to screening service')
+      setScreeningData({})
     }
     socket.onmessage = (event) => {
       if (Date.now() - lastRefreshTmtstmp > throtle) {
@@ -278,34 +320,104 @@ function LoadOhlcvData() {
     (state: { filters: FilterState }) => state.filters,
   )
 
-  const [exchange, pair, ohlcPeriod] = useMemo(
+  const [exchange, selectedPair, ohlcPeriod] = useMemo(
     () => [filterState.exchange, filterState.pair, filterState.ohlcPeriod],
     [filterState.exchange, filterState.pair, filterState.ohlcPeriod],
   )
-  const [ohlcData, setOHLCData] = useState<OhlcData>([])
-  useEffect(() => {
-    async function fetchOHLCData() {
+  const [ohlcData, setOHLCData] = useState<{ [key: string]: OhlcData | null }>(
+    {},
+  )
+
+  async function fetchOHLCData(pair: string) {
+    if (pair !== undefined) {
+      if (!Object.keys(ohlcData).includes(pair)) {
+        dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
+      }
       try {
         const ohlc_response = await fetch(
           `http://127.0.0.1:8000/ohlc/?exchange=${exchange}&pair=${pair}&timeframe=${ohlcPeriod}`,
         )
-        setOHLCData(await ohlc_response.json())
+        const newOhlcData = await ohlc_response.json()
+        ohlcData[pair] = newOhlcData
+        setOHLCData(ohlcData)
       } catch (error) {
-        setOHLCData([])
-        console.error('Error fetching OHLC data:', error)
-      } finally {
+        ohlcData[pair] = null
+        setOHLCData(ohlcData)
+        console.error(`Error fetching OHLC data: for ${pair}`, error)
+      }
+      if (pair === selectedPair) {
         dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', false]))
       }
     }
+  }
+
+  useEffect(() => {
+    fetchOHLCData(selectedPair)
     const ohlcInterval = setInterval(() => {
-      fetchOHLCData()
+      fetchOHLCData(selectedPair)
     }, 60000)
-    fetchOHLCData()
+    fetchOHLCData(selectedPair)
     return () => {
       clearInterval(ohlcInterval)
     }
-  }, [exchange, ohlcPeriod, pair])
+  }, [selectedPair])
+
   return ohlcData
+}
+
+
+function LoadLatestPrices(trades: Trade[]) {
+  const [latestPrices, setLatestPrices] = useState<LatestPrices>({})
+  const selectedPair = useSelector(
+    (state: { filters: FilterState }) => state.filters.pair,
+  )
+
+  async function fetchLatestPrice(pair: string) {
+    if (pair !== undefined) {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/public_trades/?exchange=coinbase&pair=${pair}`);
+        const latestPublicTrades = await response.json()
+        const latestPrice = latestPublicTrades[latestPublicTrades.length - 1]['price'] || 0;
+        latestPrices[pair] = latestPrice
+        setLatestPrices(latestPrices)
+      } catch (error) {
+        console.error(`Error fetching latest price for ${pair}`, error)
+      }
+    }
+  }
+
+  function loadForAllHoldings() {
+    const holdings = getHoldingVolumesFromTrades(trades)
+    Object.keys(holdings['current']).forEach((pair: string) => {
+      fetchLatestPrice(pair)
+    })
+  }
+
+  useEffect(() => {
+    loadForAllHoldings()
+    const pricesInterval = setInterval(() => {
+      loadForAllHoldings()
+    }, 10000)
+    return () => {
+      clearInterval(pricesInterval)
+    }
+  }, [trades])
+
+  useEffect(() => {
+    const holdings = getHoldingVolumesFromTrades(trades)
+    if (!Object.keys(holdings['current']).includes(selectedPair)) {
+      fetchLatestPrice(selectedPair)
+      const ohlcInterval = setInterval(() => {
+        fetchLatestPrice(selectedPair)
+      }, 10000)
+      fetchLatestPrice(selectedPair)
+      return () => {
+        clearInterval(ohlcInterval)
+      }
+    }
+  }, [selectedPair])
+
+  return latestPrices
 }
 
 function formatOrderBook(rawOrderBook: any, isWebSocketFeed: boolean) {
@@ -427,6 +539,7 @@ export function GetTradingData() {
   const screeningData = LoadScreeningData()
   const noDataAnimation = LoadNoDataAnimation()
   const ohlcvData = LoadOhlcvData()
+  const latestPrices = LoadLatestPrices(trades)
   const orderBookData = LoadOrderBook()
   const greedAndFearData = LoadGreedAndFear()
 
@@ -441,6 +554,7 @@ export function GetTradingData() {
     screeningData,
     noDataAnimation,
     ohlcvData,
+    latestPrices,
     orderBookData,
     greedAndFearData,
   }

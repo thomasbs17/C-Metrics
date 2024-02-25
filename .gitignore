@@ -46,3 +46,4 @@ crypto_station_api/.idea/*
 feedhandler.log
 test.py
 df
+ta-lib/*
