@@ -1,64 +1,61 @@
 import { Alert, CircularProgress, Stack } from '@mui/material'
-import {
-  ColDef,
-  GridReadyEvent,
-  RowClickedEvent,
-  SideBarDef,
-} from 'ag-grid-community'
+import { ColDef, GridReadyEvent, RowClickedEvent } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import '../../css/charts.css'
 import { tradingDataDef } from '../DataManagement'
 import { filterSlice, type FilterState } from '../StateManagement'
-import '../../css/charts.css'
 
 function displayAsPercent(raw_number: number) {
   return (raw_number * 100).toFixed(2) + '%'
 }
 
 function Screening(data: { tradingData: tradingDataDef }) {
+  const [gridData] = useState<any>(data.tradingData.screeningData)
+  const gridRef = useRef<AgGridReact<any>>(null)
+  const gridStyle = useMemo(() => ({ width: '100%', height: '180px' }), [])
+  const [columnDefs] = useState<ColDef[]>([
+    { field: 'pair' },
+    { field: 'close' },
+    { field: 'next_support', filter: 'agSetColumnFilter' },
+    { field: 'next_resistance' },
+    { field: 'support_dist' },
+    { field: 'rsi' },
+    { field: 'bbl' },
+    { field: 'technicals_score' },
+    { field: 'book_score' },
+    { field: 'score' },
+    { field: 'potential_gain' },
+  ])
+  const defaultColDef = useMemo<ColDef>(() => {
+    return {
+      flex: 1,
+      filter: true,
+    }
+  }, [])
   const dispatch = useDispatch()
   const selectedPair = useSelector(
     (state: { filters: FilterState }) => state.filters.pair,
   )
-  const gridRef = useRef<AgGridReact<any>>(null)
-  const [colDefs, setColDefs] = useState<ColDef<any>[]>([])
-  const [scrollPosition, setScrollPosition] = useState(0)
-  const [selectedRows, setSelectedRows] = useState([])
-
-  useEffect(() => {
-    if (gridRef.current && gridRef.current.api) {
-      const { top } = gridRef.current.api.getVerticalPixelRange()
-      setScrollPosition(top)
+  const getRowClass = (params: any) => {
+    if (params.data.pair === selectedPair) {
+      return 'ag-selected-row'
     }
-  }, [data.tradingData.screeningData])
-
-  useEffect(() => {
-    if (gridRef.current && gridRef.current.api) {
-      gridRef.current.api.ensureIndexVisible(scrollPosition, 'middle')
-
-      gridRef.current.api.forEachNode((node: any) => {
-        const isSelected = selectedRows.some(
-          (row: any) => selectedPair === node.pair,
-        )
-        node.setSelected(isSelected)
-      })
-    }
-  }, [scrollPosition, selectedRows])
+  }
 
   function setDefaultGridSettings() {
     if (gridRef.current && gridRef.current.api) {
       gridRef.current.api.applyColumnState({
-        state: [{ colId: 'score', sort: 'desc' }],
+        state: [{ colId: 'technicals_score', sort: 'desc' }],
         defaultState: { sort: null },
       })
-      // gridRef.current.api
-      //   .setColumnFilterModel('pair', { values: [selectedPair] })
-      //   .then(() => {
-      //     gridRef.current!.api.onFilterChanged()
-      //   })
     }
   }
+
+  const onGridReady = useCallback((event: GridReadyEvent) => {
+    setDefaultGridSettings()
+  }, [])
 
   const handleClick = (clickedPair: RowClickedEvent<any>) => {
     const pairDetails = clickedPair.data
@@ -68,64 +65,13 @@ function Screening(data: { tradingData: tradingDataDef }) {
   }
 
   useEffect(() => {
-    setColDefs([
-      { field: 'pair' },
-      { field: 'close' },
-      { field: 'next_support', filter: 'agSetColumnFilter' },
-      { field: 'next_resistance' },
-      { field: 'support_dist' },
-      { field: 'rsi' },
-      { field: 'bbl' },
-      { field: 'technicals_score' },
-      { field: 'book_score' },
-      { field: 'score' },
-      { field: 'potential_gain' },
-    ])
-    setDefaultGridSettings()
-  }, [])
-
-  const onGridReady = useCallback((event: GridReadyEvent) => {
-    setDefaultGridSettings()
-  }, [])
-
-  const defaultColDef = useMemo<ColDef>(() => {
-    return {
-      flex: 1,
-      filter: true,
+    if (gridRef.current && gridRef.current.api) {
+      gridRef.current!.api.setGridOption(
+        'rowData',
+        data.tradingData.screeningData,
+      )
     }
-  }, [])
-
-  const sideBar = useMemo<
-    SideBarDef | string | string[] | boolean | null
-  >(() => {
-    return {
-      toolPanels: [
-        {
-          id: 'columns',
-          labelDefault: 'Columns',
-          labelKey: 'columns',
-          iconKey: 'columns',
-          toolPanel: 'agColumnsToolPanel',
-          minWidth: 225,
-          width: 225,
-          maxWidth: 225,
-        },
-        {
-          id: 'filters',
-          labelDefault: 'Filters',
-          labelKey: 'filters',
-          iconKey: 'filter',
-          toolPanel: 'agFiltersToolPanel',
-          minWidth: 180,
-          maxWidth: 400,
-          width: 250,
-        },
-      ],
-      position: 'left',
-      defaultToolPanel: 'filters',
-      hiddenByDefault: true,
-    }
-  }, [])
+  }, [JSON.stringify(data.tradingData.screeningData)])
 
   return data.tradingData.screeningData === false ? (
     <Stack
@@ -139,20 +85,16 @@ function Screening(data: { tradingData: tradingDataDef }) {
   ) : data.tradingData.screeningData.length === 0 ? (
     <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
   ) : (
-    <div
-      className={'ag-theme-quartz-dark'}
-      style={{ width: '100%', height: '180px' }}
-    >
+    <div className={'ag-theme-quartz-dark'} style={gridStyle}>
       <AgGridReact
         ref={gridRef}
-        rowData={data.tradingData.screeningData}
-        columnDefs={colDefs}
+        rowData={gridData}
+        columnDefs={columnDefs}
         defaultColDef={defaultColDef}
-        sideBar={sideBar}
         onRowClicked={(r) => handleClick(r)}
         onGridReady={onGridReady}
         rowSelection={'single'}
-        // immutableData={true}
+        getRowClass={getRowClass}
       />
     </div>
   )

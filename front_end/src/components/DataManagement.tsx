@@ -275,24 +275,30 @@ function LoadScreeningData(throtle: number = 1000) {
     }
     socket.onopen = () => {
       console.log('Connected to screening service')
-      setScreeningData({})
+      setScreeningData([])
     }
     socket.onmessage = (event) => {
       if (Date.now() - lastRefreshTmtstmp > throtle) {
         lastRefreshTmtstmp = Date.now()
         const formattedData = JSON.parse(event.data)
         setScreeningData(formattedData)
-        formattedData.forEach((pairDetails: any) => {
-          if (pairDetails.pair === selectedPair) {
-            dispatch(filterSlice.actions.setPairScoreDetails(pairDetails))
-          }
-        })
       }
     }
     return () => {
       socket.close()
     }
-  }, [selectedPair])
+  }, [])
+
+  useEffect(() => {
+    if (screeningData.length > 0) {
+      screeningData.forEach((pairDetails: any) => {
+        if (pairDetails.pair === selectedPair) {
+          dispatch(filterSlice.actions.setPairScoreDetails(pairDetails))
+        }
+      })
+    }
+  }, [selectedPair, screeningData])
+
   return screeningData
 }
 
@@ -399,7 +405,7 @@ function LoadLatestPrices(trades: Trade[]) {
     loadForAllHoldings()
     const pricesInterval = setInterval(() => {
       loadForAllHoldings()
-    }, 10000)
+    }, 60000)
     return () => {
       clearInterval(pricesInterval)
     }
@@ -411,7 +417,7 @@ function LoadLatestPrices(trades: Trade[]) {
       fetchLatestPrice(selectedPair)
       const ohlcInterval = setInterval(() => {
         fetchLatestPrice(selectedPair)
-      }, 10000)
+      }, 60000)
       fetchLatestPrice(selectedPair)
       return () => {
         clearInterval(ohlcInterval)

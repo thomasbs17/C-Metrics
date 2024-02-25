@@ -97,7 +97,11 @@ def get_news(request):
     googlenews = GoogleNews()
     googlenews.get_news(pair)
     data = googlenews.results()
-    data = [article for article in data if isinstance(article["datetime"], dt)]
+    data = [
+        article
+        for article in data
+        if isinstance(article["datetime"], dt) and article["datetime"] <= dt.now()
+    ]
     return JsonResponse(data, safe=False)
 
 

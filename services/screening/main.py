@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import os
 import sys
 import time
@@ -9,17 +10,19 @@ import pandas as pd
 import websockets
 from indicators.technicals import FractalCandlestickPattern
 import pandas_ta as ta
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from utils.helpers import get_exchange_object
 
 WS_URL = "ws://localhost:8768"
-
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+LOG = logging.getLogger('screening_service')
+LOG.setLevel(logging.INFO)
 
 async def handle_unavailable_server():
-    print("The Real Time Data service is down.")
+    LOG.error("The Real Time Data service is down.")
     while True:
         await asyncio.sleep(10)
 
@@ -33,10 +36,18 @@ class ExchangeScreener:
         self.clients = set()
         self.all_symbols = list()
         self.data = dict()
+        self.scores = pd.DataFrame(columns=["pair"])
+        self.updated = True
+
+    async def load_all_data(self):
+        tasks = list()
+        for pair in self.pairs:
+            tasks += [self.get_pair_ohlcv(pair), self.get_pair_book(pair)]
+        await asyncio.gather(*tasks)
 
     async def add_technical_indicators(self, pair: str):
         if self.verbose:
-            print(f"Computing technical indicators for {pair}")
+            LOG.info(f"Computing technical indicators for {pair}")
         self.data[pair]["ohlcv"].ta.cores = 0
         CustomStrategy = ta.Strategy(
             name="Momo and Volatility",
@@ -53,23 +64,26 @@ class ExchangeScreener:
         try:
             self.data[pair]["ohlcv"].ta.strategy(CustomStrategy)
         except Exception as e:
-            print(f"Could not compute all indicators for {pair}:\n \n {e}")
+            LOG.warning(f"Could not compute all indicators for {pair}:\n \n {e}")
 
     async def get_pair_ohlcv(self, pair: str):
+        if pair not in self.data:
+            self.data[pair] = dict()
         if "ohlcv" not in self.data[pair]:
             ohlc_data = await self.exchange_object.fetch_ohlcv(
                 symbol=pair, timeframe="1d", limit=300
             )
             if self.verbose:
-                print(f"Downloading OHLCV data for {pair}")
+                LOG.info(f"Downloading OHLCV data for {pair}")
             self.data[pair]["ohlcv"] = pd.DataFrame(
                 data=ohlc_data,
                 columns=["timestamp", "open", "high", "low", "close", "volume"],
             )
             if self.data[pair]["ohlcv"].empty:
-                print(f"No OHLCV data for {pair}")
+                LOG.warning(f"No OHLCV data for {pair}")
 
     async def live_refresh(self, raw_data: str = None):
+        self.updated = True
         pair = await self.read_ws_message(raw_data)
         await self.get_scoring([pair])
 
@@ -108,8 +122,6 @@ class ExchangeScreener:
         data = json.loads(raw_data)
         for method in data:
             pair = data[method]["symbol"].replace("-", "/")
-            if pair not in self.data:
-                self.data[pair] = dict()
             if pair in self.pairs:
                 if method == "trades":
                     await self.update_pair_ohlcv(pair, data)
@@ -118,15 +130,17 @@ class ExchangeScreener:
             return pair
 
     async def get_pair_book(self, pair: str):
+        if pair not in self.data:
+            self.data[pair] = dict()
         if "book" not in self.data[pair]:
             try:
                 self.data[pair]["book"] = await self.exchange_object.fetch_order_book(
                     symbol=pair, limit=100
                 )
                 if self.verbose:
-                    print(f"Downloading Order Book data for {pair}")
+                    LOG.info(f"Downloading Order Book data for {pair}")
             except Exception as e:
-                print(f"Could not download order book for {pair}: \n {e}")
+                LOG.warning(f"Could not download order book for {pair}: \n {e}")
 
     def get_book_scoring(self, pair: str, depth: int = 50) -> float:
         data = dict()
@@ -144,11 +158,10 @@ class ExchangeScreener:
         spread = float(data["ask"].index[0]) / float(data["bid"].index[0])
         return (data["bid"]["volume"].sum() / data["ask"]["volume"].sum()) / spread
 
-    async def score_pair(self, pair: str) -> dict:
+    async def score_pair(self, pair: str):
+        self.scores = self.scores[self.scores["pair"] != pair]
         if pair not in self.data:
             self.data[pair] = dict()
-        await self.get_pair_ohlcv(pair)
-        await self.get_pair_book(pair)
         if (
             self.data[pair].get("ohlcv") is not None
             and self.data[pair].get("book") is not None
@@ -189,38 +202,33 @@ class ExchangeScreener:
             else:
                 scoring["technicals_score"] = 0
             scoring["pair"] = pair
-            return scoring
+            pair_score_df = pd.DataFrame([scoring])
+            if not pair_score_df.empty:
+                self.scores = pd.concat([self.scores, pair_score_df])
 
     async def get_scoring(self, pairs_to_screen: list = None) -> pd.DataFrame:
-        scores = self.data.get("scores", pd.DataFrame(columns=["pair"]))
         pairs_to_screen = pairs_to_screen if pairs_to_screen else self.pairs
-        for pair in pairs_to_screen:
-            scores = scores[scores["pair"] != pair]
-            pair_score = await self.score_pair(pair)
-            if pair_score:
-                pair_score_df = pd.DataFrame([pair_score])
-                if not pair_score_df.empty:
-                    scores = pd.concat([scores, pair_score_df])
-        if not scores.empty:
-            scores["book_score"] = scores["book_score"].apply(
-                lambda x: x / scores["book_score"].max()
-                if scores["book_score"].max() > 0
+        tasks = [self.score_pair(pair) for pair in pairs_to_screen]
+        await asyncio.gather(*tasks)
+        if not self.scores.empty:
+            self.scores["book_score"] = self.scores["book_score"].apply(
+                lambda x: x / self.scores["book_score"].max()
+                if self.scores["book_score"].max() > 0
                 else 0
             )
             book_weight = 0.2
             technicals_weight = 0.8
-            scores["score"] = scores.apply(
+            self.scores["score"] = self.scores.apply(
                 lambda x: (x["book_score"] * book_weight)
                 + (x["technicals_score"] * technicals_weight),
                 axis=1,
             )
-            self.data["scores"] = scores.sort_values(by="score", ascending=False)
+            self.scores.sort_values(by="score", ascending=False, inplace=True)
 
-    def print_scores(self, top_score_amount: int = 10):
-        scores = self.data["scores"]
-        if scores is not None:
-            top_scores = scores.head(top_score_amount)
-            print(top_scores.to_string())
+    def log_scores(self, top_score_amount: int = 10):
+        if self.scores is not None:
+            top_scores = self.scores.head(top_score_amount)
+            LOG.info(top_scores.to_string())
 
     async def get_ws_uri(self) -> str:
         pair_str = ",".join(self.all_symbols)
@@ -228,6 +236,7 @@ class ExchangeScreener:
 
     async def screen_exchange(self):
         uri = await self.get_ws_uri()
+        await self.load_all_data()
         await self.get_scoring()
         try:
             async with websockets.connect(uri, ping_interval=None) as server_ws:
@@ -237,7 +246,7 @@ class ExchangeScreener:
                         if response != "heartbeat":
                             await self.live_refresh(response)
                             if self.verbose:
-                                self.print_scores()
+                                self.log_scores()
                     except (
                         websockets.ConnectionClosedError or asyncio.IncompleteReadError
                     ):
@@ -291,18 +300,20 @@ class Screener:
             await self.screener.screen_exchange()
 
     async def run_client_websocket(self, client_ws):
+        self.screener.updated = True
+        LOG.info(f'New client connected to screening service - session ID: {client_ws.id}')
+        last_sent = dt.now() - timedelta(seconds=20)
         while True:
-            if self.screener.data.get("scores") is not None:
-                ws_data = self.screener.data["scores"].to_json(orient="records")
+            if not self.screener.scores.empty and (dt.now() - last_sent).seconds > 10:
+                self.screener.updated = False
+                ws_data = self.screener.scores.to_json(orient="records")
                 try:
+                    last_sent = dt.now()
                     await client_ws.send(ws_data)
-                except (
-                    websockets.exceptions.ConnectionClosedError
-                    or websockets.exceptions.ConnectionClosedOK
-                ):
+                except:
                     await client_ws.close()
                     return
-            await asyncio.sleep(1)
+            await asyncio.sleep(0)
 
 
 async def run_websocket():
