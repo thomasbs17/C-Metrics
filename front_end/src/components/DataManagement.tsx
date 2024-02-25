@@ -273,6 +273,7 @@ function LoadScreeningData(throtle: number = 1000) {
     }
     socket.onopen = () => {
       console.log('Connected to screening service')
+      setScreeningData({})
     }
     socket.onmessage = (event) => {
       if (Date.now() - lastRefreshTmtstmp > throtle) {

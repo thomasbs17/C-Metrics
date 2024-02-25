@@ -48,7 +48,10 @@ class ExchangeScreener:
                 {"kind": "sma", "close": "volume", "length": 20, "prefix": "VOLUME"},
             ],
         )
-        self.data[pair]["ohlcv"].ta.strategy(CustomStrategy)
+        try:
+            self.data[pair]["ohlcv"].ta.strategy(CustomStrategy)
+        except Exception as e:
+            print(f'Could not compute all indicators for {pair}:\n \n {e}')
 
     async def get_pair_ohlcv(self, pair: str):
         if "ohlcv" not in self.data[pair]:
@@ -280,16 +283,15 @@ class Screener:
     async def run_screening(self):
         await self.get_exchanges_mappings()
         for exchange, details in self.data.items():
-            screener = ExchangeScreener(
+            self.screener = ExchangeScreener(
                 self.verbose, details["mapping"], details["object"]
             )
-            await screener.screen_exchange()
+            await self.screener.screen_exchange()
 
     async def run_client_websocket(self, client_ws):
         while True:
-            exchange_name = "coinbase"  # TODO: to be updated
-            if self.data["exchanges"][exchange_name].get("scores") is not None:
-                ws_data = self.data["exchanges"][exchange_name]["scores"].to_json(
+            if self.screener.data.get("scores") is not None:
+                ws_data = self.screener.data["scores"].to_json(
                     orient="records"
                 )
                 try:
