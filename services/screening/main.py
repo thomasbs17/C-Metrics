@@ -20,6 +20,8 @@ WS_URL = "ws://localhost:8768"
 
 async def handle_unavailable_server():
     print("The Real Time Data service is down.")
+    while True:
+        await asyncio.sleep(10)
 
 
 class ExchangeScreener:
@@ -156,7 +158,7 @@ class ExchangeScreener:
             levels = FractalCandlestickPattern(self.data[pair]["ohlcv"]).run()
             scoring["close"] = self.data[pair]["ohlcv"]["close"].iloc[-1]
             scoring["rsi"] = (
-                self.data[pair]["ohlcv"]["RSI_14"].iloc[-1]
+                int(self.data[pair]["ohlcv"]["RSI_14"].iloc[-1])
                 if "RSI_14" in self.data[pair]["ohlcv"].columns
                 else None
             )
