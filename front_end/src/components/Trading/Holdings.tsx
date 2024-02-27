@@ -1,15 +1,11 @@
 import { CircularProgress } from '@mui/material'
-import { ColDef, RowClickedEvent } from 'ag-grid-community'
+import { ColDef } from 'ag-grid-enterprise'
 import { AgGridReact } from 'ag-grid-react'
-import { useEffect, useState } from 'react'
-import { useDispatch } from 'react-redux'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import '../../css/tables.css'
-import {
-  LatestHoldings,
-  getHoldingVolumesFromTrades,
-  tradingDataDef,
-} from '../DataManagement'
-import { filterSlice } from '../StateManagement'
+import { getHoldingVolumesFromTrades, tradingDataDef } from '../DataManagement'
+import { FilterState, filterSlice } from '../StateManagement'
 
 type FormattedHoldings = {
   pair: string
@@ -17,88 +13,102 @@ type FormattedHoldings = {
   usdValue: number | string
 }
 
-function Holdings(data: { tradingData: tradingDataDef }) {
-  const [currentHoldings, setCurrentHoldings] = useState<LatestHoldings>({})
+function HoldingsTable(data: { tradingData: tradingDataDef }) {
+  const gridRef = useRef<AgGridReact<any>>(null)
+  const [currentHoldings, setCurrentHoldings] = useState<any>([])
   const [formattedHoldings, setFormattedHoldings] = useState<
     FormattedHoldings[]
   >([])
-  const [colDefs, setColDefs] = useState<ColDef<FormattedHoldings>[]>([])
+  const [gridData] = useState<FormattedHoldings[]>(getFormattedHoldings)
+  const gridStyle = useMemo(() => ({ width: '100%', height: '180px' }), [])
   const dispatch = useDispatch()
-
-  async function prepareTable() {
-    let formattedHoldings: FormattedHoldings[] = []
-    Object.keys(currentHoldings).forEach((pair: string) =>
-      formattedHoldings.push({
-        pair: pair,
-        volume: currentHoldings[pair],
-        usdValue: getUSDValue(pair),
-      }),
-    )
-    formattedHoldings = formattedHoldings.sort((a, b) =>
-      typeof a.usdValue === 'string' || typeof b.usdValue === 'string'
-        ? 0
-        : b.usdValue - a.usdValue,
-    )
-    setFormattedHoldings(formattedHoldings)
-    setColDefs([
-      { field: 'pair', flex: 1, filter: true },
-      {
-        field: 'volume',
-        flex: 1,
-        cellRenderer: 'agAnimateShowChangeCellRenderer',
-      },
-      {
-        field: 'usdValue',
-        flex: 1,
-        cellRenderer: 'agAnimateShowChangeCellRenderer',
-      },
-    ])
+  const selectedPair = useSelector(
+    (state: { filters: FilterState }) => state.filters.pair,
+  )
+  const [columnDefs] = useState<ColDef[]>([
+    { field: 'pair' },
+    { field: 'volume', cellRenderer: 'agAnimateShowChangeCellRenderer' },
+    { field: 'usdValue', cellRenderer: 'agAnimateShowChangeCellRenderer' },
+  ])
+  const defaultColDef = useMemo<ColDef>(() => {
+    return {
+      flex: 1,
+      filter: true,
+    }
+  }, [])
+  const getRowClass = (params: any) => {
+    if (params.data.pair === selectedPair) {
+      return 'ag-selected-row'
+    }
   }
 
   useEffect(() => {
     const holdings = getHoldingVolumesFromTrades(data.tradingData.trades)
     setCurrentHoldings(holdings.current)
-  }, [
-    JSON.stringify(data.tradingData.latestPrices),
-    JSON.stringify(data.tradingData.trades),
-  ])
+  }, [JSON.stringify(data.tradingData.trades)])
 
-  useEffect(() => {
-    prepareTable()
-  }, [currentHoldings])
-
-  const handleClick = (holding: RowClickedEvent<FormattedHoldings, any>) => {
-    if (holding.rowIndex || holding.rowIndex === 0) {
-      const selectedHolding = formattedHoldings[holding.rowIndex]
-      dispatch(filterSlice.actions.setPair(selectedHolding.pair))
-    }
+  function getFormattedHoldings() {
+    const holdings = getHoldingVolumesFromTrades(data.tradingData.trades)
+    let updatedFormattedHoldings: FormattedHoldings[] = []
+    Object.keys(holdings.current).forEach((pair: string) =>
+      updatedFormattedHoldings.push({
+        pair: pair,
+        volume: holdings.current[pair],
+        usdValue: getUSDValue(pair, holdings.current[pair]),
+      }),
+    )
+    updatedFormattedHoldings = updatedFormattedHoldings.sort((a, b) =>
+      typeof a.usdValue === 'string' || typeof b.usdValue === 'string'
+        ? 0
+        : b.usdValue - a.usdValue,
+    )
+    return updatedFormattedHoldings
   }
 
-  function getUSDValue(pair: string) {
+  useEffect(() => {
+    setFormattedHoldings(getFormattedHoldings())
+    if (gridRef.current && gridRef.current.api) {
+      gridRef.current!.api.setGridOption('rowData', formattedHoldings)
+      gridRef.current.api.refreshCells({ suppressFlash: false })
+      gridRef.current.api.flashCells()
+    }
+  }, [JSON.stringify(data.tradingData.latestPrices), currentHoldings])
+
+  const handleClick = (row: any) => {
+    dispatch(filterSlice.actions.setPair(row.data?.pair))
+  }
+
+  function getUSDValue(pair: string, volume: number) {
     const lastPrice = data.tradingData.latestPrices[pair]
     if (lastPrice === undefined || lastPrice === null) {
       return 'N/A'
     } else {
-      return currentHoldings[pair] * lastPrice
+      return volume * lastPrice
     }
+  }
+
+  function getRowNodeId(data: any) {
+    return data.data.pair
   }
 
   return formattedHoldings.length === 0 ? (
     <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
   ) : (
-    <div
-      className={'ag-theme-quartz-dark'}
-      style={{ width: '100%', height: '180px' }}
-    >
+    <div className={'ag-theme-quartz-dark'} style={gridStyle}>
       <AgGridReact
-        rowData={formattedHoldings}
-        columnDefs={colDefs}
+        ref={gridRef}
+        getRowId={getRowNodeId}
+        rowData={gridData}
+        columnDefs={columnDefs}
+        defaultColDef={defaultColDef}
         onRowClicked={(r) => handleClick(r)}
         rowSelection={'single'}
-        // onGridReady={onGridReady}
+        getRowClass={getRowClass}
+        animateRows={true}
+        enableCellChangeFlash={true}
       />
     </div>
   )
 }
 
-export default Holdings
+export default HoldingsTable
