@@ -238,7 +238,7 @@ class ExchangeScreener:
         while True:
             self.updated = True
             await self.load_all_data()
-            await self.get_scoring()            
+            await self.get_scoring()
             await asyncio.sleep(0)
 
     async def screen_exchange(self):
