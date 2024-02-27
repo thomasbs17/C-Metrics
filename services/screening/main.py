@@ -243,8 +243,8 @@ class ExchangeScreener:
 
     async def screen_exchange(self):
         uri = await self.get_ws_uri()
-        # await self.load_all_data()
-        # await self.get_scoring()
+        await self.load_all_data()
+        await self.get_scoring()
         try:
             async with websockets.connect(uri, ping_interval=None) as server_ws:
                 while True:
