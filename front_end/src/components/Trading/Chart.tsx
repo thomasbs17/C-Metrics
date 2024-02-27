@@ -396,6 +396,12 @@ function OrderBookChart(props: BookChartProps) {
     }
   }, [props.pairScoreDetails, props.selectedOrder])
 
+  useEffect(() => {
+    if (orderBookChartRef.current && orderBookChartRef.current.chart) {
+      orderBookChartRef.current.chart.zoomOut()
+    }
+  }, [props.pair])
+
   function afterSetExtremes(this: any, e: any) {
     let bookSideDetails = { ask: {}, bid: {} }
     Object.keys(bookSideDetails).forEach((side: string) => {
@@ -808,6 +814,7 @@ export function GreedAndFear(props: GreedAndFearChartProps) {
         width: 250,
         position: 'absolute',
         padding: 10,
+        fontSize: 13,
       }}
     >
       <span>Greed & Fear:</span>
