@@ -18,6 +18,7 @@ import News from '../components/Trading/News'
 import Orders from '../components/Trading/Orders'
 import Screening from '../components/Trading/Screening'
 import Trades from '../components/Trading/TradeHistory'
+import EconomicCalendar from '../components/Trading/EconomicCalendar'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
 
@@ -69,9 +70,11 @@ function BottomRightContainer(data: { tradingData: tradingDataDef }) {
         >
           <Tab value="news" label="News" sx={{ height: '30px' }} />
           <Tab value="screening" label="Screening" />
+          <Tab value="economic-calendar" label="Economic Calendar" />
         </Tabs>
         {value === 'news' && <News tradingData={data.tradingData} />}
         {value === 'screening' && <Screening tradingData={data.tradingData} />}
+        {value === 'economic-calendar' && <EconomicCalendar />}
       </Box>
     </div>
   )
