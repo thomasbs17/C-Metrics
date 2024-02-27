@@ -227,6 +227,9 @@ function OrderBookChart(props: BookChartProps) {
         enabled: false,
       },
     },
+    navigation: {
+      bindingsClassName: 'book-chart'
+    },
     chart: {
       backgroundColor: 'transparent',
       height: CHART_HEIGHT - 215,
@@ -600,6 +603,7 @@ function OhlcChart(props: OhlcChartProps) {
       annotationsOptions: {
         shapeOptions: {
           stroke: 'blue',
+          bindingsClassName: 'ohlcv-chart'
         },
       },
     },
@@ -794,6 +798,9 @@ export function GreedAndFear(props: GreedAndFearChartProps) {
     tooltip: { enabled: false },
     stockTools: {
       gui: { enabled: false },
+    },
+    navigation: {
+      bindingsClassName: 'greed-and-fear-chart'
     },
     series: [
       {
