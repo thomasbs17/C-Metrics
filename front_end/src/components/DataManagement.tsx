@@ -334,9 +334,9 @@ function LoadOhlcvData() {
     {},
   )
 
-  async function fetchOHLCData(pair: string) {
+  async function fetchOHLCData(pair: string, showSpinner: boolean) {
     if (pair !== undefined) {
-      if (!Object.keys(ohlcData).includes(pair)) {
+      if (showSpinner) {
         dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
       }
       try {
@@ -358,15 +358,14 @@ function LoadOhlcvData() {
   }
 
   useEffect(() => {
-    fetchOHLCData(selectedPair)
+    fetchOHLCData(selectedPair, true)
     const ohlcInterval = setInterval(() => {
-      fetchOHLCData(selectedPair)
+      fetchOHLCData(selectedPair, false)
     }, 60000)
-    fetchOHLCData(selectedPair)
     return () => {
       clearInterval(ohlcInterval)
     }
-  }, [selectedPair])
+  }, [selectedPair, ohlcPeriod])
 
   return ohlcData
 }
