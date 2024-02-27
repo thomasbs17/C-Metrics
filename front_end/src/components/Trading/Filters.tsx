@@ -440,18 +440,6 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
             variant="text"
             size="large"
             onClick={() => {
-              handleOpen('economicCalendar')
-            }}
-            sx={{ width: 200 }}
-          >
-            Economic Calendar
-          </Button>
-        </Col>
-        <Col>
-          <Button
-            variant="text"
-            size="large"
-            onClick={() => {
               handleOpen('pairSelection')
             }}
             sx={{ width: 300 }}
@@ -469,48 +457,34 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
       >
-        {modalType === 'pairSelection' ? (
-          <Box sx={modalStyle}>
-            <Typography id="symbol-selection" variant="h6" component="h2">
-              Symbol Selection
-            </Typography>
-            <Row>
-              <Col>
-                <ExchangeFilter data={data.tradingData.exchanges} />
-              </Col>
-              <Col>
-                <MultipleSelectChip
-                  label="Networks"
-                  options={[]}
-                  defaultValue={[]}
-                />
-              </Col>
-              <Col>
-                <MultipleSelectChip
-                  label="Asset Types"
-                  options={filteredAssetTypes}
-                  defaultValue={[]}
-                />
-              </Col>
-            </Row>
-            <PairFilter
-              data={Object.keys(data.tradingData.markets).sort()}
-              handleClose={handleClose}
-            />
-          </Box>
-        ) : (
-          <Box sx={modalStyle}>
-            <Typography
-              id="symbol-selection"
-              variant="h6"
-              component="h2"
-              sx={{ padding: 2 }}
-            >
-              Economic Calendar
-            </Typography>
-            <EconomicCalendar />
-          </Box>
-        )}
+        <Box sx={modalStyle}>
+          <Typography id="symbol-selection" variant="h6" component="h2">
+            Symbol Selection
+          </Typography>
+          <Row>
+            <Col>
+              <ExchangeFilter data={data.tradingData.exchanges} />
+            </Col>
+            <Col>
+              <MultipleSelectChip
+                label="Networks"
+                options={[]}
+                defaultValue={[]}
+              />
+            </Col>
+            <Col>
+              <MultipleSelectChip
+                label="Asset Types"
+                options={filteredAssetTypes}
+                defaultValue={[]}
+              />
+            </Col>
+          </Row>
+          <PairFilter
+            data={Object.keys(data.tradingData.markets).sort()}
+            handleClose={handleClose}
+          />
+        </Box>
       </Modal>
     </Container>
   )
