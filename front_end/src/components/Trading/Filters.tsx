@@ -1,8 +1,10 @@
 import {
   Autocomplete,
+  Avatar,
   Box,
   Button,
   Chip,
+  CircularProgress,
   FormControl,
   InputLabel,
   Link,
@@ -26,10 +28,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Container, Row, ToggleButton } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router'
-import { tradingDataDef } from '../DataManagement'
+import {
+  retrieveInfoFromCoinMarketCap,
+  tradingDataDef,
+} from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
 import { GreedAndFear } from './Chart'
-import EconomicCalendar from './EconomicCalendar'
 
 // Initialize the modules
 HighchartsMore(Highcharts)
@@ -73,7 +77,7 @@ function TradingTypeFilter() {
   )
 }
 
-function OhlcPeriodsFilter() {
+export function OhlcPeriodsFilter() {
   const [ohlcPeriod, setOhlcPeriod] = useState('1d')
   const dispatch = useDispatch()
 
@@ -113,7 +117,7 @@ function OhlcPeriodsFilter() {
         size="small"
       >
         {Object.entries(timeFrames).map(([value, label]) => (
-          <MenuItem key={value} value={value}>
+          <MenuItem key={value} value={value} sx={{ maxHeight: 20 }}>
             {label}
           </MenuItem>
         ))}
@@ -372,33 +376,48 @@ function MultipleSelectChip(props: MultipleSelectChipProps) {
   )
 }
 
-export function TopBar(data: { tradingData: tradingDataDef }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [modalIsOpen, setModalIsOpen] = useState(false)
-  const [modalType, setModalType] = useState('')
-  const handleOpen = (modalType: string) => (
-    setModalType(modalType), setModalIsOpen(true)
-  )
-  const handleClose = () => {
-    setModalIsOpen(false)
-  }
+export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
+  const [cryptoInfo, setCryptoInfo] = useState<any>({})
+  const [cryptoMetaData, setCryptoMetaData] = useState<any>(undefined)
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
   )
+  const [modalIsOpen, setModalIsOpen] = useState(false)
+  const handleOpen = () => setModalIsOpen(true)
+  useEffect(() => {
+    setCryptoInfo(
+      retrieveInfoFromCoinMarketCap(
+        pair,
+        data.tradingData.coinMarketCapMapping,
+      ),
+    )
+    if (
+      cryptoInfo &&
+      Object.keys(cryptoInfo).length !== 0 &&
+      data.tradingData.cryptoMetaData.length !== 0
+    ) {
+      setCryptoMetaData(data.tradingData.cryptoMetaData.data[cryptoInfo.id])
+    }
+  }, [
+    filterState.pair,
+    data.tradingData.coinMarketCapMapping,
+    data.tradingData.cryptoMetaData,
+    cryptoInfo,
+  ])
+  useEffect(() => {
+    if (Object.keys(data.tradingData.markets).length !== 0) {
+      const assetTypes: string[] = []
+      setFilteredAssetTypes(assetTypes)
+    }
+  }, [data.tradingData.markets])
+  const handleClose = () => {
+    setModalIsOpen(false)
+  }
   const [exchange, pair] = useMemo(
     () => [filterState.exchange, filterState.pair],
     [filterState.exchange, filterState.pair],
   )
-
-  const containerStyle: React.CSSProperties = {
-    display: 'flex',
-    justifyContent: 'left',
-    transform: 'translateX(-50px)',
-    opacity: '0',
-    transition: 'opacity 1s, transform 1s',
-    zIndex: 2,
-    position: 'relative',
-  }
+  const [filteredAssetTypes, setFilteredAssetTypes] = useState<string[]>([])
 
   const modalStyle = {
     position: 'absolute' as 'absolute',
@@ -413,44 +432,24 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
     height: 600,
     p: 4,
   }
-  const [filteredAssetTypes, setFilteredAssetTypes] = useState<string[]>([])
-
-  useEffect(() => {
-    if (Object.keys(data.tradingData.markets).length !== 0) {
-      const assetTypes: string[] = []
-      setFilteredAssetTypes(assetTypes)
-      filtersSideAnimation(containerRef, data.tradingData.markets)
-    }
-  }, [data.tradingData.markets])
 
   return (
-    <Container fluid ref={containerRef} style={containerStyle}>
-      <Row style={{ padding: '10px' }}>
-        <Col style={{ maxWidth: 100 }}>
-          <NavigationMenu />
-        </Col>
-        <Col>
-          <TradingTypeFilter />
-        </Col>
-        <Col>
-          <OhlcPeriodsFilter />
-        </Col>
-        <Col>
-          <Button
-            variant="text"
-            size="large"
-            onClick={() => {
-              handleOpen('pairSelection')
-            }}
-            sx={{ width: 300 }}
-          >{`${exchange}: ${pair}`}</Button>
-        </Col>
-        {Object.keys(data.tradingData.greedAndFearData).length !== 0 && (
-          <Col>
-            <GreedAndFear data={data.tradingData.greedAndFearData} />
-          </Col>
-        )}
-      </Row>
+    <div>
+      <Button
+        variant="text"
+        size="large"
+        onClick={handleOpen}
+        sx={{ width: 500, fontSize: 13, justifyContent: 'flex-start' }}
+        startIcon={
+          cryptoMetaData === undefined ? (
+            <CircularProgress />
+          ) : (
+            <Avatar src={cryptoMetaData?.logo} />
+          )
+        }
+      >
+        {`${exchange}: ${pair} (${cryptoInfo !== undefined ? cryptoInfo.name : ''})`}
+      </Button>
       <Modal
         open={modalIsOpen}
         onClose={handleClose}
@@ -486,6 +485,44 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
           />
         </Box>
       </Modal>
+    </div>
+  )
+}
+
+export function TopBar(data: { tradingData: tradingDataDef }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (Object.keys(data.tradingData.markets).length !== 0) {
+      const assetTypes: string[] = []
+      filtersSideAnimation(containerRef, data.tradingData.markets)
+    }
+  }, [data.tradingData.markets])
+
+  const containerStyle: React.CSSProperties = {
+    display: 'flex',
+    transform: 'translateX(-50px)',
+    opacity: '0',
+    transition: 'opacity 1s, transform 1s',
+    zIndex: 2,
+    position: 'relative',
+  }
+
+  return (
+    <Container fluid ref={containerRef} style={containerStyle}>
+      <Row style={{ padding: '10px', width: '100%' }}>
+        <Col style={{ maxWidth: 100 }}>
+          <NavigationMenu />
+        </Col>
+        <Col>
+          <TradingTypeFilter />
+        </Col>
+        {Object.keys(data.tradingData.greedAndFearData).length !== 0 && (
+          <Col>
+            <GreedAndFear data={data.tradingData.greedAndFearData} />
+          </Col>
+        )}
+      </Row>
     </Container>
   )
 }

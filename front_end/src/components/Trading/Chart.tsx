@@ -24,6 +24,7 @@ import {
   type tradingDataDef,
 } from '../DataManagement'
 import { type FilterState } from '../StateManagement'
+import { OhlcPeriodsFilter, PairSelectionWidget } from './Filters'
 
 const CHART_HEIGHT = 600
 
@@ -110,7 +111,7 @@ interface BookChartProps {
 }
 
 interface OhlcChartProps {
-  data: OhlcData | null
+  data: tradingDataDef
   exchange: string
   pair: string
   selectedArticle: [string, string]
@@ -161,7 +162,7 @@ function OrderBookChart(props: BookChartProps) {
         labels: { enabled: false },
         snap: false,
         events: {
-          afterSetExtremes,
+          afterSetExtremes: afterSetXExtremes,
         },
         tooltip: {
           enabled: false,
@@ -180,6 +181,9 @@ function OrderBookChart(props: BookChartProps) {
         title: { text: '' },
         lineWidth: 0,
         gridLineWidth: 0,
+        events: {
+          afterSetExtremes: afterSetYExtremes,
+        },
         tooltip: {
           enabled: true,
         },
@@ -228,7 +232,7 @@ function OrderBookChart(props: BookChartProps) {
       },
     },
     navigation: {
-      bindingsClassName: 'book-chart'
+      bindingsClassName: 'book-chart',
     },
     chart: {
       backgroundColor: 'transparent',
@@ -328,19 +332,10 @@ function OrderBookChart(props: BookChartProps) {
     }
   }
 
-  function filterData(bookDepthPct: number = 0.95) {
-    const bids = props.data.bid
-    const asks = props.data.ask
-    const filteredBids = bids.slice(0, Math.ceil(bids.length * bookDepthPct))
-    const filteredAsks = asks.filter((ask) => ask[1] - asks[0][1] <= bids[0][1])
-    return { bids: filteredBids, asks: filteredAsks }
-  }
-
   useEffect(() => {
-    const filteredData = filterData()
     if (orderBookChartRef.current && orderBookChartRef.current.chart) {
-      orderBookChartRef.current.chart.series[0].setData(filteredData.bids)
-      orderBookChartRef.current.chart.series[1].setData(filteredData.asks)
+      orderBookChartRef.current.chart.series[0].setData(props.data.bid)
+      orderBookChartRef.current.chart.series[1].setData(props.data.ask)
       orderBookChartRef.current.chart.update({
         plotOptions: {
           series: {
@@ -405,38 +400,28 @@ function OrderBookChart(props: BookChartProps) {
     }
   }, [props.pair])
 
-  function afterSetExtremes(this: any, e: any) {
-    let bookSideDetails = { ask: {}, bid: {} }
-    Object.keys(bookSideDetails).forEach((side: string) => {
-      const amountOfQuotes = props.data[side].length
-    })
-
+  function afterSetXExtremes(this: any, e: any) {
     this.setExtremes(0, this.max)
-    const charts = Highcharts.charts
-    let orderBookChart: any
-    charts.forEach((chart: any) => {
-      if (chart !== undefined) {
-        if (chart.title.textStr === 'order book') {
-          orderBookChart = chart
-        }
-      }
-    })
-    charts.forEach((chart: any) => {
-      if (
-        chart !== undefined &&
-        synchCharts &&
-        chart.title.textStr === 'ohlc'
-      ) {
-        chart.yAxis[0].setExtremes(
-          orderBookChart.yAxis[0].dataMin,
-          orderBookChart.yAxis[0].dataMax,
-        )
-      }
-    })
+  }
+
+  function afterSetYExtremes(this: any, e: any) {
+    try {
+      const mid =
+        (orderBookChartRef.current!.chart!.series[1].data[0].y! +
+          orderBookChartRef.current!.chart!.series[0].data[0].y!) /
+        2
+      const maxAskToMid = e.max / mid - 1
+      const maxBidToMid = mid / e.min - 1
+      // if (maxAskToMid > maxBidToMid) {
+      //   this.setExtremes(e.min, mid * (1 + maxBidToMid))
+      // } else {
+      //   this.setExtremes(mid * (1 - maxAskToMid), e.max)
+      // }
+    } catch {}
   }
 
   return (
-    <div style={{ marginTop: '10px', marginLeft: '-40px' }}>
+    <div style={{ marginTop: '50px', marginLeft: '-40px' }}>
       <Typography display={'flex'} justifyContent={'center'}>
         <span
           style={{ color: 'green', fontSize: bidAskFontSize }}
@@ -538,13 +523,9 @@ function OhlcChart(props: OhlcChartProps) {
       },
     ],
     title: {
-      align: 'left',
-      useHTML: true,
-      text:
-        props.cryptoInfo !== undefined &&
-        `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name} (${props.pair})`,
+      text: props.pair,
       style: {
-        fontSize: '20px',
+        color: 'transparent',
       },
     },
     tooltip: {
@@ -603,7 +584,7 @@ function OhlcChart(props: OhlcChartProps) {
       annotationsOptions: {
         shapeOptions: {
           stroke: 'blue',
-          bindingsClassName: 'ohlcv-chart'
+          bindingsClassName: 'ohlcv-chart',
         },
       },
     },
@@ -618,10 +599,12 @@ function OhlcChart(props: OhlcChartProps) {
     if (
       chartRef.current &&
       chartRef.current.chart &&
-      props.data !== undefined &&
-      props.data !== null
+      props.data.ohlcvData[props.pair] !== undefined &&
+      props.data.ohlcvData[props.pair] !== null
     ) {
-      chartRef.current.chart.series[0].setData(props.data)
+      chartRef.current.chart.series[0].setData(
+        props.data.ohlcvData[props.pair] as OhlcData,
+      )
       chartRef.current.chart.series[1].setData(props.volumeArray)
     }
   }, [props.data, props.volumeArray])
@@ -641,17 +624,6 @@ function OhlcChart(props: OhlcChartProps) {
         chartRef.current?.chart.series[0].xAxis.removePlotLine(id),
       )
       chartRef.current.chart.series[0].name = props.pair
-      chartRef.current.chart.setTitle({
-        align: 'left',
-        useHTML: true,
-        text:
-          props.cryptoInfo === undefined
-            ? ''
-            : `<img src=${props.cryptoMetaData?.logo} width=30 height=30 /> ${props.cryptoInfo.name} (${props.pair})`,
-        style: {
-          fontSize: '20px',
-        },
-      })
       chartRef.current.chart.series[0].yAxis.addPlotLine({
         color: 'white',
         width: 0.7,
@@ -800,7 +772,7 @@ export function GreedAndFear(props: GreedAndFearChartProps) {
       gui: { enabled: false },
     },
     navigation: {
-      bindingsClassName: 'greed-and-fear-chart'
+      bindingsClassName: 'greed-and-fear-chart',
     },
     series: [
       {
@@ -819,9 +791,9 @@ export function GreedAndFear(props: GreedAndFearChartProps) {
       style={{
         textAlign: 'center',
         width: 250,
-        position: 'absolute',
-        padding: 10,
         fontSize: 13,
+        position: 'absolute',
+        right: '3%',
       }}
     >
       <span>Greed & Fear:</span>
@@ -923,6 +895,9 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
     <div style={{ height: CHART_HEIGHT }}>
       <Row style={{ height: CHART_HEIGHT }}>
         <Col sm={10} style={{ zIndex: 1 }}>
+          <div style={{ zIndex: 2, position: 'absolute', marginLeft: '50px' }}>
+            <PairSelectionWidget tradingData={data.tradingData} />
+          </div>
           {loadingComponents['ohlcv'] && (
             <CircularProgress
               style={{ position: 'absolute', top: '30%', left: '40%' }}
@@ -934,18 +909,30 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
               style={{ height: 600 }}
             />
           ) : (
-            <OhlcChart
-              data={data.tradingData.ohlcvData[pair]}
-              exchange={exchange}
-              pair={pair}
-              selectedArticle={selectedArticle}
-              selectedOrder={selectedOrder}
-              pairScoreDetails={pairScoreDetails}
-              volumeArray={volumeArray}
-              cryptoInfo={cryptoInfo}
-              cryptoMetaData={cryptoMetaData}
-              decimalPlaces={decimalPlaces}
-            />
+            <>
+              <div
+                style={{
+                  zIndex: 2,
+                  position: 'absolute',
+                  marginLeft: '20%',
+                  marginTop: '2.5%',
+                }}
+              >
+                <OhlcPeriodsFilter />
+              </div>
+              <OhlcChart
+                data={data.tradingData}
+                exchange={exchange}
+                pair={pair}
+                selectedArticle={selectedArticle}
+                selectedOrder={selectedOrder}
+                pairScoreDetails={pairScoreDetails}
+                volumeArray={volumeArray}
+                cryptoInfo={cryptoInfo}
+                cryptoMetaData={cryptoMetaData}
+                decimalPlaces={decimalPlaces}
+              />
+            </>
           )}
         </Col>
         <Col sm={2} style={{ zIndex: 2 }}>
