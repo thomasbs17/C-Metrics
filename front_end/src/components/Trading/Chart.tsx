@@ -456,6 +456,9 @@ function OhlcChart(props: OhlcChartProps) {
         type: 'datetime',
         lineWidth: 0,
         gridLineWidth: 0.05,
+        // events: {
+        //   afterSetExtremes: afterSetXExtremes,
+        // },
         crosshair: {
           color: 'gray',
           width: 1,
@@ -677,6 +680,13 @@ function OhlcChart(props: OhlcChartProps) {
     props.selectedOrder,
   ])
 
+  function afterSetXExtremes(this: any, e: any) {
+    // TODO: find better implementation
+    // const data = props.data.ohlcvData[props.pair]
+    // const latestTimestamp = data![data!.length - 1][0]
+    // this.setExtremes(this.min, latestTimestamp)
+  }
+
   return (
     <HighchartsReact
       highcharts={Highcharts}
@@ -891,35 +901,33 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
       .split('.')[1].length
   } catch {}
 
+  console.log(loadingComponents['ohlcv'])
+
   return (
     <div style={{ height: CHART_HEIGHT }}>
       <Row style={{ height: CHART_HEIGHT }}>
         <Col sm={10} style={{ zIndex: 1 }}>
-          <div style={{ zIndex: 2, position: 'absolute', marginLeft: '50px' }}>
-            <PairSelectionWidget tradingData={data.tradingData} />
-          </div>
+          <Row style={{ zIndex: 2, position: 'absolute', marginLeft: '50px' }}>
+            <Col style={{ width: '50%' }}>
+              <PairSelectionWidget tradingData={data.tradingData} />
+            </Col>
+            <Col style={{ marginTop: '7%' }}>
+              <OhlcPeriodsFilter />
+            </Col>
+          </Row>
           {loadingComponents['ohlcv'] && (
             <CircularProgress
               style={{ position: 'absolute', top: '30%', left: '40%' }}
             />
           )}
-          {data.tradingData.ohlcvData[pair] === null ? (
+          {data.tradingData.ohlcvData[pair] === null &&
+          !loadingComponents['ohlcv'] ? (
             <Lottie
               animationData={data.tradingData.noDataAnimation}
               style={{ height: 600 }}
             />
           ) : (
             <>
-              <div
-                style={{
-                  zIndex: 2,
-                  position: 'absolute',
-                  marginLeft: '20%',
-                  marginTop: '2.5%',
-                }}
-              >
-                <OhlcPeriodsFilter />
-              </div>
               <OhlcChart
                 data={data.tradingData}
                 exchange={exchange}
