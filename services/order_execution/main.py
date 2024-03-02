@@ -1,68 +1,62 @@
 import asyncio
 import json
-import os
 import platform
 import uuid
 from datetime import datetime as dt
 from pathlib import Path
 
+import aiohttp
 import pandas as pd
 import redis
-import requests
 import sqlalchemy as sql
 import websockets
 from dotenv import load_dotenv
 
-WS_URL = "ws://localhost:8768"
-BASE_API_URL = "http://127.0.0.1:8000/ohlc"
+from utils import helpers
+
+WS_PORT = 8768
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 ENV_PATH = BASE_DIR / ".env"
 load_dotenv(ENV_PATH, verbose=True)
-
-
-def get_db_connection() -> sql.Engine:
-    user = os.getenv("DB_USER")
-    pwd = os.getenv("POSTGRES_PASSWORD")
-    db_name = os.getenv("DB_NAME")
-    host = os.getenv("DB_HOST")
-    port = os.getenv("DB_PORT")
-    dsn = f"postgresql://{user}:{pwd}@{host}:{port}/{db_name}"
-    return sql.create_engine(dsn)
-
-
-def datetime_unix_conversion(
-    df: pd.DataFrame, convert_to: str, cols: list = None
-) -> pd.DataFrame:
-    cols = cols if cols else df.columns
-    for col in cols:
-        if col.endswith("tmstmp"):
-            if convert_to == "unix":
-                df[col] = pd.to_datetime(df[col], utc=True).astype("int64") // 10**9
-            else:
-                df[col] = df[col].apply(lambda x: dt.utcfromtimestamp(x))
-    return df
+LOG = helpers.get_logger("order_execution_service")
 
 
 class OnStartChecker:
-    def __init__(self, open_orders_df: pd.DataFrame, db: sql.Engine):
+    def __init__(
+        self, open_orders_df: pd.DataFrame, db: sql.Engine, verbose: bool = True
+    ):
+        self.verbose = verbose
         self.open_orders_df = open_orders_df
         self.data = dict()
         self.filled_orders = dict()
         self.db = db
 
-    def get_ohlcv(self, order: pd.Series) -> pd.DataFrame:
-        if order["asset_id"] not in self.data:
-            url = f"{BASE_API_URL}/?exchange={order['broker_id']}&pair={order['asset_id']}&timeframe=1d"
-            response = requests.get(url)
-            df = pd.DataFrame(
-                response.json(),
-                columns=["time", "open", "high", "low", "close", "volume"],
-            )
-            self.data[order["asset_id"]] = df
-        return self.data[order["asset_id"]]
-
     @staticmethod
-    def get_execution_tmstmp(ohlcv_df: pd.DataFrame, order: pd.Series) -> dt:
+    def get_url(order: dict) -> str:
+        return f"{helpers.BASE_API}/ohlc?exchange={order['broker_id']}&pair={order['asset_id']}&timeframe=1d"
+
+    async def get_all_ohlcv(self):
+        if self.verbose:
+            LOG.info(f"Retrieving OHLCV data")
+        async with aiohttp.ClientSession() as session:
+            tasks = [
+                asyncio.ensure_future(
+                    helpers.async_get(session, self.get_url(order), order["asset_id"])
+                )
+                for order in self.open_orders_df.to_dict(orient="index").values()
+            ]
+            responses = await asyncio.gather(*tasks)
+            for response in responses:
+                pair, data = response
+                df = pd.DataFrame(
+                    data,
+                    columns=["time", "open", "high", "low", "close", "volume"],
+                )
+                self.data[pair] = df
+
+    def get_execution_tmstmp(self, order: pd.Series) -> dt:
+        pair = order["asset_id"]
+        ohlcv_df = self.data[pair]
         execution_df = ohlcv_df[
             ohlcv_df["time"] >= dt.timestamp(order["order_creation_tmstmp"]) * 1000
         ]
@@ -70,24 +64,43 @@ class OnStartChecker:
             execution_df = execution_df[execution_df["low"] < order["order_price"]]
         else:
             execution_df = execution_df[execution_df["high"] > order["order_price"]]
+        base_log = f"{order['broker_id']} {order['asset_id']} {order['trading_type']} {order['order_side']}"
         if not execution_df.empty:
+            if self.verbose:
+                LOG.info(
+                    f"{base_log} EXECUTED: {order['order_volume']} @ {order['order_price']}"
+                )
             return dt.fromtimestamp(execution_df["time"].min() / 1000)
+        elif ohlcv_df.empty:
+            LOG.error(f"No OHLCV data for {pair}")
+        elif self.verbose:
+            last_close = ohlcv_df.iloc[-1]["close"]
+            distance_to_exec = (
+                last_close / order["order_price"]
+                if order["order_side"] == "buy"
+                else order["order_price"] / last_close
+            ) - 1
+            LOG.info(
+                f"{base_log} not executed: {distance_to_exec:.2%} away from target price"
+            )
 
     def check_order(self, order_id: str):
         order = self.open_orders_df[
             self.open_orders_df["order_id"] == order_id
         ].squeeze()
-        ohlcv_df = self.get_ohlcv(order)
-        execution_tmstmp = self.get_execution_tmstmp(ohlcv_df, order)
+        execution_tmstmp = self.get_execution_tmstmp(order)
         if execution_tmstmp:
             self.filled_orders[order_id] = execution_tmstmp
 
-    def check_all_open_orders(self):
+    async def check_all_open_orders(self):
         orders = self.open_orders_df["order_id"].unique().tolist()
+        if self.verbose:
+            LOG.info(f"Will check {len(orders)} open orders")
+        await self.get_all_ohlcv()
         for order_id in orders:
             self.check_order(order_id)
 
-    async def cancel_previous_records(self, orders_df: pd.DataFrame = None):
+    def cancel_previous_records(self, orders_df: pd.DataFrame = None):
         order_id_list = (
             list(self.filled_orders.keys())
             if orders_df is None
@@ -113,7 +126,7 @@ class OnStartChecker:
         df["order_dim_key"] = df.apply(lambda x: str(uuid.uuid4()), axis=1)
         return df
 
-    async def add_updated_order_rows(self, orders_df: pd.DataFrame = None):
+    def add_updated_order_rows(self, orders_df: pd.DataFrame = None):
         if orders_df is None:
             orders_df = self.get_updated_order_rows_df()
         orders_df["order_dim_key"] = orders_df.apply(
@@ -126,9 +139,9 @@ class OnStartChecker:
             index=False,
         )
 
-    async def update_orders(self, orders_df: pd.DataFrame = None):
-        await self.cancel_previous_records(orders_df)
-        await self.add_updated_order_rows(orders_df)
+    def update_orders(self, orders_df: pd.DataFrame = None):
+        self.cancel_previous_records(orders_df)
+        self.add_updated_order_rows(orders_df)
 
     def get_trades_df(self, updates_orders_df: pd.DataFrame = None) -> pd.DataFrame:
         if updates_orders_df is None:
@@ -155,7 +168,7 @@ class OnStartChecker:
         )
         return trades_df
 
-    async def add_trades(self, trades_df: pd.DataFrame = None):
+    def add_trades(self, trades_df: pd.DataFrame = None):
         if trades_df is None:
             trades_df = self.get_trades_df()
         trades_df.to_sql(
@@ -165,34 +178,37 @@ class OnStartChecker:
             index=False,
         )
 
-    async def update_db(self):
-        await self.update_orders()
-        await self.add_trades()
+    def update_db(self):
+        self.update_orders()
+        self.add_trades()
 
-    def run_on_start_checker(self):
-        self.check_all_open_orders()
+    async def run_on_start_checker(self):
+        await self.check_all_open_orders()
         if self.filled_orders:
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(self.update_db())
-            loop.close()
+            self.update_db()
 
 
 class OrderExecutionService(OnStartChecker):
-    def __init__(self):
+    def __init__(self, verbose: bool = True):
+        self.verbose = verbose
         self.users = None
         redis_host = "localhost"
         redis_port = 6379
         self.redis_client = redis.StrictRedis(
             host=redis_host, port=redis_port, decode_responses=True
         )
-        self.db = get_db_connection()
+        self.db = helpers.get_db_connection()
         self.orders = self.retrieve_from_db()
         if "linux" not in platform.platform():
-            super().__init__(open_orders_df=self.orders, db=self.db)
-        self.run_on_start_checker()
+            super().__init__(open_orders_df=self.orders, db=self.db, verbose=verbose)
+
+    async def initialize_service(self):
+        await self.run_on_start_checker()
         self.add_user_channels()
 
     def retrieve_from_db(self) -> pd.DataFrame:
+        if self.verbose:
+            LOG.info("Retrieving open orders from DB")
         query = (
             "select * from crypto_station.public.crypto_station_api_orders "
             "where order_status = 'open' and expiration_tmstmp is null"
@@ -203,7 +219,7 @@ class OrderExecutionService(OnStartChecker):
         self.users = self.orders["user_id"].unique().tolist()
         for user in self.users:
             user_df = self.orders[self.orders["user_id"] == user]
-            user_df = datetime_unix_conversion(user_df, convert_to="unix")
+            user_df = helpers.datetime_unix_conversion(user_df, convert_to="unix")
             self.redis_client.delete(user)
             self.redis_client.set(user, json.dumps(user_df.to_dict(orient="records")))
 
@@ -241,14 +257,14 @@ class OrderExecutionService(OnStartChecker):
             )
             filled_orders["insert_tmstmp"] = dt.now()
             filled_orders["expiration_tmstmp"] = None
-            filled_orders = datetime_unix_conversion(
+            filled_orders = helpers.datetime_unix_conversion(
                 filled_orders, convert_to="timestamp", cols=["order_creation_tmstmp"]
             )
             filled_orders["order_volume"] = filled_orders["filled_qty"]
             filled_orders.drop(columns="filled_qty", inplace=True)
             trades_df = self.get_trades_df(filled_orders)
-            await self.update_orders(filled_orders)
-            await self.add_trades(trades_df)
+            self.update_orders(filled_orders)
+            self.add_trades(trades_df)
 
     async def check_fills(self, raw_trade_data: str):
         trade_data = json.loads(raw_trade_data)
@@ -265,9 +281,10 @@ class OrderExecutionService(OnStartChecker):
         await self.handle_fills(filled_orders)
 
     async def initialize_websocket(self):
+        await self.initialize_service()
         broker = "coinbase"
         assets = self.get_asset_list(broker)
-        uri = f"{WS_URL}?exchange={broker}?trades={','.join(assets)}"
+        uri = f"{helpers.BASE_WS}{WS_PORT}?exchange={broker}?trades={','.join(assets)}"
         try:
             async with websockets.connect(uri, ping_interval=None) as websocket:
                 while True:
@@ -279,7 +296,7 @@ class OrderExecutionService(OnStartChecker):
             or websockets.ConnectionClosedError
             or asyncio.IncompleteReadError
         ):
-            print("The Real Time Data service is down.")
+            LOG.error("The Real Time Data service is down.")
 
 
 if __name__ == "__main__":
