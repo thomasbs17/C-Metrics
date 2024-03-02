@@ -1,25 +1,23 @@
 import asyncio
 import json
-import logging
 import os
 import sys
 import time
+from datetime import datetime as dt
 
 import ccxt.async_support as ccxt
 import pandas as pd
-import websockets
-from indicators.technicals import FractalCandlestickPattern
 import pandas_ta as ta
-from datetime import datetime as dt, timedelta
+import websockets
+
+from indicators.technicals import FractalCandlestickPattern
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from utils.helpers import get_exchange_object
+from utils import helpers
 
-WS_URL = "ws://localhost:8768"
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-LOG = logging.getLogger("screening_service")
-LOG.setLevel(logging.INFO)
+WS_PORT = 8768
+LOG = helpers.get_logger("screening_service")
 
 
 class ExchangeScreener:
@@ -88,7 +86,7 @@ class ExchangeScreener:
         if self.data[pair]["ohlcv"].empty:
             LOG.warning(f"No OHLCV data for {pair}")
 
-    async def live_refresh(self, raw_data: str = None):
+    async def live_refresh(self, raw_data: bytes = None):
         self.updated = True
         pair = await self.read_ws_message(raw_data)
         await self.get_scoring([pair])
@@ -123,7 +121,7 @@ class ExchangeScreener:
             ohlcv.loc[idx, "volume"] += trade["amount"]
         self.data[pair]["ohlcv"] = ohlcv
 
-    async def read_ws_message(self, raw_data: dict) -> str:
+    async def read_ws_message(self, raw_data: bytes) -> str:
         data = json.loads(raw_data)
         for method in data:
             pair = data[method]["symbol"].replace("-", "/")
@@ -169,16 +167,22 @@ class ExchangeScreener:
                 / self.data[pair]["ohlcv"]["open"].iloc[-1]
                 - 1
             )
-            scoring["rsi"] = (
-                int(self.data[pair]["ohlcv"]["RSI_14"].iloc[-1])
-                if "RSI_14" in self.data[pair]["ohlcv"].columns
-                else None
-            )
-            scoring["bbl"] = (
-                scoring["close"] / self.data[pair]["ohlcv"]["BBL_20_2.0"].iloc[-1]
-                if "BBL_20_2.0" in self.data[pair]["ohlcv"].columns.tolist()
-                else None
-            )
+            try:
+                scoring["rsi"] = (
+                    int(self.data[pair]["ohlcv"]["RSI_14"].iloc[-1])
+                    if "RSI_14" in self.data[pair]["ohlcv"].columns
+                    else None
+                )
+            except ValueError:
+                scoring["rsi"] = None
+            try:
+                scoring["bbl"] = (
+                    scoring["close"] / self.data[pair]["ohlcv"]["BBL_20_2.0"].iloc[-1]
+                    if "BBL_20_2.0" in self.data[pair]["ohlcv"].columns.tolist()
+                    else None
+                )
+            except ValueError:
+                scoring["bbl"] = None
             supports = [level for level in levels if level < scoring["close"]]
             resistances = [level for level in levels if level > scoring["close"]]
             scoring["next_support"] = float(max(supports)) if supports else None
@@ -205,7 +209,7 @@ class ExchangeScreener:
             if not pair_score_df.empty:
                 self.scores = pd.concat([self.scores, pair_score_df])
 
-    async def get_scoring(self, pairs_to_screen: list = None) -> pd.DataFrame:
+    async def get_scoring(self, pairs_to_screen: list = None):
         pairs_to_screen = pairs_to_screen if pairs_to_screen else self.pairs
         tasks = [self.score_pair(pair) for pair in pairs_to_screen]
         await asyncio.gather(*tasks)
@@ -231,7 +235,7 @@ class ExchangeScreener:
 
     async def get_ws_uri(self) -> str:
         pair_str = ",".join(self.all_symbols)
-        return f"{WS_URL}?exchange={self.exchange_name}?trades=BTC-USD?book={pair_str}"
+        return f"{helpers.BASE_WS}{WS_PORT}?exchange={self.exchange_name}?trades=BTC-USD?book={pair_str}"
 
     async def handle_unavailable_server(self):
         LOG.error("The Real Time Data service is down.")
@@ -257,7 +261,7 @@ class ExchangeScreener:
                     except (
                         websockets.ConnectionClosedError or asyncio.IncompleteReadError
                     ):
-                        self.exchange_object.close()
+                        await self.exchange_object.close()
                         await self.handle_unavailable_server()
                         break
                     await asyncio.sleep(0)
@@ -288,7 +292,7 @@ class Screener:
 
     async def get_exchanges_mappings(self):
         for exchange in self.exchange_list:
-            exchange_object = get_exchange_object(exchange, async_mode=True)
+            exchange_object = helpers.get_exchange_object(exchange, async_mode=True)
             symbols = await exchange_object.load_markets()
             filtered_symbols = dict()
             for symbol, details in symbols.items():
@@ -306,30 +310,36 @@ class Screener:
             )
             await self.screener.screen_exchange()
 
-    async def safe_send_to_clients(self, client_ws):
+    async def safe_send_to_clients(self, client_ws) -> bool:
         self.screener.updated = False
         ws_data = self.screener.scores.to_json(orient="records")
         try:
             await client_ws.send(ws_data)
-        except:
+            return True
+        except Exception as e:
+            LOG.info(f"Session ID {client_ws.id} ended: \n {e}")
             await client_ws.close()
-            return
+            return False
 
     async def run_client_websocket(self, client_ws):
         self.screener.updated = True
         LOG.info(
             f"New client connected to screening service - session ID: {client_ws.id}"
         )
+        client_is_connected = True
         if not self.screener.scores.empty:
-            await self.safe_send_to_clients(client_ws)
+            client_is_connected = await self.safe_send_to_clients(client_ws)
         while True:
             if not self.screener.scores.empty and self.screener.updated:
-                await self.safe_send_to_clients(client_ws)
-            await asyncio.sleep(0)
+                client_is_connected = await self.safe_send_to_clients(client_ws)
+            if client_is_connected:
+                await asyncio.sleep(0)
+            else:
+                break
 
 
 async def run_websocket():
-    screener = Screener(exchange_list=["coinbase"], verbose=True)
+    screener = Screener(exchange_list=["coinbase"])
     screening_task = asyncio.create_task(screener.run_screening())
     start_server = websockets.serve(screener.run_client_websocket, "localhost", 8795)
     await asyncio.gather(screening_task, start_server)
