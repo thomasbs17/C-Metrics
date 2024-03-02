@@ -3,6 +3,8 @@ from datetime import datetime as dt
 
 import ccxt
 from GoogleNews import GoogleNews
+from asgiref.sync import sync_to_async
+from ccxt.base import errors
 from django.http import JsonResponse
 from rest_framework import viewsets
 from rest_framework.decorators import api_view
@@ -14,8 +16,6 @@ from crypto_station_api.data_sources.coinmarketcap import CoinMarketCap
 from crypto_station_api.models import Orders, Trades
 from crypto_station_api.serializers import OrdersSerializer, TradesSerializer
 from utils.helpers import get_exchange_object
-from asgiref.sync import sync_to_async
-from ccxt.base import errors
 
 coinmarketcap = CoinMarketCap()
 

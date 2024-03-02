@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from utils.helpers import get_api_keys
+from utils import helpers
 
 
 BASE_CONFIG = {
@@ -24,11 +24,10 @@ BASE_CONFIG = {
 }
 load_dotenv(verbose=True)
 
+WS_PORT = 8769
+
 
 class MarketDataAggregator:
-    host = "localhost"
-    port = 8768
-
     def __init__(
         self,
         exchanges: list = None,
@@ -55,7 +54,7 @@ class MarketDataAggregator:
     @staticmethod
     def get_feed_config(exchange_name: str) -> dict:
         feed_config = BASE_CONFIG.copy()
-        keys = get_api_keys(exchange_name.lower(), websocket=True)
+        keys = helpers.get_api_keys(exchange_name.lower(), websocket=True)
         if keys:
             feed_config[exchange_name.lower()] = keys
         return feed_config
@@ -107,10 +106,10 @@ class MarketDataAggregator:
         self.client_queue.put(queue_data)
         self.client_data_queue.put({method: data.to_dict(numeric_type=float)})
 
-    async def book_callback(self, data: dict, tmstmp: float):
+    async def book_callback(self, data, tmstmp: float):
         await self._callback(method="book", data=data)
 
-    async def trades_callback(self, data: dict, tmstmp: float):
+    async def trades_callback(self, data, tmstmp: float):
         await self._callback(method="trades", data=data)
 
     def run_process(self, markets: dict):
@@ -214,7 +213,7 @@ class MarketDataAggregator:
                 await asyncio.sleep(0)
 
     def run_clients_websocket(self):
-        start_server = websockets.serve(self.client_server, self.host, self.port)
+        start_server = websockets.serve(self.client_server, helpers.HOST, WS_PORT)
         asyncio.get_event_loop().run_until_complete(start_server)
         asyncio.get_event_loop().run_forever()
 
