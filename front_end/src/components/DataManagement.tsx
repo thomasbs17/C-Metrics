@@ -259,8 +259,7 @@ function LoadNews(coinMarketCapMapping: any) {
   return news
 }
 
-function LoadScreeningData(throtle: number = 1000) {
-  let lastRefreshTmtstmp = Date.now()
+function LoadScreeningData() {
   const dispatch = useDispatch()
   const selectedPair = useSelector(
     (state: { filters: FilterState }) => state.filters.pair,
@@ -278,11 +277,8 @@ function LoadScreeningData(throtle: number = 1000) {
       setScreeningData([])
     }
     socket.onmessage = (event) => {
-      if (Date.now() - lastRefreshTmtstmp > throtle) {
-        lastRefreshTmtstmp = Date.now()
-        const formattedData = JSON.parse(event.data)
-        setScreeningData(formattedData)
-      }
+      const formattedData = JSON.parse(event.data)
+      setScreeningData(formattedData)
     }
     return () => {
       socket.close()
@@ -365,7 +361,7 @@ function LoadOhlcvData() {
     return () => {
       clearInterval(ohlcInterval)
     }
-  }, [selectedPair, ohlcPeriod])
+  }, [selectedPair, ohlcPeriod, exchange])
 
   return ohlcData
 }

@@ -1,5 +1,5 @@
 import { CircularProgress } from '@mui/material'
-import { ColDef } from 'ag-grid-enterprise'
+import { ColDef } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
@@ -25,7 +25,8 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
   const selectedPair = useSelector(
     (state: { filters: FilterState }) => state.filters.pair,
   )
-  const [columnDefs] = useState<ColDef[]>([
+
+  const [columnDefs] = useState<any>([
     { field: 'pair' },
     { field: 'volume', cellRenderer: 'agAnimateShowChangeCellRenderer' },
     { field: 'usdValue', cellRenderer: 'agAnimateShowChangeCellRenderer' },

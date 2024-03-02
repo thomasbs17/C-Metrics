@@ -7,11 +7,10 @@ import {
 } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Container } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
+import '../../css/charts.css'
 import { Trade, type tradingDataDef } from '../DataManagement'
 import { filterSlice, type FilterState } from '../StateManagement'
-import '../../css/charts.css'
 
 interface TableProps {
   trades: Trade[]
@@ -29,24 +28,29 @@ function TradeTable({ trades }: TableProps) {
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
   )
-  const [pair, selectedOrder] = useMemo(
-    () => [filterState.pair, filterState.selectedOrder],
-    [filterState.pair, filterState.selectedOrder],
+  const [pair, selectedOrder, exchange] = useMemo(
+    () => [filterState.pair, filterState.selectedOrder, filterState.exchange],
+    [filterState.pair, filterState.selectedOrder, filterState.exchange],
   )
 
   const [colDefs, setColDefs] = useState<ColDef<Trade>[]>([])
 
-  function setDefaultGridSettings() {
+  async function setDefaultGridSettings() {
     if (gridRef.current && gridRef.current.api) {
       gridRef.current.api.applyColumnState({
         state: [{ colId: 'execution_tmstmp', sort: 'desc' }],
         defaultState: { sort: null },
       })
-      gridRef.current.api
-        .setColumnFilterModel('asset_id', { values: [pair] })
-        .then(() => {
-          gridRef.current!.api.onFilterChanged()
-        })
+      let defaultFilter = {
+        filterType: 'text',
+        type: 'contains',
+        filter: pair,
+      }
+      await gridRef!.current!.api.setColumnFilterModel(
+        'asset_id',
+        defaultFilter,
+      )
+      gridRef.current!.api.onFilterChanged()
     }
   }
 
@@ -54,6 +58,7 @@ function TradeTable({ trades }: TableProps) {
     setColDefs([
       { field: 'execution_tmstmp' },
       { field: 'trading_env', hide: true },
+      { field: 'broker_id' },
       { field: 'asset_id', filter: 'agSetColumnFilter' },
       {
         field: 'trade_side',
@@ -72,7 +77,7 @@ function TradeTable({ trades }: TableProps) {
       { field: 'trade_price' },
     ])
     setDefaultGridSettings()
-  }, [trades])
+  }, [trades, pair])
 
   const handleClick = (clickedTrade: RowClickedEvent<Trade, any>) => {
     const trade = clickedTrade.data
@@ -85,8 +90,11 @@ function TradeTable({ trades }: TableProps) {
             trade.trade_id,
           ]),
         )
-        if (pair !== trade['asset_id']) {
+        if (pair !== trade.asset_id) {
           dispatch(filterSlice.actions.setPair(trade.asset_id))
+        }
+        if (exchange !== trade.broker_id) {
+          dispatch(filterSlice.actions.setExchange(trade.broker_id))
         }
       } else {
         dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))

@@ -8,11 +8,15 @@ import {
 import 'ag-grid-enterprise'
 import { AgGridReact } from 'ag-grid-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Container } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
+import '../../css/charts.css'
 import { type Order, type tradingDataDef } from '../DataManagement'
 import { filterSlice, type FilterState } from '../StateManagement'
-import '../../css/charts.css'
+
+import { ModuleRegistry } from '@ag-grid-community/core'
+import { SetFilterModule } from '@ag-grid-enterprise/set-filter'
+
+ModuleRegistry.registerModules([SetFilterModule])
 
 interface TableProps {
   orders: Order[]
@@ -30,24 +34,26 @@ function OrderTable({ orders }: TableProps) {
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
   )
-  const [pair, selectedOrder] = useMemo(
-    () => [filterState.pair, filterState.selectedOrder],
-    [filterState.pair, filterState.selectedOrder],
+  const [pair, selectedOrder, exchange] = useMemo(
+    () => [filterState.pair, filterState.selectedOrder, filterState.exchange],
+    [filterState.pair, filterState.selectedOrder, filterState.exchange],
   )
 
   const [colDefs, setColDefs] = useState<ColDef<Order>[]>([])
 
-  function setDefaultGridSettings() {
+  async function setDefaultGridSettings() {
     if (gridRef.current && gridRef.current.api) {
       gridRef.current.api.applyColumnState({
         state: [{ colId: 'order_creation_tmstmp', sort: 'desc' }],
         defaultState: { sort: null },
       })
-      gridRef.current.api
-        .setColumnFilterModel('asset_id', { values: [pair] })
-        .then(() => {
-          gridRef.current!.api.onFilterChanged()
-        })
+      let defaultFilter = {
+        filterType: 'text',
+        type: 'contains',
+        filter: pair,
+      }
+      await gridRef.current.api.setColumnFilterModel('asset_id', defaultFilter)
+      gridRef.current!.api.onFilterChanged()
     }
   }
 
@@ -55,7 +61,8 @@ function OrderTable({ orders }: TableProps) {
     setColDefs([
       { field: 'order_creation_tmstmp' },
       { field: 'trading_env', hide: true },
-      { field: 'asset_id', filter: 'agSetColumnFilter' },
+      { field: 'broker_id' },
+      { field: 'asset_id' },
       {
         field: 'order_side',
         cellRenderer: (params: { value: string }) => {
@@ -79,7 +86,7 @@ function OrderTable({ orders }: TableProps) {
       { field: 'order_price' },
     ])
     setDefaultGridSettings()
-  }, [orders])
+  }, [JSON.stringify(orders), pair])
 
   const handleClick = (clickedOrder: RowClickedEvent<Order, any>) => {
     const order = clickedOrder.data
@@ -94,6 +101,9 @@ function OrderTable({ orders }: TableProps) {
         )
         if (pair !== order['asset_id']) {
           dispatch(filterSlice.actions.setPair(order.asset_id))
+        }
+        if (exchange !== order['broker_id']) {
+          dispatch(filterSlice.actions.setExchange(order.broker_id))
         }
       } else {
         dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
