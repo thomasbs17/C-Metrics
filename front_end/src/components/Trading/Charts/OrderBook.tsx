@@ -198,6 +198,9 @@ export function OrderBookChart(props: BookChartProps) {
   }
 
   useEffect(() => {
+    setBid(props.data.bid[0][1])
+    setAsk(props.data.ask[0][1])
+    setSpread(props.data.ask[0][1] / props.data.bid[0][1] - 1)
     const chart = orderBookChartRef!.current!.chart
     if (chart) {
       if (chart.xAxis[0].max) {
@@ -205,13 +208,27 @@ export function OrderBookChart(props: BookChartProps) {
       }
       chart.series[0].setData(props.data.bid)
       chart.series[1].setData(props.data.ask)
+      chart.update({
+        plotOptions: {
+          series: {
+            point: {
+              events: {
+                mouseOver: handleHover,
+                mouseOut: handleOut,
+              },
+            },
+          },
+        },
+      })
     }
-  }, [props.data])
+  }, [props.data, props.pair])
 
   useEffect(() => {
-    if (orderBookChartRef.current && orderBookChartRef.current.chart) {
-      orderBookChartRef.current.chart.zoomOut()
+    const chart = orderBookChartRef!.current!.chart
+    if (chart) {
+      chart.zoomOut()
     }
+    chart.redraw()
   }, [props.pair])
 
   function afterSetXExtremes(this: any, e: any) {
