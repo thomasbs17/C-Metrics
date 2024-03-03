@@ -21,9 +21,6 @@ import {
   Typography,
   useTheme,
 } from '@mui/material'
-import Highcharts from 'highcharts'
-import HighchartsMore from 'highcharts/highcharts-more'
-import SolidGauge from 'highcharts/modules/solid-gauge'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Container, Row, ToggleButton } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
@@ -33,11 +30,7 @@ import {
   tradingDataDef,
 } from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
-import { GreedAndFear } from './Chart'
-
-// Initialize the modules
-HighchartsMore(Highcharts)
-SolidGauge(Highcharts)
+import { GreedAndFear } from './Charts/Greed&Fear'
 
 interface FilterProps {
   data: string[]

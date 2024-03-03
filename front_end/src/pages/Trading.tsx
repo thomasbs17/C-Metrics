@@ -12,13 +12,13 @@ import {
 import { filterSlice } from '../components/StateManagement'
 import { TradingChart } from '../components/Trading/Chart'
 import CreateOrderWidget from '../components/Trading/CreateOrder'
-import { TopBar } from '../components/Trading/Filters'
+import EconomicCalendar from '../components/Trading/EconomicCalendar'
+import { TopBar } from '../components/Trading/Header'
 import Holdings from '../components/Trading/Holdings'
 import News from '../components/Trading/News'
 import Orders from '../components/Trading/Orders'
 import Screening from '../components/Trading/Screening'
 import Trades from '../components/Trading/TradeHistory'
-import EconomicCalendar from '../components/Trading/EconomicCalendar'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
 
