@@ -15,7 +15,7 @@ import DarkTheme from 'highcharts/themes/brand-dark'
 import Lottie from 'lottie-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Row } from 'react-bootstrap'
-import { useSelector } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import '../../css/charts.css'
 import {
   retrieveInfoFromCoinMarketCap,
@@ -23,7 +23,7 @@ import {
   type OrderBookData,
   type tradingDataDef,
 } from '../DataManagement'
-import { type FilterState } from '../StateManagement'
+import { filterSlice, type FilterState } from '../StateManagement'
 import { OhlcPeriodsFilter, PairSelectionWidget } from './Filters'
 
 const CHART_HEIGHT = 600
@@ -127,25 +127,16 @@ interface GreedAndFearChartProps {
   data: any
 }
 
-function getSpread(bookData: OrderBookData) {
-  let spread = 'N/A'
-  if (
-    Object.keys(bookData).length !== 0 &&
-    bookData.bid.length > 0 &&
-    bookData.ask.length > 0
-  ) {
-    spread = ((bookData.ask[0][1] / bookData.bid[0][1] - 1) * 100).toFixed(2)
-  }
-  return spread
-}
-
 function OrderBookChart(props: BookChartProps) {
   const orderBookChartRef = useRef<HighchartsReactRefObject>(null)
   const bidAskFontSize = '13px'
-  const spread = getSpread(props.data)
-  const bid = props.data.bid[0][1]
-  const ask = props.data.ask[0][1]
-  const [synchCharts, setSynchCharts] = useState(false)
+  const [bid, setBid] = useState(props.data.bid[0][1])
+  const [ask, setAsk] = useState(props.data.ask[0][1])
+  const [spread, setSpread] = useState(0)
+  const filterState = useSelector(
+    (state: { filters: FilterState }) => state.filters,
+  )
+  const dispatch = useDispatch()
 
   const [chartOptions] = useState<any>({
     boost: {
@@ -181,9 +172,6 @@ function OrderBookChart(props: BookChartProps) {
         title: { text: '' },
         lineWidth: 0,
         gridLineWidth: 0,
-        events: {
-          afterSetExtremes: afterSetYExtremes,
-        },
         tooltip: {
           enabled: true,
         },
@@ -272,6 +260,9 @@ function OrderBookChart(props: BookChartProps) {
 
   function handleOut() {
     if (orderBookChartRef.current) {
+      setBid(props.data.bid[0][1])
+      setAsk(props.data.ask[0][1])
+      setSpread(props.data.ask[0][1] / props.data.bid[0][1] - 1)
       orderBookChartRef.current.chart.series[0].yAxis.removePlotLine(
         'ask-book-hover-line',
       )
@@ -286,45 +277,37 @@ function OrderBookChart(props: BookChartProps) {
 
   function handleHover(this: any) {
     const overSidePrice = getOverSidePrice(this.y)
-    const bid = props.data.bid[0][1]
+    const bids = props.data.bid
+    const bid = bids[0][1]
     const ask = props.data.ask[0][1]
     if (orderBookChartRef.current) {
       handleOut()
       if (overSidePrice !== undefined) {
-        const hoverBid = overSidePrice[0] === 'bid' ? overSidePrice[1] : this.y
+        const hoverBid = Math.max(
+          bids[bids.length - 1][1],
+          overSidePrice[0] === 'bid' ? overSidePrice[1] : this.y,
+        )
         const hoverAsk = overSidePrice[0] === 'ask' ? overSidePrice[1] : this.y
-        const hoverDistance = (hoverAsk / hoverBid - 1) * 100
+        const spread = hoverAsk / hoverBid - 1
+        setBid(Math.max(0, hoverBid))
+        setAsk(hoverAsk)
+        setSpread(spread)
 
         orderBookChartRef.current.chart.series[0].yAxis.addPlotLine({
           color: 'red',
           value: hoverAsk,
           dashStyle: 'Dot',
-          label: {
-            text: hoverAsk.toLocaleString(),
-            style: { color: 'red' },
-            align: 'right',
-          },
           id: 'ask-book-hover-line',
         })
         orderBookChartRef.current.chart.series[0].yAxis.addPlotLine({
           color: 'green',
           value: hoverBid,
           dashStyle: 'Dot',
-          label: {
-            text: hoverBid.toLocaleString(),
-            style: { color: 'green' },
-            align: 'right',
-          },
           id: 'bid-book-hover-line',
         })
         orderBookChartRef.current.chart.series[0].yAxis.addPlotLine({
           color: 'white',
           value: (ask + bid) / 2,
-          label: {
-            text: `${hoverDistance.toFixed(2)}%`,
-            style: { color: 'white' },
-            align: 'right',
-          },
           width: 0,
           id: 'central-book-hover-line',
         })
@@ -333,66 +316,15 @@ function OrderBookChart(props: BookChartProps) {
   }
 
   useEffect(() => {
-    if (orderBookChartRef.current && orderBookChartRef.current.chart) {
-      orderBookChartRef.current.chart.series[0].setData(props.data.bid)
-      orderBookChartRef.current.chart.series[1].setData(props.data.ask)
-      orderBookChartRef.current.chart.update({
-        plotOptions: {
-          series: {
-            point: {
-              events: {
-                mouseOver: handleHover,
-                mouseOut: handleOut,
-              },
-            },
-          },
-        },
-      })
+    const chart = orderBookChartRef!.current!.chart
+    if (chart) {
+      if (chart.xAxis[0].max) {
+        chart.xAxis[0].setExtremes(0, chart.xAxis[0].max)
+      }
+      chart.series[0].setData(props.data.bid)
+      chart.series[1].setData(props.data.ask)
     }
   }, [props.data])
-
-  useEffect(() => {
-    if (orderBookChartRef.current && orderBookChartRef.current.chart) {
-      orderBookChartRef.current.chart.series.forEach((HighchartSeries: any) => {
-        HighchartSeries.yAxis.removePlotLine('selectedOrderPrice')
-        HighchartSeries.yAxis.removePlotLine('supportLine')
-        HighchartSeries.yAxis.removePlotLine('resistanceLine')
-        HighchartSeries.yAxis.addPlotLine({
-          color: 'white',
-          width: 1,
-          dashStyle: 'Dot',
-          value: props.selectedOrder[1],
-          id: 'selectedOrderPrice',
-        })
-        HighchartSeries.yAxis.addPlotLine({
-          color: 'red',
-          width: 0.5,
-          label: { text: 'support', align: 'right', style: { color: 'red' } },
-          id: 'supportLine',
-          value:
-            props.pairScoreDetails !== undefined &&
-            Object.keys(props.pairScoreDetails).includes('next_support')
-              ? props.pairScoreDetails.next_support
-              : null,
-        })
-        HighchartSeries.yAxis.addPlotLine({
-          color: 'green',
-          width: 0.5,
-          label: {
-            text: 'resistance',
-            align: 'right',
-            style: { color: 'green' },
-          },
-          id: 'resistanceLine',
-          value:
-            props.pairScoreDetails !== undefined &&
-            Object.keys(props.pairScoreDetails).includes('next_resistance')
-              ? props.pairScoreDetails.next_resistance
-              : null,
-        })
-      })
-    }
-  }, [props.pairScoreDetails, props.selectedOrder])
 
   useEffect(() => {
     if (orderBookChartRef.current && orderBookChartRef.current.chart) {
@@ -404,34 +336,20 @@ function OrderBookChart(props: BookChartProps) {
     this.setExtremes(0, this.max)
   }
 
-  function afterSetYExtremes(this: any, e: any) {
-    try {
-      const mid =
-        (orderBookChartRef.current!.chart!.series[1].data[0].y! +
-          orderBookChartRef.current!.chart!.series[0].data[0].y!) /
-        2
-      const maxAskToMid = e.max / mid - 1
-      const maxBidToMid = mid / e.min - 1
-      // if (maxAskToMid > maxBidToMid) {
-      //   this.setExtremes(e.min, mid * (1 + maxBidToMid))
-      // } else {
-      //   this.setExtremes(mid * (1 - maxAskToMid), e.max)
-      // }
-    } catch {}
-  }
-
   return (
     <div style={{ marginTop: '50px', marginLeft: '-40px' }}>
       <Typography display={'flex'} justifyContent={'center'}>
         <span
           style={{ color: 'green', fontSize: bidAskFontSize }}
-        >{`Bid: ${bid}`}</span>
+        >{`Bid: ${bid.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}</span>
         &nbsp;&nbsp;
-        <span style={{ fontSize: bidAskFontSize }}>{`Spread: ${spread}%`}</span>
+        <span
+          style={{ fontSize: bidAskFontSize }}
+        >{`Spread: ${(spread * 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}%`}</span>
         &nbsp;&nbsp;
         <span
           style={{ color: 'red', fontSize: bidAskFontSize }}
-        >{`Ask: ${ask}`}</span>
+        >{`Ask: ${ask.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}</span>
       </Typography>
       <HighchartsReact
         highcharts={Highcharts}
@@ -901,12 +819,10 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
       .split('.')[1].length
   } catch {}
 
-  console.log(loadingComponents['ohlcv'])
-
   return (
     <div style={{ height: CHART_HEIGHT }}>
       <Row style={{ height: CHART_HEIGHT }}>
-        <Col sm={10} style={{ zIndex: 1 }}>
+        <Col sm={10}>
           <Row style={{ zIndex: 2, position: 'absolute', marginLeft: '50px' }}>
             <Col style={{ width: '50%' }}>
               <PairSelectionWidget tradingData={data.tradingData} />
@@ -927,7 +843,7 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
               style={{ height: 600 }}
             />
           ) : (
-            <>
+            <div style={{ zIndex: 1, position: 'relative' }}>
               <OhlcChart
                 data={data.tradingData}
                 exchange={exchange}
@@ -940,7 +856,7 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
                 cryptoMetaData={cryptoMetaData}
                 decimalPlaces={decimalPlaces}
               />
-            </>
+            </div>
           )}
         </Col>
         <Col sm={2} style={{ zIndex: 2 }}>

@@ -291,11 +291,13 @@ li.highcharts-disabled-btn:hover,
 
 .highcharts-popup {
   font-family: Helvetica, Arial, sans-serif;
-  background-color: var(--highcharts-background-color);
+  background-color: rgba(0, 0, 0, 0.9);
   color: var(--highcharts-neutral-color-60);
+  border-radius: 20px;
   display: none;
   font-size: 0.9em;
-  max-height: 90%;
+  max-height: 80%;
+  margin-top: 50px;
   top: 5%;
   left: 15%;
   overflow-x: hidden;

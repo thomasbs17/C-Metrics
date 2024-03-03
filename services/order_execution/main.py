@@ -1,6 +1,8 @@
 import asyncio
 import json
+import os
 import platform
+import sys
 import uuid
 from datetime import datetime as dt
 from pathlib import Path
@@ -12,6 +14,7 @@ import sqlalchemy as sql
 import websockets
 from dotenv import load_dotenv
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from utils import helpers
 
 WS_PORT = 8768

@@ -3,19 +3,20 @@ import json
 import os
 import sys
 import time
+import warnings
 from datetime import datetime as dt
 
 import ccxt.async_support as ccxt
 import pandas as pd
 import pandas_ta as ta
 import websockets
-
 from indicators.technicals import FractalCandlestickPattern
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from utils import helpers
 
+warnings.filterwarnings("ignore")
 WS_PORT = 8768
 LOG = helpers.get_logger("screening_service")
 
@@ -132,8 +133,10 @@ class ExchangeScreener:
                     self.data["pair"]["book"] = data[method][method]
             return pair
 
-    def get_book_scoring(self, pair: str, depth: int = 50) -> float:
+    def get_book_scoring(self, pair: str, max_depth: int = 0.2) -> dict:
         data = dict()
+        if "book" not in self.data[pair]:
+            return dict(book_imbalance=None, spread=None)
         pair_book = self.data[pair]["book"]
         for side in ("bid", "ask"):
             raw_side = side if side in pair_book else side + "s"
@@ -144,20 +147,28 @@ class ExchangeScreener:
                 df = pd.DataFrame.from_dict(
                     pair_book[raw_side], orient="index", columns=["volume"]
                 )
+            df["depth"] = df.index
+            df["depth"] = df["depth"].apply(
+                lambda x: (
+                    df.iloc[0]["depth"] / x
+                    if side == "bid"
+                    else x / df.iloc[0]["depth"]
+                )
+                - 1
+            )
+            df = df[df["depth"] <= max_depth]
             if df.empty:
-                return 0
+                return dict(book_imbalance=None, spread=None)
             data[side] = df
-        spread = float(data["ask"].index[0]) / float(data["bid"].index[0])
-        return (data["bid"]["volume"].sum() / data["ask"]["volume"].sum()) / spread
+        spread = (float(data["ask"].index[0]) / float(data["bid"].index[0])) - 1
+        book_imbalance = (data["bid"]["volume"].sum() / data["ask"]["volume"].sum()) - 1
+        return dict(book_imbalance=book_imbalance, spread=spread)
 
     async def score_pair(self, pair: str):
         self.scores = self.scores[self.scores["pair"] != pair]
         if pair not in self.data:
             self.data[pair] = dict()
-        if (
-            self.data[pair].get("ohlcv") is not None
-            and self.data[pair].get("book") is not None
-        ):
+        if self.data[pair].get("ohlcv") is not None:
             scoring = dict()
             await self.add_technical_indicators(pair)
             levels = FractalCandlestickPattern(self.data[pair]["ohlcv"]).run()
@@ -177,7 +188,8 @@ class ExchangeScreener:
                 scoring["rsi"] = None
             try:
                 scoring["bbl"] = (
-                    scoring["close"] / self.data[pair]["ohlcv"]["BBL_20_2.0"].iloc[-1]
+                    (scoring["close"] / self.data[pair]["ohlcv"]["BBL_20_2.0"].iloc[-1])
+                    - 1
                     if "BBL_20_2.0" in self.data[pair]["ohlcv"].columns.tolist()
                     else None
                 )
@@ -195,12 +207,15 @@ class ExchangeScreener:
                 else None
             )
             scoring["support_dist"] = (
-                scoring["close"] / scoring["next_support"] if supports else None
+                (scoring["close"] / scoring["next_support"]) - 1 if supports else None
             )
-            scoring["book_score"] = self.get_book_scoring(pair)
+            book_score_details = self.get_book_scoring(pair)
+            scoring = {**scoring, **book_score_details}
             if scoring["support_dist"] and scoring["bbl"] and scoring["rsi"]:
                 scoring["technicals_score"] = 1 / (
-                    scoring["rsi"] * scoring["bbl"] * scoring["support_dist"]
+                    scoring["rsi"]
+                    * (1 + scoring["bbl"])
+                    * (1 + scoring["support_dist"])
                 )
             else:
                 scoring["technicals_score"] = 0
@@ -214,19 +229,9 @@ class ExchangeScreener:
         tasks = [self.score_pair(pair) for pair in pairs_to_screen]
         await asyncio.gather(*tasks)
         if not self.scores.empty:
-            self.scores["book_score"] = self.scores["book_score"].apply(
-                lambda x: x / self.scores["book_score"].max()
-                if self.scores["book_score"].max() > 0
-                else 0
+            self.scores.sort_values(
+                by="technicals_score", ascending=False, inplace=True
             )
-            book_weight = 0.2
-            technicals_weight = 0.8
-            self.scores["score"] = self.scores.apply(
-                lambda x: (x["book_score"] * book_weight)
-                + (x["technicals_score"] * technicals_weight),
-                axis=1,
-            )
-            self.scores.sort_values(by="score", ascending=False, inplace=True)
 
     def log_scores(self, top_score_amount: int = 10):
         if self.scores is not None:
@@ -332,10 +337,9 @@ class Screener:
         while True:
             if not self.screener.scores.empty and self.screener.updated:
                 client_is_connected = await self.safe_send_to_clients(client_ws)
-            if client_is_connected:
-                await asyncio.sleep(0)
-            else:
+            if not client_is_connected:
                 break
+            await asyncio.sleep(0)
 
 
 async def run_websocket():
