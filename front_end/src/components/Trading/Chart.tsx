@@ -1,5 +1,3 @@
-import { CircularProgress } from '@mui/material'
-import Lottie from 'lottie-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Col, Row } from 'react-bootstrap'
 import { useSelector } from 'react-redux'
@@ -8,10 +6,10 @@ import {
   type tradingDataDef,
 } from '../DataManagement'
 import { type FilterState } from '../StateManagement'
-import { OhlcChart } from './Charts/Ohlcv'
+import { OhlcvChart } from './Charts/Ohlcv'
 import { OrderBookChart } from './Charts/OrderBook'
 import { CHART_HEIGHT } from './Charts/common'
-import { OhlcPeriodsFilter, PairSelectionWidget } from './Header'
+import { PairSelectionWidget } from './Header'
 
 export function TradingChart(data: { tradingData: tradingDataDef }) {
   const filterState = useSelector(
@@ -46,7 +44,6 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
 
   const [cryptoInfo, setCryptoInfo] = useState<any>({})
   const [cryptoMetaData, setCryptoMetaData] = useState<any>({})
-  const [volumeArray, setVolumeArray] = useState<number[][]>([])
 
   useEffect(() => {
     setCryptoInfo(
@@ -77,41 +74,21 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
   } catch {}
 
   return (
-    <div style={{ height: CHART_HEIGHT }}>
+    <div style={{ height: CHART_HEIGHT, overflow: 'hidden' }}>
       <Row style={{ height: CHART_HEIGHT }}>
-        <Col sm={10}>
-          <Row style={{ zIndex: 2, position: 'absolute', marginLeft: '50px' }}>
-            <Col style={{ width: '50%' }}>
-              <PairSelectionWidget tradingData={data.tradingData} />
-            </Col>
-            <Col style={{ marginTop: '7%' }}>
-              <OhlcPeriodsFilter />
-            </Col>
-          </Row>
-          {loadingComponents['ohlcv'] && (
-            <CircularProgress
-              style={{ position: 'absolute', top: '30%', left: '40%' }}
-            />
-          )}
-          {data.tradingData.ohlcvData[pair] === null &&
-          !loadingComponents['ohlcv'] ? (
-            <Lottie
-              animationData={data.tradingData.noDataAnimation}
-              style={{ height: CHART_HEIGHT }}
-            />
-          ) : (
-            <OhlcChart
-              data={data.tradingData}
-              exchange={exchange}
-              pair={pair}
-              selectedArticle={selectedArticle}
-              selectedOrder={selectedOrder}
-              pairScoreDetails={pairScoreDetails}
-              cryptoInfo={cryptoInfo}
-              cryptoMetaData={cryptoMetaData}
-              decimalPlaces={decimalPlaces}
-            />
-          )}
+        <Col sm={10} style={{ height: '100%' }}>
+          <PairSelectionWidget tradingData={data.tradingData} />
+          <OhlcvChart
+            data={data.tradingData}
+            exchange={exchange}
+            pair={pair}
+            selectedArticle={selectedArticle}
+            selectedOrder={selectedOrder}
+            pairScoreDetails={pairScoreDetails}
+            cryptoInfo={cryptoInfo}
+            cryptoMetaData={cryptoMetaData}
+            decimalPlaces={decimalPlaces}
+          />
         </Col>
         <Col sm={2} style={{ zIndex: 2 }}>
           {Object.keys(data.tradingData.orderBookData).includes('bid') &&

@@ -1,3 +1,4 @@
+import { Button, ButtonGroup, CircularProgress } from '@mui/material'
 import HighchartsReact, {
   HighchartsReactRefObject,
 } from 'highcharts-react-official'
@@ -10,9 +11,13 @@ import HighchartsBoost from 'highcharts/modules/boost'
 import FullScreen from 'highcharts/modules/full-screen.js'
 import PriceIndicator from 'highcharts/modules/price-indicator.js'
 import StockTools from 'highcharts/modules/stock-tools'
+import Lottie from 'lottie-react'
 import { useEffect, useRef, useState } from 'react'
+import { useSelector } from 'react-redux'
 import '../../../css/charts.css'
 import { OhlcData, tradingDataDef } from '../../DataManagement'
+import { FilterState } from '../../StateManagement'
+import { OhlcPeriodsFilter } from '../Header'
 import { CHART_HEIGHT } from './common'
 
 IndicatorsAll(Highcharts)
@@ -36,7 +41,12 @@ interface OhlcChartProps {
   decimalPlaces: number
 }
 
-export function OhlcChart(props: OhlcChartProps) {
+interface TradingViewProps {
+  exchange: string
+  pair: string
+}
+
+export function CryptoStationOhlcChart(props: OhlcChartProps) {
   const ohlcvChartRef = useRef<HighchartsReactRefObject>(null)
   const [chartOptions] = useState<any>({
     plotOptions: {
@@ -286,5 +296,133 @@ export function OhlcChart(props: OhlcChartProps) {
       constructorType={'stockChart'}
       ref={ohlcvChartRef}
     />
+  )
+}
+
+export function TradingViewWidget(props: TradingViewProps) {
+  const container = useRef()
+
+  useEffect(() => {
+    const currentContainer = container.current as any
+
+    const htmlChildren = Array.from(currentContainer!.children || [])
+    const script = document.createElement('script')
+    script.src =
+      'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
+    script.type = 'text/javascript'
+    script.async = true
+    script.innerHTML = `
+        {
+          "autosize": true,
+          "symbol": "${props.exchange.toUpperCase()}:${props.pair.replace('/', '').toUpperCase()}",
+          "interval": "D",
+          "timezone": "Etc/UTC",
+          "theme": "dark",
+          "style": "1",
+          "locale": "en",
+          "enable_publishing": false,
+          "withdateranges": true,
+          "hide_side_toolbar": false,
+          "save_image": false,
+          "calendar": false,
+          "studies": [
+            "STD;MACD",
+            "STD;Stochastic_RSI"
+          ],
+          "show_popup_button": true,
+          "popup_width": "1000",
+          "popup_height": "650",
+          "support_host": "https://www.tradingview.com"
+        }`
+    if (currentContainer && htmlChildren) {
+      currentContainer.appendChild(script)
+    }
+  }, [props.pair, props.exchange])
+
+  return (
+    <div
+      className="tradingview-widget-container"
+      ref={container! as any}
+      style={{ height: '100%', width: '100%' }}
+    >
+      <div
+        className="tradingview-widget-container__widget"
+        style={{ height: 'calc(100% - 32px)', width: '100%' }}
+      ></div>
+    </div>
+  )
+}
+
+export function OhlcvChart(props: OhlcChartProps) {
+  const [chartType, setChartType] = useState<string>('crypto-station')
+  const loadingComponents = useSelector(
+    (state: { filters: FilterState }) => state.filters.loadingComponents,
+  )
+  return (
+    <div style={{ height: '100%' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-evenly',
+          flexWrap: 'wrap',
+          flexDirection: 'column-reverse',
+          alignContent: 'flex-end',
+          position: 'relative',
+          zIndex: 3,
+        }}
+      >
+        <ButtonGroup variant="text" aria-label="Basic button group">
+          <Button
+            sx={{ fontSize: 10 }}
+            variant={chartType === 'crypto-station' ? 'contained' : 'text'}
+            onClick={() => setChartType('crypto-station')}
+          >
+            Crypto Station
+          </Button>
+          <Button
+            sx={{ fontSize: 10 }}
+            variant={chartType === 'trading-view' ? 'contained' : 'text'}
+            onClick={() => setChartType('trading-view')}
+          >
+            TradingView
+          </Button>
+        </ButtonGroup>
+      </div>
+      {chartType === 'trading-view' ? (
+        <div style={{ height: '90%' }}>
+          <TradingViewWidget exchange={props.exchange} pair={props.pair} />
+        </div>
+      ) : (
+        <div>
+          <OhlcPeriodsFilter />
+          {loadingComponents['ohlcv'] && (
+            <CircularProgress
+              style={{ position: 'absolute', top: '30%', left: '40%' }}
+            />
+          )}
+          {props.data.ohlcvData[props.pair] === null &&
+          !loadingComponents['ohlcv'] ? (
+            <Lottie
+              animationData={props.data.noDataAnimation}
+              style={{ height: CHART_HEIGHT }}
+            />
+          ) : (
+            <div style={{ marginTop: '-5%' }}>
+              <CryptoStationOhlcChart
+                data={props.data}
+                exchange={props.exchange}
+                pair={props.pair}
+                selectedArticle={props.selectedArticle}
+                selectedOrder={props.selectedOrder}
+                pairScoreDetails={props.pairScoreDetails}
+                cryptoInfo={props.cryptoInfo}
+                cryptoMetaData={props.cryptoMetaData}
+                decimalPlaces={props.decimalPlaces}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

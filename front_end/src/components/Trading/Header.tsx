@@ -3,6 +3,7 @@ import {
   Avatar,
   Box,
   Button,
+  ButtonGroup,
   Chip,
   CircularProgress,
   FormControl,
@@ -17,12 +18,12 @@ import {
   Skeleton,
   TextField,
   Theme,
-  ToggleButtonGroup,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Col, Container, Row, ToggleButton } from 'react-bootstrap'
+import { Col, Container, Row } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router'
 import {
@@ -31,7 +32,6 @@ import {
 } from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
 import { GreedAndFear } from './Charts/Greed&Fear'
-
 interface FilterProps {
   data: string[]
   handleClose?: any
@@ -49,24 +49,12 @@ function TradingTypeFilter() {
     dispatch({ type: 'SET_TRADING_TYPE', payload: tradingType })
   }
   return (
-    <ToggleButtonGroup
-      color="primary"
-      value={selectedValue}
-      exclusive
-      onChange={handleSelect}
-    >
-      <ToggleButton id="paper-trading-button" value="paper" variant="success">
-        Paper
-      </ToggleButton>
-      <ToggleButton
-        id="live-trading-button"
-        disabled
-        value="live"
-        variant="error"
-      >
-        Live
-      </ToggleButton>
-    </ToggleButtonGroup>
+    <ButtonGroup variant="text" aria-label="trading-type-choice">
+      <Button variant="contained">Paper</Button>
+      <Tooltip title="Coming soon...">
+        <Button disabled>Live</Button>
+      </Tooltip>
+    </ButtonGroup>
   )
 }
 
@@ -100,22 +88,24 @@ export function OhlcPeriodsFilter() {
   }
 
   return (
-    <FormControl>
-      <InputLabel id="ohlc-period-time-label">Time</InputLabel>
-      <Select
-        id="ohlc-period-time"
-        value={ohlcPeriod}
-        label="Age"
-        onChange={handleSelect}
-        size="small"
-      >
-        {Object.entries(timeFrames).map(([value, label]) => (
-          <MenuItem key={value} value={value} sx={{ maxHeight: 20 }}>
-            {label}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
+    <div style={{ position: 'relative', marginLeft: '25%', zIndex: 3 }}>
+      <FormControl>
+        <InputLabel id="ohlc-period-time-label">Time</InputLabel>
+        <Select
+          id="ohlc-period-time"
+          value={ohlcPeriod}
+          label="ohlc-period-selection"
+          onChange={handleSelect}
+          size="small"
+        >
+          {Object.entries(timeFrames).map(([value, label]) => (
+            <MenuItem key={value} value={value} sx={{ maxHeight: 20 }}>
+              {label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    </div>
   )
 }
 
@@ -375,6 +365,7 @@ export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
   )
+  const [displayName, setDisplayName] = useState<string>('')
   const [modalIsOpen, setModalIsOpen] = useState(false)
   const handleOpen = () => setModalIsOpen(true)
   useEffect(() => {
@@ -384,12 +375,20 @@ export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
         data.tradingData.coinMarketCapMapping,
       ),
     )
-    if (
-      cryptoInfo &&
-      Object.keys(cryptoInfo).length !== 0 &&
-      data.tradingData.cryptoMetaData.length !== 0
-    ) {
-      setCryptoMetaData(data.tradingData.cryptoMetaData.data[cryptoInfo.id])
+    if (cryptoInfo) {
+      const maxStringLength = 30
+      let name = `${exchange}: ${pair} (${cryptoInfo.name})`
+      name =
+        name.length > maxStringLength
+          ? `${name.slice(0, maxStringLength)}...`
+          : name
+      setDisplayName(name)
+      if (
+        Object.keys(cryptoInfo).length > 0 &&
+        data.tradingData.cryptoMetaData.length !== 0
+      ) {
+        setCryptoMetaData(data.tradingData.cryptoMetaData.data[cryptoInfo.id])
+      }
     }
   }, [
     filterState.pair,
@@ -427,22 +426,41 @@ export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
   }
 
   return (
-    <div>
-      <Button
-        variant="text"
-        size="large"
-        onClick={handleOpen}
-        sx={{ width: 500, fontSize: 13, justifyContent: 'flex-start' }}
-        startIcon={
-          cryptoMetaData === undefined ? (
-            <CircularProgress />
-          ) : (
-            <Avatar src={cryptoMetaData?.logo} />
-          )
-        }
+    <div
+      style={{
+        position: 'absolute',
+        top: '5%',
+        zIndex: '4',
+        height: '3%',
+        marginLeft: '3%',
+      }}
+    >
+      <Tooltip
+        title={cryptoInfo ? `${exchange}: ${pair} (${cryptoInfo.name})` : ''}
+        placement="top"
+        followCursor
       >
-        {`${exchange}: ${pair} (${cryptoInfo !== undefined ? cryptoInfo.name : ''})`}
-      </Button>
+        <Button
+          variant="text"
+          size="large"
+          onClick={handleOpen}
+          sx={{
+            width: 350,
+            height: '100%',
+            justifyContent: 'flex-start',
+            fontSize: 12,
+          }}
+          startIcon={
+            cryptoMetaData === undefined ? (
+              <CircularProgress />
+            ) : (
+              <Avatar src={cryptoMetaData?.logo} />
+            )
+          }
+        >
+          {displayName}
+        </Button>
+      </Tooltip>
       <Modal
         open={modalIsOpen}
         onClose={handleClose}

@@ -13,11 +13,6 @@ import '../../css/charts.css'
 import { type Order, type tradingDataDef } from '../DataManagement'
 import { filterSlice, type FilterState } from '../StateManagement'
 
-import { ModuleRegistry } from '@ag-grid-community/core'
-import { SetFilterModule } from '@ag-grid-enterprise/set-filter'
-
-ModuleRegistry.registerModules([SetFilterModule])
-
 interface TableProps {
   orders: Order[]
 }
