@@ -40,4 +40,5 @@ urlpatterns = [
     path("orders/", views.OrdersViewSet.as_view({"get": "list"}), name="orders"),
     path("trades/", views.TradesViewSet.as_view({"get": "list"}), name="trades"),
     path("new_order/", views.post_new_order, name="new_order"),
+    path("cancel_order/", views.cancel_order, name="cancel_order"),
 ]

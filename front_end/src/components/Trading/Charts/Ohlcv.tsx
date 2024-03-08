@@ -14,6 +14,7 @@ import StockTools from 'highcharts/modules/stock-tools'
 import Lottie from 'lottie-react'
 import { useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
+import { Link } from 'react-router-dom'
 import '../../../css/charts.css'
 import { OhlcData, tradingDataDef } from '../../DataManagement'
 import { FilterState } from '../../StateManagement'
@@ -50,6 +51,11 @@ export function CryptoStationOhlcChart(props: OhlcChartProps) {
   const ohlcvChartRef = useRef<HighchartsReactRefObject>(null)
   const [chartOptions] = useState<any>({
     plotOptions: {
+      series: {
+        marker: {
+          enabled: false,
+        },
+      },
       ohlc: {
         color: 'red',
         upColor: 'green',
@@ -289,6 +295,13 @@ export function CryptoStationOhlcChart(props: OhlcChartProps) {
     // this.setExtremes(this.min, latestTimestamp)
   }
 
+  // useEffect(() => {
+  //   const chart = ohlcvChartRef!.current!.chart
+  //   if (chart) {
+  //     chart.setSize(null, window.innerHeight * 0.8)
+  //   }
+  // }, [window])
+
   return (
     <HighchartsReact
       highcharts={Highcharts}
@@ -358,20 +371,38 @@ export function OhlcvChart(props: OhlcChartProps) {
   const loadingComponents = useSelector(
     (state: { filters: FilterState }) => state.filters.loadingComponents,
   )
+  const formattedPair = props.pair.replace('/', '-')
+  const exchangeLink =
+    props.exchange === 'coinbase'
+      ? `https://www.coinbase.com/advanced-trade/spot/${formattedPair}`
+      : `https://pro.kraken.com/app/trade/${formattedPair}`
+
   return (
-    <div style={{ height: '100%' }}>
+    <div style={{ height: 0 }}>
       <div
         style={{
           display: 'flex',
-          justifyContent: 'space-evenly',
-          flexWrap: 'wrap',
-          flexDirection: 'column-reverse',
-          alignContent: 'flex-end',
+          placeContent: 'flex-end space-evenly',
+          flexFlow: 'column-reverse wrap',
           position: 'relative',
           zIndex: 3,
+          flexWrap: 'wrap',
+          alignContent: 'space-between',
+          flexDirection: 'row-reverse',
+          alignItems: 'flex-start',
+          justifyContent: 'flex-start',
         }}
       >
-        <ButtonGroup variant="text" aria-label="Basic button group">
+        <Button
+          sx={{ fontSize: 10 }}
+          variant="outlined"
+          component={Link}
+          to={exchangeLink}
+          target="_blank"
+        >
+          {`View on ${props.exchange}`}
+        </Button>
+        <ButtonGroup aria-label="chart-provider-buttons">
           <Button
             sx={{ fontSize: 10 }}
             variant={chartType === 'crypto-station' ? 'contained' : 'text'}

@@ -2,10 +2,10 @@ import uuid
 from datetime import datetime as dt
 
 import ccxt
-from GoogleNews import GoogleNews
 from asgiref.sync import sync_to_async
 from ccxt.base import errors
 from django.http import JsonResponse
+from GoogleNews import GoogleNews
 from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.parsers import JSONParser
@@ -141,6 +141,33 @@ def post_new_order(request):
         insert_tmstmp=dt.now(),
     )
     new_order.save()
+    return JsonResponse("success", safe=False)
+
+
+@sync_to_async
+@api_view(["POST"])
+def cancel_order(request):
+    order_dim_key = request.data["order_dim_key"]
+    order = Orders.objects.filter(order_dim_key=order_dim_key)
+    order.update(expiration_tmstmp=dt.now())
+    new_row = Orders(
+        order_dim_key=str(uuid.uuid4()),
+        user_id=order.values("user_id"),
+        order_id=order.values("order_id"),
+        broker_id=order.values("broker_id"),
+        trading_env=order.values("trading_env"),
+        trading_type=order.values("trading_type"),
+        asset_id=order.values("asset_id"),
+        order_side=order.values("order_side"),
+        order_type=order.values("order_type"),
+        order_creation_tmstmp=order.values("order_creation_tmstmp"),
+        order_status="cancelled",
+        fill_pct=order.values("fill_pct"),
+        order_volume=order.values("order_volume"),
+        order_price=order.values("order_price"),
+        insert_tmstmp=dt.now(),
+    )
+    new_row.save()
     return JsonResponse("success", safe=False)
 
 

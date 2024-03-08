@@ -22,7 +22,14 @@ import {
   Typography,
   useTheme,
 } from '@mui/material'
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ColDef,
+  GridApi,
+  GridReadyEvent,
+  RowClickedEvent,
+} from 'ag-grid-community'
+import { AgGridReact } from 'ag-grid-react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Container, Row } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router'
@@ -50,9 +57,15 @@ function TradingTypeFilter() {
   }
   return (
     <ButtonGroup variant="text" aria-label="trading-type-choice">
-      <Button variant="contained">Paper</Button>
-      <Tooltip title="Coming soon...">
-        <Button disabled>Live</Button>
+      <Button variant="contained" size="small">
+        Paper
+      </Button>
+      <Tooltip title="Coming soon..." placement="right">
+        <span>
+          <Button disabled size="small">
+            Live
+          </Button>
+        </span>
       </Tooltip>
     </ButtonGroup>
   )
@@ -359,6 +372,168 @@ function MultipleSelectChip(props: MultipleSelectChipProps) {
   )
 }
 
+interface PairSelectionModalProps {
+  data: tradingDataDef
+  modalIsOpen: boolean
+  handleClose: () => void
+}
+
+function PairSelectionModal(props: PairSelectionModalProps) {
+  const gridRef = useRef<AgGridReact>(null)
+  const [rowData, setRowData] = useState<any[]>([])
+  const [gridApi, setGridApi] = useState<GridApi>()
+  const tableSise = useMemo(() => '400px', [])
+  const gridStyle = useMemo(() => ({ width: '100%', height: tableSise }), [])
+  const exchange = useSelector(
+    (state: { filters: FilterState }) => state.filters.exchange,
+  )
+  const dispatch = useDispatch()
+  const navigate = useNavigate()
+
+  function formatDate(rawTimeStamp: number) {
+    const date = new Date(rawTimeStamp)
+    const year = date.getFullYear()
+    const month = ('0' + (date.getMonth() + 1)).slice(-2) // Month is zero-based
+    const day = ('0' + date.getDate()).slice(-2)
+    return `${year}/${month}/${day}`
+  }
+
+  const handleClick = (event: RowClickedEvent<any, any>) => {
+    const pair = event.data.symbol
+    dispatch(filterSlice.actions.setPair(pair))
+    dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
+    navigate(`/trading?exchange=${exchange}&pair=${pair}`)
+    props.handleClose()
+  }
+
+  const [columnDefs] = useState<ColDef[]>([
+    { field: 'symbol' },
+    { field: 'exchange' },
+    { field: 'type' },
+    { field: 'strike' },
+    {
+      field: 'expiry',
+      cellDataType: 'date',
+      valueFormatter: (params) => formatDate(params.value),
+    },
+    {
+      field: 'created',
+      cellDataType: 'date',
+      valueFormatter: (params) => formatDate(params.value),
+    },
+  ])
+
+  const modalStyle = useMemo(
+    () => ({
+      position: 'absolute' as 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: 800,
+      bgcolor: 'background.paper',
+      border: '2px solid #000',
+      borderRadius: 10,
+      boxShadow: 24,
+      height: 600,
+      p: 4,
+    }),
+    [],
+  )
+
+  const defaultColDef = useMemo<ColDef>(() => {
+    return {
+      flex: 1,
+      filter: true,
+    }
+  }, [])
+
+  function getGridData() {
+    let gridData: any = []
+    Object.keys(props.data.markets).forEach((pair: string) => {
+      let pairDetails = props.data.markets[pair]
+      pairDetails['exchange'] = exchange
+      gridData.push(pairDetails)
+    })
+    return gridData
+  }
+
+  useEffect(() => {
+    if (gridApi) {
+      const gridData: any = getGridData()
+      setRowData(gridData)
+      gridApi!.setGridOption('rowData', gridData)
+    }
+  }, [gridApi, exchange, props.data.markets])
+
+  const onGridReady = useCallback((event: GridReadyEvent) => {
+    const gridData: any = getGridData()
+    setRowData(gridData)
+    setGridApi(event.api)
+  }, [])
+
+  return (
+    <Modal
+      open={props.modalIsOpen}
+      onClose={props.handleClose}
+      aria-labelledby="modal-modal-title"
+      aria-describedby="modal-modal-description"
+    >
+      <Box sx={modalStyle}>
+        <Typography id="symbol-selection" variant="h6" component="h2">
+          Symbol Selection
+        </Typography>
+        <Row>
+          <div
+            style={{
+              display: 'flex',
+              placeContent: 'center',
+              alignItems: 'baseline',
+              flexFlow: 'row-reverse wrap',
+              justifyContent: 'space-evenly',
+              flexWrap: 'nowrap',
+              flexDirection: 'row',
+            }}
+          >
+            <ExchangeFilter data={props.data.exchanges} />
+            {`${rowData.length} pairs`}
+          </div>
+        </Row>
+        <Row>
+          <div
+            style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+          >
+            {Object.keys(props.data.markets).length === 0 ? (
+              <div
+                style={{
+                  height: '100%',
+                  width: '100%',
+                  position: 'relative',
+                  left: '50%',
+                  marginTop: '20%',
+                }}
+              >
+                <CircularProgress />
+              </div>
+            ) : (
+              <div className={'ag-theme-quartz-dark'} style={gridStyle}>
+                <AgGridReact
+                  ref={gridRef}
+                  rowData={rowData}
+                  columnDefs={columnDefs}
+                  defaultColDef={defaultColDef}
+                  onRowClicked={(r) => handleClick(r)}
+                  onGridReady={onGridReady}
+                  rowSelection={'single'}
+                />
+              </div>
+            )}
+          </div>
+        </Row>
+      </Box>
+    </Modal>
+  )
+}
+
 export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
   const [cryptoInfo, setCryptoInfo] = useState<any>({})
   const [cryptoMetaData, setCryptoMetaData] = useState<any>(undefined)
@@ -368,16 +543,27 @@ export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
   const [displayName, setDisplayName] = useState<string>('')
   const [modalIsOpen, setModalIsOpen] = useState(false)
   const handleOpen = () => setModalIsOpen(true)
+
+  const handleClose = () => {
+    setModalIsOpen(false)
+  }
+
   useEffect(() => {
     setCryptoInfo(
       retrieveInfoFromCoinMarketCap(
-        pair,
+        filterState.pair,
         data.tradingData.coinMarketCapMapping,
       ),
     )
+  }, [
+    filterState.pair,
+    filterState.exchange,
+    data.tradingData.coinMarketCapMapping,
+  ])
+  useEffect(() => {
     if (cryptoInfo) {
       const maxStringLength = 30
-      let name = `${exchange}: ${pair} (${cryptoInfo.name})`
+      let name = `${filterState.exchange}: ${filterState.pair.replace('/', '-')} (${cryptoInfo.name})`
       name =
         name.length > maxStringLength
           ? `${name.slice(0, maxStringLength)}...`
@@ -392,51 +578,19 @@ export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
     }
   }, [
     filterState.pair,
-    data.tradingData.coinMarketCapMapping,
-    data.tradingData.cryptoMetaData,
+    filterState.exchange,
     cryptoInfo,
+    data.tradingData.cryptoMetaData.data,
   ])
-  useEffect(() => {
-    if (Object.keys(data.tradingData.markets).length !== 0) {
-      const assetTypes: string[] = []
-      setFilteredAssetTypes(assetTypes)
-    }
-  }, [data.tradingData.markets])
-  const handleClose = () => {
-    setModalIsOpen(false)
-  }
-  const [exchange, pair] = useMemo(
-    () => [filterState.exchange, filterState.pair],
-    [filterState.exchange, filterState.pair],
-  )
-  const [filteredAssetTypes, setFilteredAssetTypes] = useState<string[]>([])
-
-  const modalStyle = {
-    position: 'absolute' as 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: 800,
-    bgcolor: 'background.paper',
-    border: '2px solid #000',
-    borderRadius: 10,
-    boxShadow: 24,
-    height: 600,
-    p: 4,
-  }
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        top: '5%',
-        zIndex: '4',
-        height: '3%',
-        marginLeft: '3%',
-      }}
-    >
+    <div>
       <Tooltip
-        title={cryptoInfo ? `${exchange}: ${pair} (${cryptoInfo.name})` : ''}
+        title={
+          cryptoInfo
+            ? `${filterState.exchange}: ${filterState.pair} (${cryptoInfo.name})`
+            : ''
+        }
         placement="top"
         followCursor
       >
@@ -446,9 +600,10 @@ export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
           onClick={handleOpen}
           sx={{
             width: 350,
-            height: '100%',
+            height: 30,
             justifyContent: 'flex-start',
             fontSize: 12,
+            marginTop: 2,
           }}
           startIcon={
             cryptoMetaData === undefined ? (
@@ -461,41 +616,11 @@ export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
           {displayName}
         </Button>
       </Tooltip>
-      <Modal
-        open={modalIsOpen}
-        onClose={handleClose}
-        aria-labelledby="modal-modal-title"
-        aria-describedby="modal-modal-description"
-      >
-        <Box sx={modalStyle}>
-          <Typography id="symbol-selection" variant="h6" component="h2">
-            Symbol Selection
-          </Typography>
-          <Row>
-            <Col>
-              <ExchangeFilter data={data.tradingData.exchanges} />
-            </Col>
-            <Col>
-              <MultipleSelectChip
-                label="Networks"
-                options={[]}
-                defaultValue={[]}
-              />
-            </Col>
-            <Col>
-              <MultipleSelectChip
-                label="Asset Types"
-                options={filteredAssetTypes}
-                defaultValue={[]}
-              />
-            </Col>
-          </Row>
-          <PairFilter
-            data={Object.keys(data.tradingData.markets).sort()}
-            handleClose={handleClose}
-          />
-        </Box>
-      </Modal>
+      <PairSelectionModal
+        data={data.tradingData}
+        modalIsOpen={modalIsOpen}
+        handleClose={handleClose}
+      />
     </div>
   )
 }

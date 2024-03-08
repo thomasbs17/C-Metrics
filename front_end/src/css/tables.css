@@ -1,3 +1,17 @@
+.actions-button-cell {
+  overflow: visible;
+  border: none !important;
+  outline: none;
+}
+
+.ag-row {
+  z-index: 0;
+}
+
+.ag-row.ag-row-focus {
+  z-index: 1;
+}
+
 .ag-theme-quartz,
 .ag-theme-quartz-dark {
   --ag-grid-size: 5px;

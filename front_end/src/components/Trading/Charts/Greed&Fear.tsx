@@ -73,6 +73,7 @@ interface GreedAndFearChartProps {
 
 export function GreedAndFear(props: GreedAndFearChartProps) {
   const chartRef = useRef<HighchartsReactRefObject>(null)
+  const [greedAndFearDelta, setGreedAndFearDelta] = useState<number>(0)
   const [categoryColor, setCategoryColor] = useState<string>('')
   const indexRanges = [
     {
@@ -106,7 +107,7 @@ export function GreedAndFear(props: GreedAndFearChartProps) {
     let color = ''
     indexRanges.forEach((rangeDetails) => {
       if (
-        rangeDetails['from'] <= currentValue &&
+        rangeDetails['from'] - 1 <= currentValue &&
         rangeDetails['to'] > currentValue
       ) {
         color = rangeDetails['color']
@@ -118,6 +119,9 @@ export function GreedAndFear(props: GreedAndFearChartProps) {
   useEffect(() => {
     const catColor = getColor(props.data.data[0].value)
     setCategoryColor(catColor)
+    setGreedAndFearDelta(
+      props.data.data[0].value / props.data.data[1].value - 1,
+    )
   }, [props.data.data[0].value])
 
   const [chartOptions] = useState<any>({
@@ -175,7 +179,7 @@ export function GreedAndFear(props: GreedAndFearChartProps) {
       style={{
         textAlign: 'center',
         width: 250,
-        fontSize: 13,
+        fontSize: 12,
         position: 'absolute',
         right: '3%',
       }}
@@ -183,7 +187,10 @@ export function GreedAndFear(props: GreedAndFearChartProps) {
       <span>Greed & Fear:</span>
       <span style={{ color: categoryColor }}>
         {Object.keys(props.data).length !== 0 &&
-          ` ${props.data.data[0].value} (${props.data.data[0].value_classification})`}
+          ` ${props.data.data[0].value} (${props.data.data[0].value_classification}) `}
+      </span>
+      <span style={{ color: getColor(props.data.data[1].value) }}>
+        D-1: {props.data.data[1].value}
       </span>
       <div style={{ position: 'absolute', overflow: 'visible' }}>
         {Object.keys(props.data).length !== 0 && (

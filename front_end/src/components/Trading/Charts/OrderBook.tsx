@@ -5,7 +5,6 @@ import HighchartsReact, {
 import Highcharts from 'highcharts/highstock'
 import { useEffect, useRef, useState } from 'react'
 import { OrderBookData } from '../../DataManagement'
-import { CHART_HEIGHT } from './common'
 
 interface BookChartProps {
   data: OrderBookData
@@ -57,6 +56,21 @@ export function OrderBookChart(props: BookChartProps) {
         tooltip: {
           enabled: true,
         },
+        plotLines: [
+          {
+            color: 'white',
+            value: (ask + bid) / 2,
+            label: {
+              text: `Spread: ${(spread * 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}%`,
+              align: 'right',
+              style: {
+                color: 'white',
+              },
+            },
+            dashStyle: 'Dot',
+            id: 'central-book-hover-line',
+          },
+        ],
       },
     ],
     title: {
@@ -106,7 +120,6 @@ export function OrderBookChart(props: BookChartProps) {
     },
     chart: {
       backgroundColor: 'transparent',
-      height: CHART_HEIGHT - 215,
       animation: false,
       zooming: {
         mouseWheel: { enabled: true, type: 'x' },
@@ -144,7 +157,8 @@ export function OrderBookChart(props: BookChartProps) {
     if (orderBookChartRef.current) {
       setBid(props.data.bid[0][1])
       setAsk(props.data.ask[0][1])
-      setSpread(props.data.ask[0][1] / props.data.bid[0][1] - 1)
+      const newSpread = props.data.ask[0][1] / props.data.bid[0][1] - 1
+      setSpread(newSpread)
       orderBookChartRef.current.chart.series[0].yAxis.removePlotLine(
         'ask-book-hover-line',
       )
@@ -154,6 +168,19 @@ export function OrderBookChart(props: BookChartProps) {
       orderBookChartRef.current.chart.series[0].yAxis.removePlotLine(
         'central-book-hover-line',
       )
+      orderBookChartRef.current.chart.series[0].yAxis.addPlotLine({
+        color: 'white',
+        value: (ask + bid) / 2,
+        label: {
+          text: `Spread: ${(newSpread * 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}%`,
+          align: 'right',
+          style: {
+            color: 'white',
+          },
+        },
+        dashStyle: 'Dot',
+        id: 'central-book-hover-line',
+      })
     }
   }
 
@@ -187,10 +214,20 @@ export function OrderBookChart(props: BookChartProps) {
           dashStyle: 'Dot',
           id: 'bid-book-hover-line',
         })
+        orderBookChartRef.current.chart.series[0].yAxis.removePlotLine(
+          'central-book-hover-line',
+        )
         orderBookChartRef.current.chart.series[0].yAxis.addPlotLine({
           color: 'white',
           value: (ask + bid) / 2,
-          width: 0,
+          label: {
+            text: `Spread: ${(spread * 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}%`,
+            align: 'right',
+            style: {
+              color: 'white',
+            },
+          },
+          dashStyle: 'Dot',
           id: 'central-book-hover-line',
         })
       }
@@ -220,6 +257,20 @@ export function OrderBookChart(props: BookChartProps) {
           },
         },
       })
+      chart.series[0].yAxis.removePlotLine('central-book-hover-line')
+      chart.series[0].yAxis.addPlotLine({
+        color: 'white',
+        value: (ask + bid) / 2,
+        label: {
+          text: `Spread: ${(spread * 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}%`,
+          align: 'right',
+          style: {
+            color: 'white',
+          },
+        },
+        dashStyle: 'Dot',
+        id: 'central-book-hover-line',
+      })
     }
   }, [props.data, props.pair])
 
@@ -227,8 +278,8 @@ export function OrderBookChart(props: BookChartProps) {
     const chart = orderBookChartRef!.current!.chart
     if (chart) {
       chart.zoomOut()
+      chart.redraw()
     }
-    chart.redraw()
   }, [props.pair])
 
   function afterSetXExtremes(this: any, e: any) {
@@ -236,16 +287,8 @@ export function OrderBookChart(props: BookChartProps) {
   }
 
   return (
-    <div style={{ marginTop: '50px', marginLeft: '-40px' }}>
-      <Typography display={'flex'} justifyContent={'center'}>
-        <span
-          style={{ color: 'green', fontSize: bidAskFontSize }}
-        >{`Bid: ${bid.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}</span>
-        &nbsp;&nbsp;
-        <span
-          style={{ fontSize: bidAskFontSize }}
-        >{`Spread: ${(spread * 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}%`}</span>
-        &nbsp;&nbsp;
+    <div style={{ marginTop: '20px', marginLeft: '-40px' }}>
+      <Typography display={'flex'} flexDirection={'row-reverse'}>
         <span
           style={{ color: 'red', fontSize: bidAskFontSize }}
         >{`Ask: ${ask.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}</span>
@@ -256,6 +299,11 @@ export function OrderBookChart(props: BookChartProps) {
         options={chartOptions}
         ref={orderBookChartRef}
       />
+      <Typography display={'flex'} flexDirection={'row-reverse'}>
+        <span
+          style={{ color: 'green', fontSize: bidAskFontSize }}
+        >{`Bid: ${bid.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}</span>
+      </Typography>
     </div>
   )
 }

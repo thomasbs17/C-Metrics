@@ -45,6 +45,7 @@ export interface Order {
   fill_pct: number
   order_volume: number
   order_price: number
+  order_dim_key: string
 }
 
 export interface Trade {
@@ -383,9 +384,7 @@ function LoadLatestPrices(trades: Trade[]) {
           latestPublicTrades[latestPublicTrades.length - 1]['price'] || 0
         latestPrices[pair] = latestPrice
         setLatestPrices(latestPrices)
-      } catch (error) {
-        console.error(`Error fetching latest price for ${pair}`, error)
-      }
+      } catch (error) {}
     }
   }
 
@@ -518,7 +517,7 @@ function LoadGreedAndFear() {
   const [data, setData] = useState<any>({})
   useEffect(() => {
     async function fetchIndexData() {
-      const url = 'https://api.alternative.me/fng/'
+      const url = 'https://api.alternative.me/fng/?limit=10'
       try {
         const response = await fetch(url)
         setData(await response.json())
