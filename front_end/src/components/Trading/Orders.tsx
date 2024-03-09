@@ -1,4 +1,4 @@
-import CandlestickChartIcon from '@mui/icons-material/CandlestickChart'
+import CandlestickChartOutlinedIcon from '@mui/icons-material/CandlestickChart'
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever'
 import EditIcon from '@mui/icons-material/Edit'
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
@@ -10,14 +10,14 @@ import {
   CircularProgress,
   IconButton,
   LinearProgress,
-  LinearProgressProps,
   Menu,
   MenuItem,
   MenuProps,
   Snackbar,
+  Tooltip,
   Typography,
   alpha,
-  styled,
+  styled
 } from '@mui/material'
 import Divider from '@mui/material/Divider'
 import { ColDef, GridReadyEvent, SideBarDef } from 'ag-grid-community'
@@ -100,17 +100,29 @@ function CustomizedMenus(props: CustomCellRendererProps) {
 
   return (
     <div>
-      <IconButton
-        aria-label="more"
-        id="long-button"
-        aria-controls={open ? 'long-menu' : undefined}
-        aria-expanded={open ? 'true' : undefined}
-        aria-haspopup="true"
-        size="small"
-        onClick={handleClick}
-      >
-        <MoreVertIcon />
-      </IconButton>
+      <Tooltip title="View on Chart">
+        <IconButton
+          aria-label="more"
+          id="long-button"
+          size="small"
+          onClick={handleViewOnChart}
+        >
+          < CandlestickChartOutlinedIcon />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Order Options">
+        <IconButton
+          aria-label="more"
+          id="long-button"
+          aria-controls={open ? 'long-menu' : undefined}
+          aria-expanded={open ? 'true' : undefined}
+          aria-haspopup="true"
+          size="small"
+          onClick={handleClick}
+        >
+          <MoreVertIcon />
+        </IconButton>
+      </Tooltip>
       <StyledMenu
         id="demo-customized-menu"
         MenuListProps={{
@@ -134,7 +146,7 @@ function CustomizedMenus(props: CustomCellRendererProps) {
         )}
         <Divider sx={{ my: 0.5 }} />
         <MenuItem onClick={handleViewOnChart} disableRipple>
-          <CandlestickChartIcon />
+          <CandlestickChartOutlinedIcon />
           View on Chart
         </MenuItem>
         <MenuItem onClick={handleClose} disableRipple>
@@ -274,33 +286,26 @@ function OrderTable({ orders }: TableProps) {
       },
     ])
     setDefaultGridSettings()
-  }, [orders, pair])
+  }, [orders, pair, filterState.selectedOrder])
 
-  useEffect(() => {
-    console.log(filterState.selectedOrder)
-    setSelectedOrder(filterState.selectedOrder)
-  }, [filterState.selectedOrder])
 
   const displayChartForSelectedOrder = (order: Order) => {
-    console.log(filterState.selectedOrder)
     if (order) {
-      if (order.order_id !== selectedOrder[2]) {
-        const newOrder = [
+      let newOrder = ['', '', '']
+      if (order.order_id !== filterState.selectedOrder[2]) {
+        newOrder = [
           order.order_creation_tmstmp,
-          order.order_price,
+          order.order_price.toString(),
           order.order_id,
         ]
-        dispatch(filterSlice.actions.setSelectedOrder(newOrder))
         if (pair !== order['asset_id']) {
           dispatch(filterSlice.actions.setPair(order.asset_id))
         }
         if (exchange !== order['broker_id']) {
           dispatch(filterSlice.actions.setExchange(order.broker_id))
         }
-      } else {
-        const newOrder = ['', '', '']
-        dispatch(filterSlice.actions.setSelectedOrder(newOrder))
       }
+      dispatch(filterSlice.actions.setSelectedOrder(newOrder))
     }
   }
 

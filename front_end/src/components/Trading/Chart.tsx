@@ -4,6 +4,7 @@ import { deepPurple } from '@mui/material/colors'
 import { styled } from '@mui/material/styles'
 import { useEffect, useMemo, useState } from 'react'
 import { Col, Row } from 'react-bootstrap'
+import { FullScreen, useFullScreenHandle } from "react-full-screen"
 import { useSelector } from 'react-redux'
 import {
   retrieveInfoFromCoinMarketCap,
@@ -29,8 +30,8 @@ const StyledIcon = styled(FullscreenIcon)`
   margin-top: -15px;
   background-color: transparent;
   transition: ${theme.transitions.create(['background-color', 'transform'], {
-    duration: theme.transitions.duration.standard,
-  })};
+  duration: theme.transitions.duration.standard,
+})};
   &:hover {
     transform: scale(1.3);
   }
@@ -51,11 +52,7 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
   )
-  const [isFullScreen, setIsFullScreen] = useState(false)
-
-  const toggleFullScreen = () => {
-    setIsFullScreen(!isFullScreen)
-  }
+  const handle = useFullScreenHandle();
 
   const [exchange, pair, selectedOrder, pairScoreDetails, selectedArticle] =
     useMemo(
@@ -77,17 +74,6 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
 
   const [cryptoInfo, setCryptoInfo] = useState<any>({})
   const [cryptoMetaData, setCryptoMetaData] = useState<any>({})
-
-  const fullScreenDivStyle: React.CSSProperties = {
-    width: '100vw',
-    height: '100vh',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    zIndex: 9999,
-    background: 'black',
-    padding: '2%',
-  }
 
   const headerDivStyle: React.CSSProperties = {
     display: 'flex',
@@ -131,40 +117,42 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
     decimalPlaces = data.tradingData.markets[pair].precision.price
       .toString()
       .split('.')[1].length
-  } catch {}
+  } catch { }
 
   return (
-    <div style={isFullScreen ? fullScreenDivStyle : defaultScreenDivStyle}>
-      <Row>
-        <Col sm={10} style={{ height: '100%' }}>
-          <div style={headerDivStyle}>
-            <PairSelectionWidget tradingData={data.tradingData} />
-            <StyledFullScreenIcon toggle={toggleFullScreen} />
-          </div>
-          <OhlcvChart
-            data={data.tradingData}
-            exchange={exchange}
-            pair={pair}
-            selectedArticle={selectedArticle}
-            selectedOrder={selectedOrder}
-            pairScoreDetails={pairScoreDetails}
-            cryptoInfo={cryptoInfo}
-            cryptoMetaData={cryptoMetaData}
-            decimalPlaces={decimalPlaces}
-          />
-        </Col>
-        <Col sm={2} style={{ zIndex: 2 }}>
-          {Object.keys(data.tradingData.orderBookData).includes('bid') &&
-            data.tradingData.orderBookData.bid.length !== 0 && (
-              <OrderBookChart
-                data={data.tradingData.orderBookData}
-                pair={pair}
-                selectedOrder={selectedOrder}
-                pairScoreDetails={pairScoreDetails}
-              />
-            )}
-        </Col>
-      </Row>
+    <div style={defaultScreenDivStyle}>
+      <div style={headerDivStyle}>
+        <PairSelectionWidget tradingData={data.tradingData} />
+        <StyledFullScreenIcon toggle={handle.enter} />
+      </div>
+      <FullScreen handle={handle}>
+        <Row>
+          <Col sm={10} style={{ height: '100%' }}>
+            <OhlcvChart
+              data={data.tradingData}
+              exchange={exchange}
+              pair={pair}
+              selectedArticle={selectedArticle}
+              selectedOrder={selectedOrder}
+              pairScoreDetails={pairScoreDetails}
+              cryptoInfo={cryptoInfo}
+              cryptoMetaData={cryptoMetaData}
+              decimalPlaces={decimalPlaces}
+            />
+          </Col>
+          <Col sm={2} style={{ zIndex: 2 }}>
+            {Object.keys(data.tradingData.orderBookData).includes('bid') &&
+              data.tradingData.orderBookData.bid.length !== 0 && (
+                <OrderBookChart
+                  data={data.tradingData.orderBookData}
+                  pair={pair}
+                  selectedOrder={selectedOrder}
+                  pairScoreDetails={pairScoreDetails}
+                />
+              )}
+          </Col>
+        </Row>
+      </FullScreen>
     </div>
   )
 }
