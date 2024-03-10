@@ -22,13 +22,13 @@ LOG = helpers.get_logger("screening_service")
 
 
 class ExchangeScreener:
-    def __init__(self, verbose: bool, pairs: dict, exchange_object: ccxt.Exchange):
+    def __init__(self, verbose: bool, pairs: dict, exchange_object: ccxt.Exchange, all_symbols: list):
         self.verbose = verbose
         self.pairs = pairs
         self.exchange_name = exchange_object.name.lower()
         self.exchange_object = exchange_object
         self.clients = set()
-        self.all_symbols = list()
+        self.all_symbols = all_symbols
         self.data = dict()
         self.scores = pd.DataFrame(columns=["pair"])
         self.updated = True
@@ -130,7 +130,7 @@ class ExchangeScreener:
                 if method == "trades":
                     await self.update_pair_ohlcv(pair, data)
                 if method == "book":
-                    self.data["pair"]["book"] = data[method][method]
+                    self.data[pair]["book"] = data[method][method]
             return pair
 
     def get_book_scoring(self, pair: str, max_depth: int = 0.2) -> dict:
@@ -148,6 +148,7 @@ class ExchangeScreener:
                     pair_book[raw_side], orient="index", columns=["volume"]
                 )
             df["depth"] = df.index
+            df["depth"] = df["depth"].astype(float)
             df["depth"] = df["depth"].apply(
                 lambda x: (
                     df.iloc[0]["depth"] / x
@@ -240,7 +241,7 @@ class ExchangeScreener:
 
     async def get_ws_uri(self) -> str:
         pair_str = ",".join(self.all_symbols)
-        return f"{helpers.BASE_WS}{WS_PORT}?exchange={self.exchange_name}?trades=BTC-USD?book={pair_str}"
+        return f"{helpers.BASE_WS}{WS_PORT}?exchange={self.exchange_name}?trades={pair_str}?book={pair_str}"
 
     async def handle_unavailable_server(self):
         LOG.error("The Real Time Data service is down.")
@@ -311,7 +312,7 @@ class Screener:
         await self.get_exchanges_mappings()
         for exchange, details in self.data.items():
             self.screener = ExchangeScreener(
-                self.verbose, details["mapping"], details["object"]
+                self.verbose, details["mapping"], details["object"], self.all_symbols
             )
             await self.screener.screen_exchange()
 
@@ -343,7 +344,7 @@ class Screener:
 
 
 async def run_websocket():
-    screener = Screener(exchange_list=["coinbase"])
+    screener = Screener(exchange_list=["coinbase"], user_symbols_list=['BTC-USD', 'ETH-USD'])
     screening_task = asyncio.create_task(screener.run_screening())
     start_server = websockets.serve(screener.run_client_websocket, "localhost", 8795)
     await asyncio.gather(screening_task, start_server)

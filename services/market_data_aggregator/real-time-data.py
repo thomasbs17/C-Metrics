@@ -24,7 +24,7 @@ BASE_CONFIG = {
 }
 load_dotenv(verbose=True)
 
-WS_PORT = 8769
+WS_PORT = 8768
 
 
 class MarketDataAggregator:
