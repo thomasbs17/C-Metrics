@@ -2,10 +2,10 @@ import uuid
 from datetime import datetime as dt
 
 import ccxt
+from GoogleNews import GoogleNews
 from asgiref.sync import sync_to_async
 from ccxt.base import errors
 from django.http import JsonResponse
-from GoogleNews import GoogleNews
 from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.parsers import JSONParser

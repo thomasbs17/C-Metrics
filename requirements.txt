@@ -11,6 +11,7 @@ redis==5.0.2
 msgpack==1.0.8
 websockets==12.0
 sqlalchemy==2.0.27
+channels[daphne]
 
 # POSTGRES
 #If running on Linux, the below commands must be entered first

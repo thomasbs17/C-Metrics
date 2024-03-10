@@ -20,6 +20,7 @@ ALLOWED_HOSTS = ["frontend", "127.0.0.1", "localhost"]
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -42,7 +43,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
 ]
 
-ROOT_URLCONF = "back_end.urls"
+ROOT_URLCONF = "crypto_station_api.routing"
 
 TEMPLATES = [
     {
@@ -117,3 +118,5 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ORIGIN_WHITELIST = ["http://localhost:3000"]
+
+ASGI_APPLICATION = "back_end.asgi.application"

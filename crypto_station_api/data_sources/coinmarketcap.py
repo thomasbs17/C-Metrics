@@ -1,6 +1,14 @@
 import json
+import os
+from pathlib import Path
 
+from dotenv import load_dotenv
 from requests import Session
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_PATH = BASE_DIR / ".env"
+
+load_dotenv(ENV_PATH, verbose=True)
 
 
 class CoinMarketCap:
@@ -9,7 +17,7 @@ class CoinMarketCap:
     def __init__(self):
         headers = {
             "Accepts": "application/json",
-            "X-CMC_PRO_API_KEY": "06736774-dad8-4b3d-8243-b9be9f47195f",
+            "X-CMC_PRO_API_KEY": os.environ["COIN_MARKET_CAP_API_KEY"],
         }
         self.session = Session()
         self.session.headers.update(headers)
