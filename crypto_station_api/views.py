@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime as dt
 
@@ -18,6 +19,8 @@ from crypto_station_api.serializers import OrdersSerializer, TradesSerializer
 from utils.helpers import get_exchange_object
 
 coinmarketcap = CoinMarketCap()
+
+logger = logging.getLogger(__name__)
 
 
 class SimpleJSONView(APIView):

@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 from datetime import datetime as dt
@@ -10,8 +9,9 @@ import django
 import environ
 import pandas as pd
 import sqlalchemy as sql
-from ccxt import async_support as async_ccxt, ExchangeError
+from ccxt import async_support as async_ccxt
 from dotenv import load_dotenv
+import redis.asyncio as async_redis
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = BASE_DIR / ".env"
@@ -22,6 +22,7 @@ environ.Env.read_env()
 HOST = "localhost"
 BASE_WS = f"ws://{HOST}:"
 BASE_API = "http://127.0.0.1:8000"
+REDIS_PORT = 6379
 
 
 def get_api_keys(exchange: str, websocket: bool = False) -> dict:
@@ -82,3 +83,15 @@ def get_logger(logger_name: str) -> logging.Logger:
     logger = logging.getLogger(logger_name)
     logger.setLevel(logging.INFO)
     return logger
+
+
+async def get_available_redis_streams(
+    redis_server: async_redis.StrictRedis, streams: str = None
+) -> list:
+    i = 0
+    all_streams = list()
+    while True:
+        i, streams = await redis_server.scan(i, _type="STREAM", match=streams)
+        all_streams += streams
+        if i == 0:
+            return all_streams

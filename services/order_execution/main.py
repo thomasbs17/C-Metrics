@@ -1,7 +1,6 @@
 import asyncio
 import json
 import os
-import platform
 import sys
 import uuid
 from datetime import datetime as dt
@@ -9,9 +8,8 @@ from pathlib import Path
 
 import aiohttp
 import pandas as pd
-import redis
+import redis.asyncio as redis
 import sqlalchemy as sql
-import websockets
 from dotenv import load_dotenv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -40,7 +38,7 @@ class OnStartChecker:
 
     async def get_all_ohlcv(self):
         if self.verbose:
-            LOG.info(f"Retrieving OHLCV data")
+            LOG.info("Retrieving OHLCV data")
         async with aiohttp.ClientSession() as session:
             tasks = [
                 asyncio.ensure_future(
@@ -194,20 +192,16 @@ class OnStartChecker:
 class OrderExecutionService(OnStartChecker):
     def __init__(self, verbose: bool = True):
         self.verbose = verbose
-        self.users = None
-        redis_host = "localhost"
-        redis_port = 6379
-        self.redis_client = redis.StrictRedis(
-            host=redis_host, port=redis_port, decode_responses=True
+        self.redis_server = redis.StrictRedis(
+            host=helpers.HOST, port=helpers.REDIS_PORT, decode_responses=True
         )
         self.db = helpers.get_db_connection()
         self.orders = self.retrieve_from_db()
-        if "linux" not in platform.platform():
-            super().__init__(open_orders_df=self.orders, db=self.db, verbose=verbose)
+        super().__init__(open_orders_df=self.orders, db=self.db, verbose=verbose)
 
     async def initialize_service(self):
-        await self.run_on_start_checker()
-        self.add_user_channels()
+        # await self.run_on_start_checker()
+        await self.add_user_channels()
 
     def retrieve_from_db(self) -> pd.DataFrame:
         if self.verbose:
@@ -218,25 +212,22 @@ class OrderExecutionService(OnStartChecker):
         )
         return pd.read_sql_query(sql=query, con=self.db)
 
-    def add_user_channels(self):
+    async def add_user_channels(self):
         self.users = self.orders["user_id"].unique().tolist()
         for user in self.users:
             user_df = self.orders[self.orders["user_id"] == user]
             user_df = helpers.datetime_unix_conversion(user_df, convert_to="unix")
-            self.redis_client.delete(user)
-            self.redis_client.set(user, json.dumps(user_df.to_dict(orient="records")))
+            await self.redis_server.xadd(
+                f"orders-channel:{user}", json.dumps(user_df.to_dict(orient="records"))
+            )
 
-    def retrieve_from_redis(self, user_id: str) -> pd.DataFrame:
-        redis_data = self.redis_client.get(user_id)
-        return pd.DataFrame(json.loads(redis_data))
-
-    def get_asset_list(self, broker: str) -> list:
-        redis_data = self.retrieve_from_redis("thomasbouamoud")
-        broker_df = redis_data[redis_data["broker_id"] == broker]
-        return [
-            asset.lower().replace("/", "-")
-            for asset in broker_df["asset_id"].unique().tolist()
-        ]
+    async def retrieve_from_redis(self) -> pd.DataFrame:
+        order_streams = await helpers.get_available_redis_streams(
+            self.redis_server, streams="orders-channel:"
+        )
+        for stream in order_streams:
+            redis_data = self.redis_server.get(user_id)
+            return pd.DataFrame(json.loads(redis_data))
 
     @staticmethod
     def get_filled_qty(order: pd.Series, trade_data: dict) -> float:
@@ -269,10 +260,8 @@ class OrderExecutionService(OnStartChecker):
             self.update_orders(filled_orders)
             self.add_trades(trades_df)
 
-    async def check_fills(self, raw_trade_data: str):
-        trade_data = json.loads(raw_trade_data)
-        trade_data = trade_data["trades"]
-        orders = self.retrieve_from_redis("thomasbouamoud")
+    async def check_fills(self, trade_data: dict):
+        orders = await self.retrieve_from_redis()
         trade_pair = trade_data["symbol"]
         trade_pair = trade_pair.replace("-", "/")
         orders = orders[orders["asset_id"] == trade_pair]
@@ -283,25 +272,16 @@ class OrderExecutionService(OnStartChecker):
         filled_orders = orders[orders["filled_qty"] > 0]
         await self.handle_fills(filled_orders)
 
-    async def initialize_websocket(self):
+    async def run_service(self):
         await self.initialize_service()
-        broker = "coinbase"
-        assets = self.get_asset_list(broker)
-        uri = f"{helpers.BASE_WS}{WS_PORT}?exchange={broker}?trades={','.join(assets)}"
-        try:
-            async with websockets.connect(uri, ping_interval=None) as websocket:
-                while True:
-                    response = await websocket.recv()
-                    if response != "heartbeat":
-                        await self.check_fills(response)
-        except (
-            ConnectionRefusedError
-            or websockets.ConnectionClosedError
-            or asyncio.IncompleteReadError
-        ):
-            LOG.error("The Real Time Data service is down.")
+        while True:
+            streams = await helpers.get_available_redis_streams(self.redis_server)
+            redis_streams = {stream: "$" for stream in streams}
+            data = await self.redis_server.xread(streams=redis_streams, block=0)
+            trade_data = data[0][1][0][1]
+            await self.check_fills(trade_data)
 
 
 if __name__ == "__main__":
-    oes = OrderExecutionService()
-    asyncio.get_event_loop().run_until_complete(oes.initialize_websocket())
+    service = OrderExecutionService()
+    asyncio.run(service.run_service())

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.urls import path, re_path
+from django.urls import path
 
 from crypto_station_api import views, consumers
 
@@ -28,5 +28,5 @@ urlpatterns = [
 ]
 
 websocket_urlpatterns = [
-    re_path(r"ws/chat/(?P<room_name>\w+)/$", consumers.ChatConsumer.as_asgi()),
+    path("ws/live_data/", consumers.PublicLiveDataStream.as_asgi()),
 ]
