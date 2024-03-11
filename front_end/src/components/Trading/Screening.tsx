@@ -6,6 +6,7 @@ import {
   GridApi,
   GridReadyEvent,
   RowClickedEvent,
+  ValueFormatterParams,
 } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -20,46 +21,41 @@ function Screening(data: { tradingData: tradingDataDef }) {
   const gridStyle = useMemo(() => ({ width: '100%', height: '180px' }), [])
   const [rowData, setRowData] = useState<any[]>()
   const [gridApi, setGridApi] = useState<GridApi>()
+
+  function defaultValueFormat(params: ValueFormatterParams) {
+    return params.value ?
+      `${Number(params.value * 100).toFixed(2)}%`
+      :
+      ''
+  }
+
+
   const [columnDefs] = useState<ColDef[]>([
     { field: 'pair' },
     { field: 'close' },
     {
-      field: '24h_change',
-      valueFormatter: (params) =>
-        params.value ? `${Number(params.value * 100).toFixed(2)}%` : '',
+      field: '24h_change', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
     },
-    { field: 'next_support' },
-    { field: 'next_resistance' },
+    { field: 'next_support', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } } },
+    { field: 'next_resistance', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } } },
     {
-      field: 'support_dist',
-      valueFormatter: (params) =>
-        params.value ? `${Number(params.value * 100).toFixed(2)}%` : '',
+      field: 'support_dist', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
     },
     { field: 'rsi' },
     {
-      field: 'bbl',
-      valueFormatter: (params) =>
-        params.value ? `${Number(params.value * 100).toFixed(2)}%` : '',
+      field: 'bbl', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
     },
     {
-      field: 'technicals_score',
-      valueFormatter: (params) =>
-        params.value ? `${Number(params.value * 100).toFixed(2)}%` : '',
+      field: 'technicals_score', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
     },
     {
-      field: 'book_imbalance',
-      valueFormatter: (params) =>
-        params.value ? `${Number(params.value * 100).toFixed(2)}%` : '',
+      field: 'book_imbalance', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
     },
     {
-      field: 'spread',
-      valueFormatter: (params) =>
-        params.value ? `${Number(params.value * 100).toFixed(2)}%` : '',
+      field: 'spread', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
     },
     {
-      field: 'potential_gain',
-      valueFormatter: (params) =>
-        params.value ? `${Number(params.value * 100).toFixed(2)}%` : '',
+      field: 'potential_gain', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
     },
   ])
   const defaultColDef = useMemo<ColDef>(() => {
