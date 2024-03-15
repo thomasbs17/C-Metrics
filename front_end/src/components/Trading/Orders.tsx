@@ -17,17 +17,23 @@ import {
   Tooltip,
   Typography,
   alpha,
-  styled
+  styled,
 } from '@mui/material'
 import Divider from '@mui/material/Divider'
-import { ColDef, GridReadyEvent, SideBarDef } from 'ag-grid-community'
+import {
+  ColDef,
+  GetContextMenuItemsParams,
+  GridReadyEvent,
+  MenuItemDef,
+} from 'ag-grid-community'
+import 'ag-grid-community/styles/ag-grid.css'
+import 'ag-grid-community/styles/ag-theme-quartz.css'
 import 'ag-grid-enterprise'
 import { AgGridReact, CustomCellRendererProps } from 'ag-grid-react'
 import axios from 'axios'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import '../../css/charts.css'
-import '../../css/tables.css'
 import { type Order, type tradingDataDef } from '../DataManagement'
 import { filterSlice, type FilterState } from '../StateManagement'
 
@@ -107,7 +113,7 @@ function CustomizedMenus(props: CustomCellRendererProps) {
           size="small"
           onClick={handleViewOnChart}
         >
-          < CandlestickChartOutlinedIcon />
+          <CandlestickChartOutlinedIcon />
         </IconButton>
       </Tooltip>
       <Tooltip title="Order Options">
@@ -215,29 +221,92 @@ function OrderTable({ orders }: TableProps) {
   )
   const [snackIsOpen, setSnackIsOpen] = useState<boolean>(false)
   const [colDefs, setColDefs] = useState<ColDef<Order>[]>([])
-  const [selectedOrder, setSelectedOrder] = useState<[string, string, string]>([
-    '',
-    '',
-    '',
-  ])
 
-  async function setDefaultGridSettings() {
+  function applyFilters(filterTyoe: string) {
+    if (gridRef!.current!.api) {
+      let orderSideFilters: string[] = ['buy', 'sell']
+      gridRef!.current!.api.setFilterModel(null)
+      switch (filterTyoe) {
+        case 'openBuys':
+          orderSideFilters = ['buy']
+          break
+        case 'openSells':
+          orderSideFilters = ['sell']
+          break
+      }
+      gridRef
+        .current!.api.setColumnFilterModel('order_status', {
+          values: ['open'],
+        })
+        .then(() => {
+          gridRef.current!.api.onFilterChanged()
+        })
+      gridRef.current!.api.onFilterChanged()
+      gridRef
+        .current!.api.setColumnFilterModel('order_side', {
+          values: orderSideFilters,
+        })
+        .then(() => {
+          gridRef.current!.api.onFilterChanged()
+        })
+    }
+  }
+
+  const getContextMenuItems = useCallback(
+    (params: GetContextMenuItemsParams): (string | MenuItemDef)[] => {
+      var result: (string | MenuItemDef)[] = [
+        {
+          // custom item
+          name: 'Alert ' + params.value,
+          action: () => {
+            window.alert('Alerting about ' + params.value)
+          },
+          cssClasses: ['red', 'bold'],
+        },
+        {
+          name: 'Open Orders',
+          action: () => applyFilters(''),
+          icon: '<img width="20" height="20" src="https://img.icons8.com/ultraviolet/40/open-sign.png" alt="open-sign"/>',
+        },
+        {
+          name: 'Open Buys',
+          action: () => applyFilters('openBuys'),
+          icon: '<img width="20" height="20" src="https://img.icons8.com/ultraviolet/20/buy--v1.png" alt="buy--v1"/>',
+        },
+        {
+          name: 'Open Sells',
+          action: () => applyFilters('openSells'),
+          icon: '<img width="20" height="20" src="https://img.icons8.com/ultraviolet/40/sell.png" alt="sell"/>',
+        },
+        'separator',
+        'copy',
+        'resetColumns',
+        'csvExport',
+        'separator',
+        'chartRange',
+      ]
+      return result
+    },
+    [],
+  )
+
+  function setDefaultGridSettings() {
     if (gridRef.current && gridRef.current.api) {
       gridRef.current.api.applyColumnState({
         state: [{ colId: 'order_creation_tmstmp', sort: 'desc' }],
         defaultState: { sort: null },
       })
-      await gridRef.current.api.setColumnFilterModel('asset_id', {
-        filterType: 'text',
-        type: 'contains',
-        filter: pair,
-      })
-      await gridRef.current.api.setColumnFilterModel('order_status', {
-        filterType: 'text',
-        type: 'contains',
-        filter: 'open',
-      })
-      gridRef.current!.api.onFilterChanged()
+      gridRef
+        .current!.api.setColumnFilterModel('asset_id', {
+          values: [pair],
+        })
+        .then(() => {
+          gridRef
+            .current!.api.setColumnFilterModel('order_status', {
+              values: ['open', 'executed'],
+            })
+            .then(() => gridRef.current!.api.onFilterChanged())
+        })
     }
   }
 
@@ -288,7 +357,6 @@ function OrderTable({ orders }: TableProps) {
     setDefaultGridSettings()
   }, [orders, pair, filterState.selectedOrder])
 
-
   const displayChartForSelectedOrder = (order: Order) => {
     if (order) {
       let newOrder = ['', '', '']
@@ -328,36 +396,8 @@ function OrderTable({ orders }: TableProps) {
     }
   }, [])
 
-  const sideBar = useMemo<
-    SideBarDef | string | string[] | boolean | null
-  >(() => {
-    return {
-      toolPanels: [
-        {
-          id: 'columns',
-          labelDefault: 'Columns',
-          labelKey: 'columns',
-          iconKey: 'columns',
-          toolPanel: 'agColumnsToolPanel',
-          minWidth: 225,
-          width: 225,
-          maxWidth: 225,
-        },
-        {
-          id: 'filters',
-          labelDefault: 'Filters',
-          labelKey: 'filters',
-          iconKey: 'filter',
-          toolPanel: 'agFiltersToolPanel',
-          minWidth: 180,
-          maxWidth: 400,
-          width: 250,
-        },
-      ],
-      position: 'left',
-      defaultToolPanel: 'filters',
-      hiddenByDefault: true,
-    }
+  const popupParent = useMemo<HTMLElement | null>(() => {
+    return document.querySelector('body')
   }, [])
 
   return (
@@ -378,14 +418,17 @@ function OrderTable({ orders }: TableProps) {
             rowData={orders}
             columnDefs={colDefs}
             defaultColDef={defaultColDef}
-            sideBar={sideBar}
             context={{
               displayChartForSelectedOrder,
               cancelOrder,
             }}
             reactiveCustomComponents
+            allowContextMenuWithControlKey={true}
             onGridReady={onGridReady}
             rowSelection={'single'}
+            getContextMenuItems={getContextMenuItems}
+            popupParent={popupParent}
+            suppressCopyRowsToClipboard={true}
           />
         </div>
       )}
