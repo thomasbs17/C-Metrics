@@ -4,13 +4,18 @@ import { AgGridReact } from 'ag-grid-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import '../../css/tables.css'
-import { getHoldingVolumesFromTrades, tradingDataDef } from '../DataManagement'
+import {
+  Order,
+  getHoldingVolumesFromTrades,
+  tradingDataDef,
+} from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
 
 type FormattedHoldings = {
   pair: string
   volume: number
   usdValue: number | string
+  hasOpenSells: boolean
 }
 
 function HoldingsTable(data: { tradingData: tradingDataDef }) {
@@ -30,6 +35,7 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
     { field: 'pair' },
     { field: 'volume', cellRenderer: 'agAnimateShowChangeCellRenderer' },
     { field: 'usdValue', cellRenderer: 'agAnimateShowChangeCellRenderer' },
+    { field: 'hasOpenSells' },
   ])
   const defaultColDef = useMemo<ColDef>(() => {
     return {
@@ -56,8 +62,10 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
         pair: pair,
         volume: holdings.current[pair],
         usdValue: getUSDValue(pair, holdings.current[pair]),
+        hasOpenSells: orderHasOpenSells(pair),
       }),
     )
+    console.log(updatedFormattedHoldings)
     updatedFormattedHoldings = updatedFormattedHoldings.sort((a, b) =>
       typeof a.usdValue === 'string' || typeof b.usdValue === 'string'
         ? 0
@@ -86,6 +94,21 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
     } else {
       return volume * lastPrice
     }
+  }
+
+  function orderHasOpenSells(pair: string) {
+    const orders = data.tradingData.orders
+    let hasOpenSells = false
+    orders.forEach((order: Order) => {
+      if (
+        order.asset_id === pair &&
+        order.order_status === 'open' &&
+        order.order_side === 'sell'
+      ) {
+        hasOpenSells = true
+      }
+    })
+    return hasOpenSells
   }
 
   function getRowNodeId(data: any) {
