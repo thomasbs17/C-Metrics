@@ -23,39 +23,67 @@ function Screening(data: { tradingData: tradingDataDef }) {
   const [gridApi, setGridApi] = useState<GridApi>()
 
   function defaultValueFormat(params: ValueFormatterParams) {
-    return params.value ?
-      `${Number(params.value * 100).toFixed(2)}%`
-      :
-      ''
+    return params.value ? `${Number(params.value * 100).toFixed(2)}%` : ''
   }
-
 
   const [columnDefs] = useState<ColDef[]>([
     { field: 'pair' },
     { field: 'close' },
     {
-      field: '24h_change', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
+      field: '24h_change',
+      valueFormatter: (params) => defaultValueFormat(params),
+      cellStyle: (params) => {
+        return { color: params.value < 0 ? 'red' : 'green' }
+      },
     },
-    { field: 'next_support', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } } },
-    { field: 'next_resistance', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } } },
+    { field: 'next_support' },
+    { field: 'next_resistance' },
     {
-      field: 'support_dist', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
+      field: 'support_dist',
+      valueFormatter: (params) => defaultValueFormat(params),
+      cellStyle: (params) => {
+        return { color: params.value < 0 ? 'red' : 'green' }
+      },
     },
     { field: 'rsi' },
     {
-      field: 'bbl', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
+      field: 'bbl',
+      valueFormatter: (params) => defaultValueFormat(params),
+      cellStyle: (params) => {
+        return { color: params.value < 0 ? 'red' : 'green' }
+      },
     },
     {
-      field: 'technicals_score', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
+      field: 'technicals_score',
+      valueFormatter: (params) => defaultValueFormat(params),
+      cellStyle: (params) => {
+        return { color: params.value < 0 ? 'red' : 'green' }
+      },
     },
     {
-      field: 'book_imbalance', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
+      field: 'book_imbalance',
+      type: 'number',
+      filter: 'agNumberColumnFilter',
+      valueFormatter: (params) => defaultValueFormat(params),
+      cellStyle: (params) => {
+        return { color: params.value < 0 ? 'red' : 'green' }
+      },
     },
     {
-      field: 'spread', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
+      field: 'spread',
+      valueFormatter: (params) => defaultValueFormat(params),
+      cellStyle: (params) => {
+        return { color: params.value < 0 ? 'red' : 'green' }
+      },
     },
     {
-      field: 'potential_gain', valueFormatter: (params) => defaultValueFormat(params), cellStyle: (params) => { return { color: params.value < 0 ? 'red' : 'green' } }
+      field: 'potential_gain',
+      type: 'number',
+      filter: 'agNumberColumnFilter',
+      valueFormatter: (params) => defaultValueFormat(params),
+      cellStyle: (params) => {
+        return { color: params.value < 0 ? 'red' : 'green' }
+      },
     },
   ])
   const defaultColDef = useMemo<ColDef>(() => {
@@ -80,6 +108,7 @@ function Screening(data: { tradingData: tradingDataDef }) {
         gridApi.setGridOption('rowData', data.tradingData.screeningData)
       }
     }, 2000)
+    setDefaultGridSettings()
     return () => {
       clearInterval(interval)
     }
@@ -93,10 +122,16 @@ function Screening(data: { tradingData: tradingDataDef }) {
 
   function setDefaultGridSettings() {
     if (gridApi) {
-      gridApi!.applyColumnState({
-        state: [{ colId: 'technicals_score', sort: 'desc' }],
-        defaultState: { sort: null },
-      })
+      const filters = {
+        book_imbalance: {
+          type: 'notBlank',
+        },
+        potential_gain: {
+          type: 'greaterThan',
+          filter: 0.1,
+        },
+      }
+      gridApi.setFilterModel(filters)
     }
   }
 
@@ -143,6 +178,7 @@ function Screening(data: { tradingData: tradingDataDef }) {
             onGridReady={onGridReady}
             rowSelection={'single'}
             getRowClass={getRowClass}
+            suppressCopyRowsToClipboard={true}
           />
         </div>
       </div>

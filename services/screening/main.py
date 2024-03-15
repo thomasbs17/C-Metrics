@@ -22,7 +22,13 @@ LOG = helpers.get_logger("screening_service")
 
 
 class ExchangeScreener:
-    def __init__(self, verbose: bool, pairs: dict, exchange_object: ccxt.Exchange, all_symbols: list):
+    def __init__(
+        self,
+        verbose: bool,
+        pairs: dict,
+        exchange_object: ccxt.Exchange,
+        all_symbols: list,
+    ):
         self.verbose = verbose
         self.pairs = pairs
         self.exchange_name = exchange_object.name.lower()
@@ -344,7 +350,7 @@ class Screener:
 
 
 async def run_websocket():
-    screener = Screener(exchange_list=["coinbase"], user_symbols_list=['BTC-USD', 'ETH-USD'])
+    screener = Screener(exchange_list=["coinbase"])
     screening_task = asyncio.create_task(screener.run_screening())
     start_server = websockets.serve(screener.run_client_websocket, "localhost", 8795)
     await asyncio.gather(screening_task, start_server)

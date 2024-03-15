@@ -41,15 +41,13 @@ function TradeTable({ trades }: TableProps) {
         state: [{ colId: 'execution_tmstmp', sort: 'desc' }],
         defaultState: { sort: null },
       })
-      let defaultFilter = {
-        filterType: 'text',
-        type: 'contains',
-        filter: pair,
-      }
-      await gridRef!.current!.api.setColumnFilterModel(
-        'asset_id',
-        defaultFilter,
-      )
+      gridRef
+        .current!.api.setColumnFilterModel('asset_id', {
+          values: [pair],
+        })
+        .then(() => {
+          gridRef.current!.api.onFilterChanged()
+        })
       gridRef.current!.api.onFilterChanged()
     }
   }
@@ -161,6 +159,7 @@ function TradeTable({ trades }: TableProps) {
         onRowClicked={(r) => handleClick(r)}
         onGridReady={onGridReady}
         rowSelection={'single'}
+        suppressCopyRowsToClipboard={true}
       />
     </div>
   )

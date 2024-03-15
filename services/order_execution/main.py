@@ -36,7 +36,7 @@ class OnStartChecker:
 
     @staticmethod
     def get_url(order: dict) -> str:
-        return f"{helpers.BASE_API}/ohlc?exchange={order['broker_id']}&pair={order['asset_id']}&timeframe=1d"
+        return f"{helpers.BASE_API}/ohlc?exchange={order['broker_id']}&pair={order['asset_id']}&timeframe=1h"
 
     async def get_all_ohlcv(self):
         if self.verbose:
@@ -64,9 +64,15 @@ class OnStartChecker:
             ohlcv_df["time"] >= dt.timestamp(order["order_creation_tmstmp"]) * 1000
         ]
         if order["order_side"] == "buy":
-            execution_df = execution_df[execution_df["low"] < order["order_price"]]
+            execution_df = execution_df[
+                execution_df.apply(lambda x: min(x["close"], x["low"]), axis=1)
+                < order["order_price"]
+            ]
         else:
-            execution_df = execution_df[execution_df["high"] > order["order_price"]]
+            execution_df = execution_df[
+                execution_df.apply(lambda x: max(x["close"], x["high"]), axis=1)
+                > order["order_price"]
+            ]
         base_log = f"{order['broker_id']} {order['asset_id']} {order['trading_type']} {order['order_side']}"
         if not execution_df.empty:
             if self.verbose:
