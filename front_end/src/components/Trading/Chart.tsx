@@ -4,7 +4,7 @@ import { deepPurple } from '@mui/material/colors'
 import { styled } from '@mui/material/styles'
 import { useEffect, useMemo, useState } from 'react'
 import { Col, Row } from 'react-bootstrap'
-import { FullScreen, useFullScreenHandle } from "react-full-screen"
+import { FullScreen, useFullScreenHandle } from 'react-full-screen'
 import { useSelector } from 'react-redux'
 import {
   retrieveInfoFromCoinMarketCap,
@@ -30,8 +30,8 @@ const StyledIcon = styled(FullscreenIcon)`
   margin-top: -15px;
   background-color: transparent;
   transition: ${theme.transitions.create(['background-color', 'transform'], {
-  duration: theme.transitions.duration.standard,
-})};
+    duration: theme.transitions.duration.standard,
+  })};
   &:hover {
     transform: scale(1.3);
   }
@@ -52,7 +52,7 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
   )
-  const handle = useFullScreenHandle();
+  const handle = useFullScreenHandle()
 
   const [exchange, pair, selectedOrder, pairScoreDetails, selectedArticle] =
     useMemo(
@@ -117,7 +117,7 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
     decimalPlaces = data.tradingData.markets[pair].precision.price
       .toString()
       .split('.')[1].length
-  } catch { }
+  } catch {}
 
   return (
     <div style={defaultScreenDivStyle}>
@@ -148,6 +148,7 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
                   pair={pair}
                   selectedOrder={selectedOrder}
                   pairScoreDetails={pairScoreDetails}
+                  key={`${pair}BookChart`}
                 />
               )}
           </Col>
