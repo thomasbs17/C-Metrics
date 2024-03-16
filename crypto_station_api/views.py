@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime as dt
 
@@ -112,34 +113,38 @@ def get_public_trades(request: django.core.handlers.wsgi.WSGIRequest):
     return django.http.JsonResponse(None, safe=False)
 
 
+@csrf_exempt
 async def post_new_order(request: django.core.handlers.wsgi.WSGIRequest):
+    data = json.loads(request.body.decode('utf-8'))
     new_order = Orders(
         order_dim_key=str(uuid.uuid4()),
-        user_id=request.data["user_id"],
+        user_id=data.get("user_id"),
         order_id=str(uuid.uuid4()),
-        broker_id=request.data["broker_id"],
-        trading_env=request.data["trading_env"],
-        trading_type=request.data["trading_type"],
-        asset_id=request.data["asset_id"],
-        order_side=request.data["order_side"],
-        order_type=request.data["order_type"],
+        broker_id=data.get("broker_id"),
+        trading_env=data.get("trading_env"),
+        trading_type=data.get("trading_type"),
+        asset_id=data.get("asset_id"),
+        order_side=data.get("order_side"),
+        order_type=data.get("order_type"),
         order_creation_tmstmp=dt.fromtimestamp(
-            float(request.data["order_creation_tmstmp"]) / 1000
+            float(data.get("order_creation_tmstmp")) / 1000
         ),
-        order_status=request.data["order_status"],
-        fill_pct=request.data["fill_pct"],
-        order_volume=request.data["order_volume"],
-        order_price=request.data["order_price"] if request.data["order_price"] else 1,
+        order_status=data.get("order_status"),
+        fill_pct=data.get("fill_pct"),
+        order_volume=data.get("order_volume"),
+        order_price=data.get("order_price") if data.get("order_price") else 1,
         insert_tmstmp=dt.now(),
     )
-    sync_to_async(new_order.save())
+    await sync_to_async(new_order.save)()
     return django.http.JsonResponse("success", safe=False)
 
 
-def cancel_order(request: django.core.handlers.wsgi.WSGIRequest):
-    order_dim_key = request.data["order_dim_key"]
+@csrf_exempt
+async def cancel_order(request: django.core.handlers.wsgi.WSGIRequest):
+    data = json.loads(request.body.decode('utf-8'))
+    order_dim_key = data.get("order_dim_key")
     order = Orders.objects.filter(order_dim_key=order_dim_key)
-    order.update(expiration_tmstmp=dt.now())
+    await sync_to_async(order.update)(expiration_tmstmp=dt.now())
     new_row = Orders(
         order_dim_key=str(uuid.uuid4()),
         user_id=order.values("user_id"),
@@ -157,7 +162,7 @@ def cancel_order(request: django.core.handlers.wsgi.WSGIRequest):
         order_price=order.values("order_price"),
         insert_tmstmp=dt.now(),
     )
-    sync_to_async(new_row.save())
+    await sync_to_async(new_row.save)()
     return django.http.JsonResponse("success", safe=False)
 
 

@@ -12,7 +12,7 @@ import axios from 'axios'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Container, Row, Stack } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
-import { type FilterState, filterSlice } from '../StateManagement'
+import { filterSlice, type FilterState } from '../StateManagement'
 
 interface OrderTypeSideProps {
   handleOrderSideChange: (radio: string) => void
@@ -113,18 +113,22 @@ function OrderDetails() {
     }
 
     axios
-      .post(endpoint, orderData)
+      .post(endpoint, JSON.stringify(orderData), {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
       .then((response) => {
         seIsLoading(false)
+        setOrderAmount(null)
+        setOrderLimitPrice(null)
+        setSnackIsOpen(true)
+        dispatch(filterSlice.actions.setOrdersNeedReload(true))
       })
       .catch((error) => {
         seIsLoading(false)
         console.error('Error:', error)
       })
-    setOrderAmount(null)
-    setOrderLimitPrice(null)
-    setSnackIsOpen(true)
-    dispatch(filterSlice.actions.setOrdersNeedReload(true))
   }
   return (
     <Container>

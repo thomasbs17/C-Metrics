@@ -380,7 +380,11 @@ function OrderTable({ orders }: TableProps) {
   async function cancelOrder(orderDimKey: string) {
     const endpoint = 'http://127.0.0.1:8000/cancel_order/'
     const payload = { order_dim_key: orderDimKey }
-    await axios.post(endpoint, payload)
+    await axios.post(endpoint, JSON.stringify(payload), {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
     setSnackIsOpen(true)
     dispatch(filterSlice.actions.setOrdersNeedReload(true))
   }
