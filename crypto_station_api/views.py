@@ -2,12 +2,12 @@ import uuid
 from datetime import datetime as dt
 
 import ccxt
+import django
 from asgiref.sync import sync_to_async
 from ccxt.base import errors
-from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from GoogleNews import GoogleNews
-from rest_framework import viewsets
-from rest_framework.decorators import api_view
+from rest_framework import request, viewsets
 from rest_framework.parsers import JSONParser
 from rest_framework.renderers import JSONRenderer
 from rest_framework.views import APIView
@@ -20,47 +20,49 @@ from utils.helpers import get_exchange_object
 coinmarketcap = CoinMarketCap()
 
 
-class SimpleJSONView(APIView):
-    parser_classes = [JSONParser]
-    renderer_classes = [JSONRenderer]
+@csrf_exempt
+def login_view(request: django.core.handlers.wsgi.WSGIRequest):
+    username = request.POST.get("username")
+    password = request.POST.get("password")
+    user = django.contrib.auth.authenticate(request, username=username, password=password)
+    if user is not None:
+        django.contrib.auth.login(request, user)
+        return django.http.JsonResponse({'result': 'ok'}, safe=False)
+    else:
+        return django.http.HttpResponseForbidden()
 
-
-def get_exchanges(request):
+async def get_exchanges(request: django.core.handlers.wsgi.WSGIRequest):
     data = ccxt.exchanges
-    return JsonResponse(data, safe=False)
+    return django.http.JsonResponse(data, safe=False)
 
 
-@sync_to_async
-@api_view(["GET"])
-def get_ohlc(request):
-    exchange = request.query_params.get("exchange")
-    timeframe = request.query_params.get("timeframe")
-    pair = request.query_params.get("pair")
-    exchange = get_exchange_object(exchange, async_mode=False)
+async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
+    exchange = request.GET.get('exchange')
+    timeframe = request.GET.get("timeframe")
+    pair = request.GET.get('pair')
+    exchange = get_exchange_object(exchange, async_mode=True)
     try:
-        ohlc_data = exchange.fetch_ohlcv(symbol=pair, timeframe=timeframe, limit=300)
-        return JsonResponse(ohlc_data, safe=False)
+        ohlc_data = await exchange.fetch_ohlcv(symbol=pair, timeframe=timeframe, limit=300)
     except errors.BadSymbol:
-        return JsonResponse(None, safe=False)
+        ohlc_data = None
+    await exchange.close()
+    return django.http.JsonResponse(ohlc_data, safe=False)
 
 
-@sync_to_async
-@api_view(["GET"])
-def get_order_book(request):
-    exchange = request.query_params.get("exchange")
-    pair = request.query_params.get("pair")
-    exchange = get_exchange_object(exchange, async_mode=False)
+async def get_order_book(request: django.core.handlers.wsgi.WSGIRequest):
+    exchange = request.GET.get('exchange')
+    pair = request.GET.get('pair')
+    exchange = get_exchange_object(exchange, async_mode=True)
     try:
-        order_book_data = exchange.fetch_order_book(symbol=pair, limit=10000)
-        return JsonResponse(order_book_data, safe=False)
-    except errors.BadSymbol:
-        return JsonResponse(None, safe=False)
+        order_book_data = await exchange.fetch_order_book(symbol=pair, limit=10000)
+    except:
+        order_book_data = None
+    await exchange.close()
+    return django.http.JsonResponse(order_book_data, safe=False)
+    
 
-
-@sync_to_async
-@api_view(["GET"])
-def get_asset_coinmarketcap_mapping(request):
-    return JsonResponse(
+async def get_asset_coinmarketcap_mapping(request: django.core.handlers.wsgi.WSGIRequest):
+    return django.http.JsonResponse(
         coinmarketcap.get_endpoint(
             api_version=1, category="cryptocurrency", endpoint="map"
         ),
@@ -68,11 +70,9 @@ def get_asset_coinmarketcap_mapping(request):
     )
 
 
-@sync_to_async
-@api_view(["GET"])
-def get_crypto_meta_data(request):
-    crypto_coinmarketcap_id = request.query_params.get("crypto_coinmarketcap_id")
-    return JsonResponse(
+async def get_crypto_meta_data(request: django.core.handlers.wsgi.WSGIRequest):
+    crypto_coinmarketcap_id = request.GET.get('crypto_coinmarketcap_id')
+    return django.http.JsonResponse(
         coinmarketcap.get_endpoint(
             api_version=2,
             category="cryptocurrency",
@@ -82,18 +82,14 @@ def get_crypto_meta_data(request):
     )
 
 
-@sync_to_async
-@api_view(["GET"])
-def get_exchange_markets(request):
-    exchange = request.query_params.get("exchange")
+async def get_exchange_markets(request: django.core.handlers.wsgi.WSGIRequest):
+    exchange = request.GET.get('exchange')
     exchange = get_exchange_object(exchange, async_mode=False)
-    return JsonResponse(exchange.load_markets(), safe=False)
+    return django.http.JsonResponse(exchange.load_markets(), safe=False)
 
 
-@sync_to_async
-@api_view(["GET"])
-def get_news(request):
-    pair = request.query_params.get("search_term")
+async def get_news(request: django.core.handlers.wsgi.WSGIRequest):
+    pair = request.GET.get('search_term')
     googlenews = GoogleNews()
     googlenews.get_news(pair)
     data = googlenews.results()
@@ -102,25 +98,21 @@ def get_news(request):
         for article in data
         if isinstance(article["datetime"], dt) and article["datetime"] <= dt.now()
     ]
-    return JsonResponse(data, safe=False)
+    return django.http.JsonResponse(data, safe=False)
 
 
-@sync_to_async
-@api_view(["GET"])
-def get_public_trades(request):
-    exchange = request.query_params.get("exchange")
-    pair = request.query_params.get("pair")
+def get_public_trades(request: django.core.handlers.wsgi.WSGIRequest):
+    exchange = request.GET.get('exchange')
+    pair = request.GET.get('pair')
     exchange = get_exchange_object(exchange, async_mode=False)
     try:
         data = exchange.fetch_trades(symbol=pair, limit=1000)
-        return JsonResponse(data, safe=False)
     except errors.BadSymbol:
-        return JsonResponse(None, safe=False)
+        data = None
+    return django.http.JsonResponse(None, safe=False)
 
 
-@sync_to_async
-@api_view(["POST"])
-def post_new_order(request):
+async def post_new_order(request: django.core.handlers.wsgi.WSGIRequest):
     new_order = Orders(
         order_dim_key=str(uuid.uuid4()),
         user_id=request.data["user_id"],
@@ -140,13 +132,11 @@ def post_new_order(request):
         order_price=request.data["order_price"] if request.data["order_price"] else 1,
         insert_tmstmp=dt.now(),
     )
-    new_order.save()
-    return JsonResponse("success", safe=False)
+    sync_to_async(new_order.save())
+    return django.http.JsonResponse("success", safe=False)
 
 
-@sync_to_async
-@api_view(["POST"])
-def cancel_order(request):
+def cancel_order(request: django.core.handlers.wsgi.WSGIRequest):
     order_dim_key = request.data["order_dim_key"]
     order = Orders.objects.filter(order_dim_key=order_dim_key)
     order.update(expiration_tmstmp=dt.now())
@@ -167,8 +157,8 @@ def cancel_order(request):
         order_price=order.values("order_price"),
         insert_tmstmp=dt.now(),
     )
-    new_row.save()
-    return JsonResponse("success", safe=False)
+    sync_to_async(new_row.save())
+    return django.http.JsonResponse("success", safe=False)
 
 
 class OrdersViewSet(viewsets.ModelViewSet):

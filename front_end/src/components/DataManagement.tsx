@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { filterSlice, type FilterState } from './StateManagement'
+import axios from 'axios'
+
+axios.defaults.withCredentials = true
 
 export interface tradingDataDef {
   coinMarketCapMapping: any
@@ -467,11 +470,10 @@ function LoadOrderBook(throtle: number = 500) {
 
   async function fetchOrderBookData() {
     try {
-      const orderBookResponse = await fetch(
+      const orderBookResponse = await axios.get(
         `http://127.0.0.1:8000/order_book/?exchange=${exchange}&pair=${pair}`,
       )
-      const responseData = await orderBookResponse.json()
-      setOrderBookData(formatOrderBook(responseData, false))
+      setOrderBookData(formatOrderBook(orderBookResponse.data, false))
     } catch (error) {
       setOrderBookData({})
       console.error('Error fetching Order Book data:', error)

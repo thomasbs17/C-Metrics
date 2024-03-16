@@ -25,7 +25,7 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
     FormattedHoldings[]
   >([])
   const [gridData] = useState<FormattedHoldings[]>(getFormattedHoldings)
-  const gridStyle = useMemo(() => ({ width: '100%', height: '180px' }), [])
+  const gridStyle = useMemo(() => ({ width: '100%', height: '210px' }), [])
   const dispatch = useDispatch()
   const selectedPair = useSelector(
     (state: { filters: FilterState }) => state.filters.pair,

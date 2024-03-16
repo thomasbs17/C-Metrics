@@ -18,7 +18,7 @@ import { FilterState, filterSlice } from '../StateManagement'
 function Screening(data: { tradingData: tradingDataDef }) {
   const gridRef = useRef<AgGridReact>(null)
   const containerStyle = useMemo(() => ({ width: '100%', height: '200px' }), [])
-  const gridStyle = useMemo(() => ({ width: '100%', height: '180px' }), [])
+  const gridStyle = useMemo(() => ({ width: '100%', height: '210px' }), [])
   const [rowData, setRowData] = useState<any[]>()
   const [gridApi, setGridApi] = useState<GridApi>()
 

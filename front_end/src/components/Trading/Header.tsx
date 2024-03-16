@@ -56,7 +56,11 @@ function TradingTypeFilter() {
     dispatch({ type: 'SET_TRADING_TYPE', payload: tradingType })
   }
   return (
-    <ButtonGroup variant="text" aria-label="trading-type-choice">
+    <ButtonGroup
+      variant="text"
+      aria-label="trading-type-choice"
+      sx={{ marginLeft: '7%' }}
+    >
       <Button variant="contained" size="small">
         Paper
       </Button>
@@ -228,68 +232,6 @@ function filtersSideAnimation(
     container.style.opacity = '1'
     container.style.transform = 'translateX(0)'
   }
-}
-
-function NavigationMenu() {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
-  const open = Boolean(anchorEl)
-  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    setAnchorEl(event.currentTarget)
-  }
-  const handleClose = () => {
-    setAnchorEl(null)
-  }
-
-  const pages: any = {
-    Home: '',
-    Trading: 'trading',
-    Portfolio: 'portfolio',
-    'Sign In': 'sign-in',
-  }
-
-  return (
-    <div>
-      <Button
-        id="menu-button"
-        aria-controls={open ? 'basic-menu' : undefined}
-        aria-haspopup="true"
-        aria-expanded={open ? 'true' : undefined}
-        onClick={handleClick}
-      >
-        Menu
-      </Button>
-      <Menu
-        id="basic-menu"
-        anchorEl={anchorEl}
-        open={open}
-        onClose={handleClose}
-        sx={{ backgroundColor: 'rgba(0,0,0,0.8)' }}
-        MenuListProps={{
-          'aria-labelledby': 'basic-button',
-        }}
-      >
-        {Object.keys(pages).map((page: string) => (
-          <Link
-            key={`${page}_link`}
-            href={`/${[pages[page]]}`}
-            sx={{
-              textDecoration: 'none',
-              color: 'white',
-              backgroundColor: 'rgba(0,0,0,0.5)',
-            }}
-          >
-            <MenuItem
-              key={`${page}_item`}
-              component={Link}
-              onClick={handleClose}
-            >
-              {page}
-            </MenuItem>
-          </Link>
-        ))}
-      </Menu>
-    </div>
-  )
 }
 
 interface MultipleSelectChipProps {
@@ -640,16 +582,11 @@ export function TopBar(data: { tradingData: tradingDataDef }) {
     transform: 'translateX(-50px)',
     opacity: '0',
     transition: 'opacity 1s, transform 1s',
-    zIndex: 2,
-    position: 'relative',
   }
 
   return (
     <Container fluid ref={containerRef} style={containerStyle}>
       <Row style={{ padding: '10px', width: '100%' }}>
-        <Col style={{ maxWidth: 100 }}>
-          <NavigationMenu />
-        </Col>
         <Col>
           <TradingTypeFilter />
         </Col>

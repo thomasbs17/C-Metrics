@@ -41,4 +41,5 @@ urlpatterns = [
     path("trades/", views.TradesViewSet.as_view({"get": "list"}), name="trades"),
     path("new_order/", views.post_new_order, name="new_order"),
     path("cancel_order/", views.cancel_order, name="cancel_order"),
+    path("log_in/", views.login_view, name="log_in"),
 ]

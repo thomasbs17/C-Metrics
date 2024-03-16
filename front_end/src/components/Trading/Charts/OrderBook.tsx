@@ -155,9 +155,11 @@ export function OrderBookChart(props: BookChartProps) {
 
   function handleOut() {
     if (orderBookChartRef.current) {
-      setBid(props.data.bid[0][1])
-      setAsk(props.data.ask[0][1])
-      const newSpread = props.data.ask[0][1] / props.data.bid[0][1] - 1
+      const newBid = props.data.bid[0][1]
+      const newAsk = props.data.ask[0][1]
+      const newSpread = newAsk / newBid - 1
+      setBid(newBid)
+      setAsk(newAsk)
       setSpread(newSpread)
       orderBookChartRef.current.chart.series[0].yAxis.removePlotLine(
         'ask-book-hover-line',
@@ -170,7 +172,7 @@ export function OrderBookChart(props: BookChartProps) {
       )
       orderBookChartRef.current.chart.series[0].yAxis.addPlotLine({
         color: 'white',
-        value: (ask + bid) / 2,
+        value: (newAsk + newBid) / 2,
         label: {
           text: `Spread: ${(newSpread * 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}%`,
           align: 'right',
@@ -235,9 +237,12 @@ export function OrderBookChart(props: BookChartProps) {
   }
 
   useEffect(() => {
-    setBid(props.data.bid[0][1])
-    setAsk(props.data.ask[0][1])
-    setSpread(props.data.ask[0][1] / props.data.bid[0][1] - 1)
+    const newBid = props.data.bid[0][1]
+    const newAsk = props.data.ask[0][1]
+    const newSpread = newAsk / newBid - 1
+    setBid(newBid)
+    setAsk(newAsk)
+    setSpread(newSpread)
     const chart = orderBookChartRef!.current!.chart
     if (chart) {
       if (chart.xAxis[0].max) {
@@ -260,9 +265,9 @@ export function OrderBookChart(props: BookChartProps) {
       chart.series[0].yAxis.removePlotLine('central-book-hover-line')
       chart.series[0].yAxis.addPlotLine({
         color: 'white',
-        value: (ask + bid) / 2,
+        value: (newAsk + newBid) / 2,
         label: {
-          text: `Spread: ${(spread * 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}%`,
+          text: `Spread: ${(newSpread * 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}%`,
           align: 'right',
           style: {
             color: 'white',

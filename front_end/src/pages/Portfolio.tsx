@@ -1,12 +1,13 @@
-import React from 'react'
-import NavBar from '../components/Navbar'
+import { Box, CssBaseline } from '@mui/material'
+import MiniDrawer from '../components/Trading/SideBar'
 
 function Portfolio() {
   return (
-    <>
-      <NavBar />
+    <Box sx={{ display: 'flex' }}>
+      <CssBaseline />
+      <MiniDrawer />
       <p>Portfolio</p>
-    </>
+    </Box>
   )
 }
 

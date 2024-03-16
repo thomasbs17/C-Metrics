@@ -53,7 +53,7 @@ function News(data: { tradingData: tradingDataDef }) {
   ) : (
     <div
       className={'ag-theme-quartz-dark'}
-      style={{ width: '100%', height: '180px' }}
+      style={{ width: '100%', height: '210px' }}
     >
       <AgGridReact
         rowData={news}

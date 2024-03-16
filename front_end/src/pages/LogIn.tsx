@@ -12,15 +12,26 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import * as React from 'react'
 import { Copyright } from '../utils/common'
+import axios from 'axios'
+import { Alert, Snackbar } from '@mui/material'
+import { useNavigate } from 'react-router-dom'
+
+axios.defaults.withCredentials = true
 
 export default function SignIn() {
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const navigate = useNavigate()
+  const [snackIsOpen, setSnackIsOpen] = React.useState<boolean>(false)
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const data = new FormData(event.currentTarget)
-    console.log({
-      email: data.get('email'),
-      password: data.get('password'),
-    })
+    const endpoint = 'http://127.0.0.1:8000/log_in/'
+    try {
+      await axios.post(endpoint, data)
+      navigate(`/trading?exchange=coinbase&pair=BTC/USD`)
+    } catch {
+      setSnackIsOpen(true)
+    }
   }
 
   return (
@@ -45,10 +56,10 @@ export default function SignIn() {
             margin="normal"
             required
             fullWidth
-            id="email"
-            label="Email Address"
-            name="email"
-            autoComplete="email"
+            id="username"
+            label="Username"
+            name="username"
+            autoComplete="username"
             autoFocus
           />
           <TextField
@@ -88,6 +99,17 @@ export default function SignIn() {
         </Box>
       </Box>
       <Copyright sx={{ mt: 8, mb: 4 }} />
+      <Snackbar
+        open={snackIsOpen}
+        autoHideDuration={2000}
+        onClose={() => {
+          setSnackIsOpen(false)
+        }}
+      >
+        <Alert severity="error" sx={{ width: '100%' }}>
+          Invalid username/password
+        </Alert>
+      </Snackbar>
     </Container>
   )
 }

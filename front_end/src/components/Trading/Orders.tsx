@@ -409,7 +409,7 @@ function OrderTable({ orders }: TableProps) {
           className={'ag-theme-quartz-dark'}
           style={{
             width: '100%',
-            height: '180px',
+            height: '210px',
             overflow: 'visible !important',
           }}
         >

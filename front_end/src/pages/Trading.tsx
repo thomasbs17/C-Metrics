@@ -1,4 +1,21 @@
-import { Box, Tab, Tabs } from '@mui/material'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import MailIcon from '@mui/icons-material/Mail'
+import InboxIcon from '@mui/icons-material/MoveToInbox'
+import {
+  Box,
+  CssBaseline,
+  Divider,
+  Drawer,
+  IconButton,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Tab,
+  Tabs,
+  styled,
+} from '@mui/material'
 import React from 'react'
 import { Col, Container, Row } from 'react-bootstrap'
 import { Responsive, WidthProvider } from 'react-grid-layout'
@@ -19,6 +36,7 @@ import News from '../components/Trading/News'
 import Orders from '../components/Trading/Orders'
 import Screening from '../components/Trading/Screening'
 import Trades from '../components/Trading/TradeHistory'
+import MiniDrawer from '../components/Trading/SideBar'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
 
@@ -31,7 +49,7 @@ function BottomLeftContainer(data: { tradingData: tradingDataDef }) {
     dispatch(filterSlice.actions.setOrdersNeedReload(true))
   }
   return (
-    <div style={{ height: '250px' }}>
+    <div style={{ height: '100%' }}>
       <Box sx={{ width: '100%' }}>
         <Tabs
           value={value}
@@ -60,7 +78,7 @@ function BottomRightContainer(data: { tradingData: tradingDataDef }) {
     setValue(newValue)
   }
   return (
-    <div style={{ height: '250px', overflowY: 'hidden' }}>
+    <div style={{ height: '100%', overflowY: 'hidden' }}>
       <Box sx={{ width: '100%' }}>
         <Tabs
           value={value}
@@ -83,23 +101,35 @@ function BottomRightContainer(data: { tradingData: tradingDataDef }) {
 function Trading() {
   const tradingData: tradingDataDef = GetTradingData()
 
+  const DrawerHeader = styled('div')(({ theme }) => ({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    padding: theme.spacing(0, 1),
+    // necessary for content to be below app bar
+    ...theme.mixins.toolbar,
+  }))
+
   return (
     <div style={{ overflow: 'hidden' }}>
       <TopBar tradingData={tradingData} />
-      <Container fluid>
-        <TradingChart tradingData={tradingData} />
-        <Row
-          className="border border-primary rounded-3 p-3"
-          style={{ height: '250px' }}
-        >
-          <Col style={{ maxWidth: '50%' }}>
-            <BottomLeftContainer tradingData={tradingData} />
-          </Col>
-          <Col style={{ maxWidth: '50%' }}>
-            <BottomRightContainer tradingData={tradingData} />
-          </Col>
-        </Row>
-      </Container>
+      <Box sx={{ display: 'flex' }}>
+        <CssBaseline />
+        <MiniDrawer />
+        <Box component="main" sx={{ flexGrow: 1 }}>
+          <Container fluid>
+            <TradingChart tradingData={tradingData} />
+            <Row style={{ height: '100%' }}>
+              <Col style={{ maxWidth: '50%' }}>
+                <BottomLeftContainer tradingData={tradingData} />
+              </Col>
+              <Col style={{ maxWidth: '50%' }}>
+                <BottomRightContainer tradingData={tradingData} />
+              </Col>
+            </Row>
+          </Container>
+        </Box>
+      </Box>
     </div>
   )
 }

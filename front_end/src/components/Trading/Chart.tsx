@@ -79,7 +79,7 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
     display: 'flex',
     justifyContent: 'space-between',
     position: 'absolute',
-    width: '79%',
+    width: '75%',
     height: 0,
     marginTop: '-1%',
     marginLeft: '3%',
