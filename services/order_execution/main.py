@@ -200,7 +200,7 @@ class OrderExecutionService(OnStartChecker):
         super().__init__(open_orders_df=self.orders, db=self.db, verbose=verbose)
 
     async def initialize_service(self):
-        # await self.run_on_start_checker()
+        await self.run_on_start_checker()
         await self.add_user_channels()
 
     def retrieve_from_db(self) -> pd.DataFrame:
