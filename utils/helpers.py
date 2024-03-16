@@ -19,7 +19,7 @@ ENV_PATH = BASE_DIR / ".env"
 load_dotenv(ENV_PATH, verbose=True)
 env = environ.Env()
 environ.Env.read_env()
-HOST = "localhost"
+HOST = "redis-server"
 BASE_WS = f"ws://{HOST}:"
 BASE_API = "http://127.0.0.1:8000"
 REDIS_PORT = 6379
