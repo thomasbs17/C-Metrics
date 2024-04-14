@@ -40,7 +40,7 @@ class OnStartChecker:
 
     async def get_all_ohlcv(self):
         if self.verbose:
-            LOG.info(f"Retrieving OHLCV data")
+            LOG.info("Retrieving OHLCV data")
         async with aiohttp.ClientSession() as session:
             tasks = [
                 asyncio.ensure_future(

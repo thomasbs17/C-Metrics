@@ -8,10 +8,7 @@ from asgiref.sync import sync_to_async
 from ccxt.base import errors
 from django.views.decorators.csrf import csrf_exempt
 from GoogleNews import GoogleNews
-from rest_framework import request, viewsets
-from rest_framework.parsers import JSONParser
-from rest_framework.renderers import JSONRenderer
-from rest_framework.views import APIView
+from rest_framework import viewsets
 
 from crypto_station_api.data_sources.coinmarketcap import CoinMarketCap
 from crypto_station_api.models import Orders, Trades
@@ -25,12 +22,15 @@ coinmarketcap = CoinMarketCap()
 def login_view(request: django.core.handlers.wsgi.WSGIRequest):
     username = request.POST.get("username")
     password = request.POST.get("password")
-    user = django.contrib.auth.authenticate(request, username=username, password=password)
+    user = django.contrib.auth.authenticate(
+        request, username=username, password=password
+    )
     if user is not None:
         django.contrib.auth.login(request, user)
-        return django.http.JsonResponse({'result': 'ok'}, safe=False)
+        return django.http.JsonResponse({"result": "ok"}, safe=False)
     else:
         return django.http.HttpResponseForbidden()
+
 
 async def get_exchanges(request: django.core.handlers.wsgi.WSGIRequest):
     data = ccxt.exchanges
@@ -38,12 +38,14 @@ async def get_exchanges(request: django.core.handlers.wsgi.WSGIRequest):
 
 
 async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
-    exchange = request.GET.get('exchange')
+    exchange = request.GET.get("exchange")
     timeframe = request.GET.get("timeframe")
-    pair = request.GET.get('pair')
+    pair = request.GET.get("pair")
     exchange = get_exchange_object(exchange, async_mode=True)
     try:
-        ohlc_data = await exchange.fetch_ohlcv(symbol=pair, timeframe=timeframe, limit=300)
+        ohlc_data = await exchange.fetch_ohlcv(
+            symbol=pair, timeframe=timeframe, limit=300
+        )
     except errors.BadSymbol:
         ohlc_data = None
     await exchange.close()
@@ -51,8 +53,8 @@ async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
 
 
 async def get_order_book(request: django.core.handlers.wsgi.WSGIRequest):
-    exchange = request.GET.get('exchange')
-    pair = request.GET.get('pair')
+    exchange = request.GET.get("exchange")
+    pair = request.GET.get("pair")
     exchange = get_exchange_object(exchange, async_mode=True)
     try:
         order_book_data = await exchange.fetch_order_book(symbol=pair, limit=10000)
@@ -60,9 +62,11 @@ async def get_order_book(request: django.core.handlers.wsgi.WSGIRequest):
         order_book_data = None
     await exchange.close()
     return django.http.JsonResponse(order_book_data, safe=False)
-    
 
-async def get_asset_coinmarketcap_mapping(request: django.core.handlers.wsgi.WSGIRequest):
+
+async def get_asset_coinmarketcap_mapping(
+    request: django.core.handlers.wsgi.WSGIRequest,
+):
     return django.http.JsonResponse(
         coinmarketcap.get_endpoint(
             api_version=1, category="cryptocurrency", endpoint="map"
@@ -72,7 +76,7 @@ async def get_asset_coinmarketcap_mapping(request: django.core.handlers.wsgi.WSG
 
 
 async def get_crypto_meta_data(request: django.core.handlers.wsgi.WSGIRequest):
-    crypto_coinmarketcap_id = request.GET.get('crypto_coinmarketcap_id')
+    crypto_coinmarketcap_id = request.GET.get("crypto_coinmarketcap_id")
     return django.http.JsonResponse(
         coinmarketcap.get_endpoint(
             api_version=2,
@@ -84,13 +88,13 @@ async def get_crypto_meta_data(request: django.core.handlers.wsgi.WSGIRequest):
 
 
 async def get_exchange_markets(request: django.core.handlers.wsgi.WSGIRequest):
-    exchange = request.GET.get('exchange')
+    exchange = request.GET.get("exchange")
     exchange = get_exchange_object(exchange, async_mode=False)
     return django.http.JsonResponse(exchange.load_markets(), safe=False)
 
 
 async def get_news(request: django.core.handlers.wsgi.WSGIRequest):
-    pair = request.GET.get('search_term')
+    pair = request.GET.get("search_term")
     googlenews = GoogleNews()
     googlenews.get_news(pair)
     data = googlenews.results()
@@ -103,8 +107,8 @@ async def get_news(request: django.core.handlers.wsgi.WSGIRequest):
 
 
 def get_public_trades(request: django.core.handlers.wsgi.WSGIRequest):
-    exchange = request.GET.get('exchange')
-    pair = request.GET.get('pair')
+    exchange = request.GET.get("exchange")
+    pair = request.GET.get("pair")
     exchange = get_exchange_object(exchange, async_mode=False)
     try:
         data = exchange.fetch_trades(symbol=pair, limit=1000)
@@ -115,7 +119,7 @@ def get_public_trades(request: django.core.handlers.wsgi.WSGIRequest):
 
 @csrf_exempt
 async def post_new_order(request: django.core.handlers.wsgi.WSGIRequest):
-    data = json.loads(request.body.decode('utf-8'))
+    data = json.loads(request.body.decode("utf-8"))
     new_order = Orders(
         order_dim_key=str(uuid.uuid4()),
         user_id=data.get("user_id"),
@@ -141,7 +145,7 @@ async def post_new_order(request: django.core.handlers.wsgi.WSGIRequest):
 
 @csrf_exempt
 async def cancel_order(request: django.core.handlers.wsgi.WSGIRequest):
-    data = json.loads(request.body.decode('utf-8'))
+    data = json.loads(request.body.decode("utf-8"))
     order_dim_key = data.get("order_dim_key")
     order = Orders.objects.filter(order_dim_key=order_dim_key)
     await sync_to_async(order.update)(expiration_tmstmp=dt.now())

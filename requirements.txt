@@ -26,5 +26,5 @@ psycopg2==2.9.9
 # ./configure --prefix=/usr
 # make
 # sudo make install
-TA-Lib==0.4.28
+# TA-Lib==0.4.28
 pandas-ta==0.3.14b

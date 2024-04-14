@@ -103,7 +103,7 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
       Object.keys(cryptoInfo).length !== 0 &&
       data.tradingData.cryptoMetaData.length !== 0
     ) {
-      setCryptoMetaData(data.tradingData.cryptoMetaData.data[cryptoInfo.id])
+      setCryptoMetaData(data.tradingData.cryptoMetaData[0])
     }
   }, [
     pair,
