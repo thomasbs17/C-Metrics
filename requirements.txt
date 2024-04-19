@@ -6,7 +6,7 @@ django-cors-headers==4.3.1
 ccxt==4.2.91
 GoogleNews==1.6.14
 cryptofeed==2.4.0
-pandas==2.2.1
+pandas==2.2.2
 redis==5.0.3
 msgpack==1.0.8
 websockets==12.0
