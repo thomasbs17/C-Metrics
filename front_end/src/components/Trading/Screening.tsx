@@ -10,10 +10,10 @@ import {
 } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
+import { useDispatch } from 'react-redux'
 import '../../css/charts.css'
 import { tradingDataDef } from '../DataManagement'
-import { FilterState, filterSlice } from '../StateManagement'
+import { filterSlice } from '../StateManagement'
 
 function Screening(data: { tradingData: tradingDataDef }) {
   const gridRef = useRef<AgGridReact>(null)
@@ -28,33 +28,47 @@ function Screening(data: { tradingData: tradingDataDef }) {
 
   const [columnDefs] = useState<ColDef[]>([
     { field: 'pair' },
-    { field: 'close' },
+    { field: 'close', hide: true },
     {
       field: '24h_change',
+      headerTooltip: 'Today price change',
       valueFormatter: (params) => defaultValueFormat(params),
       cellStyle: (params) => {
         return { color: params.value < 0 ? 'red' : 'green' }
       },
     },
-    { field: 'next_support' },
-    { field: 'next_resistance' },
+    { field: 'next_support', headerTooltip: 'Next support' },
+    { field: 'next_resistance', headerTooltip: 'Next resistance' },
     {
-      field: 'support_dist',
+      field: 'distance_to_support',
+      type: 'number',
+      headerTooltip: '% distance to next support',
+      filter: 'agNumberColumnFilter',
       valueFormatter: (params) => defaultValueFormat(params),
       cellStyle: (params) => {
         return { color: params.value < 0 ? 'red' : 'green' }
       },
     },
-    { field: 'rsi' },
+    {
+      field: 'rsi',
+      headerTooltip: 'RSI',
+      type: 'number',
+      filter: 'agNumberColumnFilter',
+    },
     {
       field: 'bbl',
+      headerTooltip: '% distance to lower Bollinger Band',
       valueFormatter: (params) => defaultValueFormat(params),
       cellStyle: (params) => {
         return { color: params.value < 0 ? 'red' : 'green' }
       },
     },
     {
-      field: 'technicals_score',
+      field: 'score',
+      headerTooltip: 'Score',
+      type: 'number',
+      hide: true,
+      filter: 'agNumberColumnFilter',
       valueFormatter: (params) => defaultValueFormat(params),
       cellStyle: (params) => {
         return { color: params.value < 0 ? 'red' : 'green' }
@@ -62,6 +76,7 @@ function Screening(data: { tradingData: tradingDataDef }) {
     },
     {
       field: 'book_imbalance',
+      headerTooltip: 'Book Imbalance',
       type: 'number',
       filter: 'agNumberColumnFilter',
       valueFormatter: (params) => defaultValueFormat(params),
@@ -71,13 +86,35 @@ function Screening(data: { tradingData: tradingDataDef }) {
     },
     {
       field: 'spread',
+      headerTooltip: 'Spread',
       valueFormatter: (params) => defaultValueFormat(params),
       cellStyle: (params) => {
         return { color: params.value < 0 ? 'red' : 'green' }
       },
     },
     {
-      field: 'potential_gain',
+      field: 'upside',
+      headerTooltip: 'Upside %',
+      type: 'number',
+      filter: 'agNumberColumnFilter',
+      valueFormatter: (params) => defaultValueFormat(params),
+      cellStyle: (params) => {
+        return { color: 'green' }
+      },
+    },
+    {
+      field: 'downisde',
+      headerTooltip: 'Downside %',
+      type: 'number',
+      filter: 'agNumberColumnFilter',
+      valueFormatter: (params) => defaultValueFormat(params),
+      cellStyle: (params) => {
+        return { color: 'red' }
+      },
+    },
+    {
+      field: 'risk_reward_ratio',
+      headerTooltip: 'Risk Reward Ratio',
       type: 'number',
       filter: 'agNumberColumnFilter',
       valueFormatter: (params) => defaultValueFormat(params),
@@ -98,27 +135,13 @@ function Screening(data: { tradingData: tradingDataDef }) {
   }, [])
 
   const dispatch = useDispatch()
-  const selectedPair = useSelector(
-    (state: { filters: FilterState }) => state.filters.pair,
-  )
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (gridApi) {
-        gridApi.setGridOption('rowData', data.tradingData.screeningData)
-      }
-    }, 2000)
+    if (gridApi) {
+      gridApi.setGridOption('rowData', data.tradingData.screeningData)
+    }
     setDefaultGridSettings()
-    return () => {
-      clearInterval(interval)
-    }
   }, [gridApi, data.tradingData.screeningData])
-
-  const getRowClass = (params: any) => {
-    if (params.data.pair === selectedPair) {
-      return 'ag-selected-row'
-    }
-  }
 
   function setDefaultGridSettings() {
     if (gridApi) {
@@ -126,12 +149,28 @@ function Screening(data: { tradingData: tradingDataDef }) {
         book_imbalance: {
           type: 'notBlank',
         },
-        potential_gain: {
+        rsi: {
+          type: 'lessThan',
+          filter: 40,
+        },
+        upside: {
           type: 'greaterThan',
           filter: 0.1,
         },
+        risk_reward_ratio: {
+          type: 'greaterThan',
+          filter: 0,
+        },
+        score: {
+          type: 'greaterThan',
+          filter: 0,
+        },
       }
       gridApi.setFilterModel(filters)
+      gridApi.applyColumnState({
+        state: [{ colId: 'score', sort: 'desc' }],
+        defaultState: { sort: null },
+      })
     }
   }
 
@@ -177,7 +216,6 @@ function Screening(data: { tradingData: tradingDataDef }) {
             onRowClicked={(r) => handleClick(r)}
             onGridReady={onGridReady}
             rowSelection={'single'}
-            getRowClass={getRowClass}
             suppressCopyRowsToClipboard={true}
           />
         </div>

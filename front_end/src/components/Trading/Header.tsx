@@ -4,23 +4,17 @@ import {
   Box,
   Button,
   ButtonGroup,
-  Chip,
   CircularProgress,
   FormControl,
   InputLabel,
-  Link,
-  Menu,
   MenuItem,
   Modal,
-  OutlinedInput,
   Select,
   SelectChangeEvent,
   Skeleton,
   TextField,
-  Theme,
   Tooltip,
   Typography,
-  useTheme,
 } from '@mui/material'
 import {
   ColDef,
@@ -29,7 +23,14 @@ import {
   RowClickedEvent,
 } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, {
+  SyntheticEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { Col, Container, Row } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router'
@@ -41,7 +42,7 @@ import { FilterState, filterSlice } from '../StateManagement'
 import { GreedAndFear } from './Charts/Greed&Fear'
 interface FilterProps {
   data: string[]
-  handleClose?: any
+  callback?: any
 }
 
 function TradingTypeFilter() {
@@ -146,16 +147,18 @@ function ExchangeFilter(props: FilterProps) {
     }
   }
   return (
-    <Autocomplete
-      clearIcon={false}
-      options={props.data}
-      sx={{ marginTop: 3, padding: 1, width: '100%' }}
-      value={selectedValue !== '' ? selectedValue : stateValue}
-      onChange={handleSelect}
-      renderInput={(params) => (
-        <TextField {...params} label={`Exchange (${props.data.length})`} />
-      )}
-    />
+    <div style={{ width: 500 }}>
+      <Autocomplete
+        clearIcon={false}
+        options={props.data}
+        sx={{ marginTop: 3, padding: 1, width: '100%' }}
+        value={selectedValue !== '' ? selectedValue : stateValue}
+        onChange={handleSelect}
+        renderInput={(params) => (
+          <TextField {...params} label={`Exchange (${props.data.length})`} />
+        )}
+      />
+    </div>
   )
 }
 
@@ -171,22 +174,6 @@ function PairFilter(props: FilterProps) {
   )
 
   const [selectedValue, setSelectedValue] = useState(pair)
-  const handleSelectPair = (
-    event: React.ChangeEvent<{}>,
-    value: string | null,
-  ) => {
-    if (value !== null && value !== undefined) {
-      setSelectedValue(value)
-      dispatch(filterSlice.actions.setPair(value))
-      dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
-      navigate(`/trading?exchange=${exchange}&pair=${value}`)
-      props.handleClose()
-    }
-  }
-  useEffect(() => {
-    setSelectedValue(pair)
-    navigate(`/trading?exchange=${exchange}&pair=${pair}`)
-  }, [pair, props.data, navigate, exchange])
 
   useEffect(() => {
     if (!props.data.includes(pair) && props.data.length > 0) {
@@ -196,10 +183,10 @@ function PairFilter(props: FilterProps) {
       dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
       navigate(`/trading?exchange=${exchange}&pair=${props.data[0]}`)
     }
-  }, [dispatch, exchange, navigate, props.data, pair])
+  }, [exchange, props.data, pair])
 
   return (
-    <div>
+    <div style={{ width: 200 }}>
       {props.data.length === 0 ? (
         <Skeleton
           variant="rounded"
@@ -213,7 +200,7 @@ function PairFilter(props: FilterProps) {
           options={props.data}
           sx={{ marginTop: 3, padding: 1 }}
           value={selectedValue !== '' ? selectedValue : pair}
-          onChange={handleSelectPair}
+          onChange={props.callback}
           renderInput={(params) => (
             <TextField {...params} label={`Pair (${props.data.length})`} />
           )}
@@ -232,86 +219,6 @@ function filtersSideAnimation(
     container.style.opacity = '1'
     container.style.transform = 'translateX(0)'
   }
-}
-
-interface MultipleSelectChipProps {
-  label: string
-  options: string[]
-  defaultValue: string[]
-}
-
-function MultipleSelectChip(props: MultipleSelectChipProps) {
-  const theme = useTheme()
-  const [selectedValue, setSelectedValue] = useState<string[]>(
-    props.defaultValue,
-  )
-
-  const ITEM_HEIGHT = 48
-  const ITEM_PADDING_TOP = 8
-  const MenuProps = {
-    PaperProps: {
-      style: {
-        maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
-        width: 250,
-      },
-    },
-  }
-
-  const getStyles = (
-    name: string,
-    personName: readonly string[],
-    theme: Theme,
-  ) => {
-    return {
-      fontWeight: !personName.includes(name)
-        ? theme.typography.fontWeightRegular
-        : theme.typography.fontWeightMedium,
-    }
-  }
-
-  const handleChange = (event: SelectChangeEvent<typeof selectedValue>) => {
-    const {
-      target: { value },
-    } = event
-    setSelectedValue(
-      // On autofill we get a stringified value.
-      typeof value === 'string' ? value.split(',') : value,
-    )
-  }
-
-  return (
-    <div>
-      <FormControl sx={{ marginTop: 3, padding: 1, width: '100%' }}>
-        <InputLabel id={`${props.label}-label`}>{`${props.label}`}</InputLabel>
-        <Select
-          labelId={`${props.label}-label`}
-          id={`${props.label}-multiple-chip`}
-          // multiple
-          value={selectedValue}
-          onChange={handleChange}
-          input={<OutlinedInput id="select-multiple-chip" label="Chip" />}
-          renderValue={(selected) => (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              {selected.map((value) => (
-                <Chip key={value} label={value} />
-              ))}
-            </Box>
-          )}
-          MenuProps={MenuProps}
-        >
-          {props.options.map((name) => (
-            <MenuItem
-              key={name}
-              value={name}
-              style={getStyles(name, selectedValue, theme)}
-            >
-              {name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-    </div>
-  )
 }
 
 interface PairSelectionModalProps {
@@ -340,7 +247,15 @@ function PairSelectionModal(props: PairSelectionModalProps) {
     return `${year}/${month}/${day}`
   }
 
-  const handleClick = (event: RowClickedEvent<any, any>) => {
+  const pairDropDownCallback = (event: SyntheticEvent) => {
+    const pair = (event.target as any).innerText
+    dispatch(filterSlice.actions.setPair(pair))
+    dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
+    navigate(`/trading?exchange=${exchange}&pair=${pair}`)
+    props.handleClose()
+  }
+
+  const handleAgGridClick = (event: RowClickedEvent<any, any>) => {
     const pair = event.data.symbol
     dispatch(filterSlice.actions.setPair(pair))
     dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
@@ -424,22 +339,18 @@ function PairSelectionModal(props: PairSelectionModalProps) {
         <Typography id="symbol-selection" variant="h6" component="h2">
           Symbol Selection
         </Typography>
-        <Row>
-          <div
-            style={{
-              display: 'flex',
-              placeContent: 'center',
-              alignItems: 'baseline',
-              flexFlow: 'row-reverse wrap',
-              justifyContent: 'space-evenly',
-              flexWrap: 'nowrap',
-              flexDirection: 'row',
-            }}
-          >
-            <ExchangeFilter data={props.data.exchanges} />
-            {`${rowData.length} pairs`}
-          </div>
-        </Row>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <ExchangeFilter data={props.data.exchanges} />
+          <PairFilter
+            data={Object.keys(props.data.markets)}
+            callback={pairDropDownCallback}
+          />
+        </div>
         <Row>
           <div
             style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
@@ -463,7 +374,7 @@ function PairSelectionModal(props: PairSelectionModalProps) {
                   rowData={rowData}
                   columnDefs={columnDefs}
                   defaultColDef={defaultColDef}
-                  onRowClicked={(r) => handleClick(r)}
+                  onRowClicked={(r) => handleAgGridClick(r)}
                   onGridReady={onGridReady}
                   rowSelection={'single'}
                 />

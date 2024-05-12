@@ -118,7 +118,7 @@ export function CryptoStationOhlcChart(props: OhlcChartProps) {
         title: {
           text: '',
         },
-        top: '90%',
+        top: '80%',
         height: '10%',
         gridLineWidth: 0,
         crosshair: {
@@ -133,6 +133,10 @@ export function CryptoStationOhlcChart(props: OhlcChartProps) {
             },
           },
         },
+      },
+      {
+        top: '90%',
+        height: '10%',
       },
     ],
     title: {
@@ -191,6 +195,26 @@ export function CryptoStationOhlcChart(props: OhlcChartProps) {
         id: 'volume',
         yAxis: 1,
       },
+      {
+        yAxis: 2,
+        type: 'rsi',
+        linkedTo: 'ohlc',
+      },
+      {
+        yAxis: 0,
+        type: 'bb',
+        linkedTo: 'ohlc',
+        color: 'purple',
+      },
+      {
+        yAxis: 0,
+        type: 'vbp',
+        linkedTo: 'ohlc',
+        zoneLines: { enabled: false },
+        params: { ranges: 30 },
+        dataLabels: { enabled: false },
+        opacity: 0.5,
+      },
     ],
     navigation: {
       annotationsOptions: {
@@ -217,19 +241,17 @@ export function CryptoStationOhlcChart(props: OhlcChartProps) {
       }
       chart.series[0].setData(ohlcv)
     }
-  }, [chartOptions, props.data])
+    chart.series.forEach((series: any) => {
+      series.update()
+    })
+  }, [chartOptions, props.pair, props.data.ohlcvData[props.pair]])
 
   useEffect(() => {
     const chart = ohlcvChartRef.current!.chart
     if (chart) {
-      const yAxisPlotLinesId = [
-        'selectedOrderPrice',
-        'supportLine',
-        'resistanceLine',
-      ]
-      yAxisPlotLinesId.forEach((id: string) =>
-        chart.series[0].yAxis.removePlotLine(id),
-      )
+      ;(chart.series[0].yAxis as any).plotLinesAndBands.forEach((line: any) => {
+        chart.series[0].yAxis.removePlotLine(line['id'])
+      })
       const xAxisPlotLinesId = ['selectedArticleDate', 'selectedOrderDate']
       xAxisPlotLinesId.forEach((id: string) =>
         chart.series[0].xAxis.removePlotLine(id),
@@ -242,28 +264,34 @@ export function CryptoStationOhlcChart(props: OhlcChartProps) {
         value: parseFloat(props.selectedOrder[1]),
         id: 'selectedOrderPrice',
       })
-      chart.series[0].yAxis.addPlotLine({
-        color: 'red',
-        width: 0.5,
-        label: { text: 'support', style: { color: 'red' } },
-        id: 'supportLine',
-        value:
-          props.pairScoreDetails !== undefined &&
-          Object.keys(props.pairScoreDetails).includes('next_support')
-            ? props.pairScoreDetails.next_support
-            : null,
-      })
-      chart.series[0].yAxis.addPlotLine({
+      chart.series[2].yAxis.addPlotLine({
         color: 'green',
-        width: 0.5,
-        label: { text: 'resistance', style: { color: 'green' } },
-        id: 'resistanceLine',
-        value:
-          props.pairScoreDetails !== undefined &&
-          Object.keys(props.pairScoreDetails).includes('next_resistance')
-            ? props.pairScoreDetails.next_resistance
-            : null,
+        width: 1,
+        dashStyle: 'Dot',
+        value: 70,
+        id: 'rsiUpper',
       })
+      chart.series[2].yAxis.addPlotLine({
+        color: 'red',
+        width: 1,
+        dashStyle: 'Dot',
+        value: 30,
+        id: 'rsiLower',
+      })
+      if (Object.keys(props.pairScoreDetails).length > 0) {
+        ;['supports', 'resistances'].forEach((levelType: string, index) => {
+          props.pairScoreDetails[levelType].forEach(
+            (level: number, levelIndex: number) => {
+              chart.series[0].yAxis.addPlotLine({
+                color: levelType === 'supports' ? 'red' : 'green',
+                width: 0.5 * (1 / (levelIndex + 1)),
+                id: `${levelIndex}-${levelType}`,
+                value: level,
+              })
+            },
+          )
+        })
+      }
       chart.series[0].xAxis.addPlotLine({
         color: 'white',
         width: 0.7,

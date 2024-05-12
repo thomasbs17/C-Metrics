@@ -400,7 +400,6 @@ function LoadLatestPrices(trades: Trade[]) {
     })
   }
 
-
   useEffect(() => {
     const holdings = getHoldingVolumesFromTrades(trades)
     if (!Object.keys(holdings['current']).includes(selectedPair)) {
