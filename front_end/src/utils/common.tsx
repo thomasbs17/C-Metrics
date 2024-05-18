@@ -1,5 +1,6 @@
 import Link from '@mui/material/Link'
 import Typography from '@mui/material/Typography'
+import { tradingDataDef } from '../components/DataManagement'
 
 export function Copyright(props: any) {
   return (
@@ -17,4 +18,21 @@ export function Copyright(props: any) {
       {'.'}
     </Typography>
   )
+}
+
+export function getPairLogo(data: tradingDataDef, pair: string) {
+  let logo = ''
+  if (Object.keys(data.coinMarketCapMapping).includes('data')) {
+    data.coinMarketCapMapping['data'].forEach((pairData: any) => {
+      if (
+        pairData.symbol === pair.slice(0, pair.indexOf('-')) ||
+        pairData.symbol === pair.slice(0, pair.indexOf('/'))
+      ) {
+        if (!logo) {
+          logo = `https://s2.coinmarketcap.com/static/img/coins/64x64/${pairData.id}.png`
+        }
+      }
+    })
+  }
+  return logo
 }

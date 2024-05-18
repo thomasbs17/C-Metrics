@@ -11,18 +11,14 @@ import { useDispatch, useSelector } from 'react-redux'
 import '../../css/charts.css'
 import { Trade, type tradingDataDef } from '../DataManagement'
 import { filterSlice, type FilterState } from '../StateManagement'
+import { renderCellWithImage } from '../../utils/agGrid'
+import { getPairLogo } from '../../utils/common'
 
 interface TableProps {
-  trades: Trade[]
+  data: tradingDataDef
 }
 
-function formatTimeStamp(originalDate: any) {
-  let formattedDate = originalDate.substring(0, 19)
-  formattedDate = formattedDate.replace('T', ' ')
-  return formattedDate
-}
-
-function TradeTable({ trades }: TableProps) {
+function TradeTable({ data }: TableProps) {
   const gridRef = useRef<AgGridReact<Trade[]>>(null)
   const dispatch = useDispatch()
   const filterState = useSelector(
@@ -35,20 +31,20 @@ function TradeTable({ trades }: TableProps) {
 
   const [colDefs, setColDefs] = useState<ColDef<Trade>[]>([])
 
-  async function setDefaultGridSettings() {
-    if (gridRef.current && gridRef.current.api) {
-      gridRef.current.api.applyColumnState({
+  async function setDefaultGridSettings(gridApi: any) {
+    if (gridApi) {
+      gridApi.applyColumnState({
         state: [{ colId: 'execution_tmstmp', sort: 'desc' }],
         defaultState: { sort: null },
       })
-      gridRef
-        .current!.api.setColumnFilterModel('asset_id', {
-          values: [pair],
+      gridApi
+        .setColumnFilterModel('asset_id', {
+          values: [pair, pair.replace('-', '/')],
         })
         .then(() => {
-          gridRef.current!.api.onFilterChanged()
+          gridApi.onFilterChanged()
         })
-      gridRef.current!.api.onFilterChanged()
+      gridApi.onFilterChanged()
     }
   }
 
@@ -56,8 +52,28 @@ function TradeTable({ trades }: TableProps) {
     setColDefs([
       { field: 'execution_tmstmp' },
       { field: 'trading_env', hide: true },
-      { field: 'broker_id' },
-      { field: 'asset_id', filter: 'agSetColumnFilter' },
+      {
+        field: 'broker_id',
+        cellRenderer: (params: { value: string }) => {
+          return renderCellWithImage(
+            params.value,
+            params.value === 'coinbase'
+              ? 'https://seeklogo.com/images/C/coinbase-coin-logo-C86F46D7B8-seeklogo.com.png'
+              : 'https://logos-world.net/wp-content/uploads/2021/02/Kraken-Logo.png',
+          )
+          // TODO: replace above once coinmarketcap api is back
+        },
+      },
+      {
+        field: 'asset_id',
+        filter: 'agSetColumnFilter',
+        cellRenderer: (params: { value: string }) => {
+          return renderCellWithImage(
+            params.value,
+            getPairLogo(data, params.value),
+          )
+        },
+      },
       {
         field: 'trade_side',
         cellRenderer: (params: { value: string }) => {
@@ -74,8 +90,7 @@ function TradeTable({ trades }: TableProps) {
       { field: 'trade_volume' },
       { field: 'trade_price' },
     ])
-    setDefaultGridSettings()
-  }, [trades, pair])
+  }, [data.trades, pair])
 
   const handleClick = (clickedTrade: RowClickedEvent<Trade, any>) => {
     const trade = clickedTrade.data
@@ -101,7 +116,7 @@ function TradeTable({ trades }: TableProps) {
   }
 
   const onGridReady = useCallback((event: GridReadyEvent) => {
-    setDefaultGridSettings()
+    setDefaultGridSettings(event.api)
   }, [])
 
   const defaultColDef = useMemo<ColDef>(() => {
@@ -143,7 +158,7 @@ function TradeTable({ trades }: TableProps) {
     }
   }, [])
 
-  return trades.length === 0 ? (
+  return data.trades.length === 0 ? (
     <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
   ) : (
     <div
@@ -152,7 +167,7 @@ function TradeTable({ trades }: TableProps) {
     >
       <AgGridReact
         ref={gridRef}
-        rowData={trades}
+        rowData={data.trades}
         columnDefs={colDefs}
         defaultColDef={defaultColDef}
         sideBar={sideBar}
@@ -166,7 +181,7 @@ function TradeTable({ trades }: TableProps) {
 }
 
 function Trades(data: { tradingData: tradingDataDef }) {
-  return <TradeTable trades={data.tradingData.trades} />
+  return <TradeTable data={data.tradingData} />
 }
 
 export default Trades

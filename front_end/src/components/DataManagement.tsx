@@ -1,9 +1,12 @@
+import axios from 'axios'
 import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { filterSlice, type FilterState } from './StateManagement'
-import axios from 'axios'
 
 axios.defaults.withCredentials = true
+
+export const HOST = '127.0.0.1'
+export const PORT = 8000
 
 export interface tradingDataDef {
   coinMarketCapMapping: any
@@ -109,16 +112,21 @@ export function retrieveInfoFromCoinMarketCap(
   pair: string,
   coinMarketCapMapping: any,
 ): any {
-  const base = pair.slice(0, pair.search('/'))
+  const separator = pair.includes('-') ? '-' : '/'
+  const base = pair.slice(0, pair.search(separator))
   let assetInfo: any[] = []
-  if (Object.keys(coinMarketCapMapping).length > 0) {
-    coinMarketCapMapping.data.forEach((element: any) => {
+  if (Object.keys(coinMarketCapMapping).includes('data')) {
+    coinMarketCapMapping['data'].forEach((element: any) => {
       if (element.symbol === base) {
         assetInfo.push(element)
       }
     })
   }
-  return assetInfo[0]
+  const newData = assetInfo[0]
+  if (newData) {
+    newData.logo = `https://s2.coinmarketcap.com/static/img/coins/64x64/${newData.id}.png`
+  }
+  return newData
 }
 
 function LoadStaticData(endpoint: string) {
@@ -126,7 +134,7 @@ function LoadStaticData(endpoint: string) {
   useEffect(() => {
     async function getData() {
       try {
-        const url = `http://127.0.0.1:8000/${endpoint}/`
+        const url = `http://${HOST}:${PORT}/${endpoint}/`
         const response = await fetch(url)
         const responseData = await response.json()
         setData(responseData)
@@ -151,7 +159,7 @@ function LoadCryptoMetaData(coinMarketCapMapping: any) {
   useEffect(() => {
     async function getData() {
       try {
-        const url = `http://127.0.0.1:8000/coinmarketcap_crypto_meta/?crypto_coinmarketcap_id=${coinMarketCapInfo.id}`
+        const url = `http://${HOST}:${PORT}/coinmarketcap_crypto_meta/?crypto_coinmarketcap_id=${coinMarketCapInfo.id}`
         const response = await fetch(url)
         const responseData = await response.json()
         setMetaData(responseData)
@@ -173,7 +181,7 @@ function LoadMarkets() {
     async function getMarkets() {
       try {
         setData([])
-        const url = `http://127.0.0.1:8000/markets/?exchange=${exchange}`
+        const url = `http://${HOST}:${PORT}/markets/?exchange=${exchange}`
         const response = await fetch(url)
         const responseData = await response.json()
         setData(responseData)
@@ -199,7 +207,7 @@ function LoadOrders() {
   )
   useEffect(() => {
     async function fetchOrders() {
-      const ordersEndPoint = 'http://127.0.0.1:8000/orders/?format=json'
+      const ordersEndPoint = `http://${HOST}:${PORT}/orders/?format=json`
       try {
         const response = await fetch(ordersEndPoint)
         setOrders(await response.json())
@@ -218,7 +226,7 @@ function LoadTrades() {
 
   useEffect(() => {
     async function fetchTrades() {
-      const ordersEndPoint = 'http://127.0.0.1:8000/trades/?format=json'
+      const ordersEndPoint = `http://${HOST}:${PORT}/trades/?format=json`
       try {
         const response = await fetch(ordersEndPoint)
         setTrades(await response.json())
@@ -247,7 +255,7 @@ function LoadNews(coinMarketCapMapping: any) {
         if (cryptoInfo !== undefined) {
           const searchTerm = `${cryptoInfo.name} crypto`
           const response = await fetch(
-            `http://127.0.0.1:8000/news/?search_term=${searchTerm}`,
+            `http://${HOST}:${PORT}/news/?search_term=${searchTerm}`,
           )
           const data = await response.json()
           setNewsData(data)
@@ -299,7 +307,7 @@ function LoadScreeningData() {
         }
       })
     }
-  }, [selectedPair, screeningData])
+  }, [selectedPair, JSON.stringify(screeningData)])
 
   return screeningData
 }
@@ -343,7 +351,7 @@ function LoadOhlcvData() {
       }
       try {
         const ohlc_response = await fetch(
-          `http://127.0.0.1:8000/ohlc/?exchange=${exchange}&pair=${pair}&timeframe=${ohlcPeriod}`,
+          `http://${HOST}:${PORT}/ohlc/?exchange=${exchange}&pair=${pair}&timeframe=${ohlcPeriod}`,
         )
         const newOhlcData = await ohlc_response.json()
         ohlcData[pair] = newOhlcData
@@ -382,7 +390,7 @@ function LoadLatestPrices(trades: Trade[]) {
     if (pair !== undefined) {
       try {
         const response = await fetch(
-          `http://127.0.0.1:8000/public_trades/?exchange=coinbase&pair=${pair}`,
+          `http://${HOST}:${PORT}/public_trades/?exchange=coinbase&pair=${pair}`,
         )
         const latestPublicTrades = await response.json()
         const latestPrice =
@@ -531,7 +539,7 @@ export function GetTradingData() {
   const screeningData = LoadScreeningData()
   const noDataAnimation = LoadNoDataAnimation()
   const ohlcvData = LoadOhlcvData()
-  const latestPrices = LoadLatestPrices(trades)
+  const latestPrices = {} //LoadLatestPrices(trades)
   const orderBookData = LoadOrderBook()
   const greedAndFearData = LoadGreedAndFear()
 

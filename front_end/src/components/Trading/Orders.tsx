@@ -34,11 +34,13 @@ import axios from 'axios'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import '../../css/charts.css'
-import { type Order, type tradingDataDef } from '../DataManagement'
+import { renderCellWithImage } from '../../utils/agGrid'
+import { getPairLogo } from '../../utils/common'
+import { HOST, PORT, type Order, type tradingDataDef } from '../DataManagement'
 import { filterSlice, type FilterState } from '../StateManagement'
 
 interface TableProps {
-  orders: Order[]
+  data: tradingDataDef
 }
 
 const StyledMenu = styled((props: MenuProps) => (
@@ -209,7 +211,7 @@ function LinearProgressWithLabel(props: CustomCellRendererProps) {
   )
 }
 
-function OrderTable({ orders }: TableProps) {
+function OrderTable({ data }: TableProps) {
   const gridRef = useRef<AgGridReact<Order[]>>(null)
   const dispatch = useDispatch()
   const filterState = useSelector(
@@ -298,7 +300,7 @@ function OrderTable({ orders }: TableProps) {
       })
       gridRef
         .current!.api.setColumnFilterModel('asset_id', {
-          values: [pair],
+          values: [pair, pair.replace('-', '/'), pair.replace('/', '-')],
         })
         .then(() => {
           gridRef
@@ -314,8 +316,29 @@ function OrderTable({ orders }: TableProps) {
     setColDefs([
       { field: 'order_creation_tmstmp', headerName: 'Created on' },
       { field: 'trading_env', hide: true, headerName: 'Environment' },
-      { field: 'broker_id', headerName: 'Broker' },
-      { field: 'asset_id', headerName: 'Pair' },
+      {
+        field: 'broker_id',
+        headerName: 'Broker',
+        cellRenderer: (params: { value: string }) => {
+          return renderCellWithImage(
+            params.value,
+            params.value === 'coinbase'
+              ? 'https://seeklogo.com/images/C/coinbase-coin-logo-C86F46D7B8-seeklogo.com.png'
+              : 'https://logos-world.net/wp-content/uploads/2021/02/Kraken-Logo.png',
+          )
+          // TODO: replace above once coinmarketcap api is back
+        },
+      },
+      {
+        field: 'asset_id',
+        headerName: 'Pair',
+        cellRenderer: (params: { value: string }) => {
+          return renderCellWithImage(
+            params.value,
+            getPairLogo(data, params.value),
+          )
+        },
+      },
       {
         field: 'order_side',
         headerName: 'Side',
@@ -355,7 +378,7 @@ function OrderTable({ orders }: TableProps) {
       },
     ])
     setDefaultGridSettings()
-  }, [orders, pair, filterState.selectedOrder])
+  }, [data.orders, pair, filterState.selectedOrder, data.coinMarketCapMapping])
 
   const displayChartForSelectedOrder = (order: Order) => {
     if (order) {
@@ -378,7 +401,7 @@ function OrderTable({ orders }: TableProps) {
   }
 
   async function cancelOrder(orderDimKey: string) {
-    const endpoint = 'http://127.0.0.1:8000/cancel_order/'
+    const endpoint = `http://${HOST}:${PORT}/cancel_order/`
     const payload = { order_dim_key: orderDimKey }
     await axios.post(endpoint, JSON.stringify(payload), {
       headers: {
@@ -406,7 +429,7 @@ function OrderTable({ orders }: TableProps) {
 
   return (
     <div>
-      {orders.length === 0 ? (
+      {data.orders.length === 0 ? (
         <CircularProgress style={{ marginLeft: '50%', marginTop: '10%' }} />
       ) : (
         <div
@@ -419,7 +442,7 @@ function OrderTable({ orders }: TableProps) {
         >
           <AgGridReact
             ref={gridRef}
-            rowData={orders}
+            rowData={data.orders}
             columnDefs={colDefs}
             defaultColDef={defaultColDef}
             context={{
@@ -452,7 +475,7 @@ function OrderTable({ orders }: TableProps) {
 }
 
 function Orders(data: { tradingData: tradingDataDef }) {
-  return <OrderTable orders={data.tradingData.orders} />
+  return <OrderTable data={data.tradingData} />
 }
 
 export default Orders

@@ -6,6 +6,7 @@ import Highcharts from 'highcharts/highstock'
 import IndicatorsAll from 'highcharts/indicators/indicators-all'
 import Indicators from 'highcharts/indicators/indicators-all.js'
 import VDP from 'highcharts/indicators/volume-by-price'
+import HighchartsAccessibility from 'highcharts/modules/accessibility'
 import AnnotationsAdvanced from 'highcharts/modules/annotations-advanced.js'
 import HighchartsBoost from 'highcharts/modules/boost'
 import FullScreen from 'highcharts/modules/full-screen.js'
@@ -21,6 +22,7 @@ import { FilterState } from '../../StateManagement'
 import { OhlcPeriodsFilter } from '../Header'
 import { CHART_HEIGHT } from './common'
 
+HighchartsAccessibility(Highcharts)
 IndicatorsAll(Highcharts)
 HighchartsBoost(Highcharts)
 StockTools(Highcharts)
@@ -347,20 +349,39 @@ export function CryptoStationOhlcChart(props: OhlcChartProps) {
 
 export function TradingViewWidget(props: TradingViewProps) {
   const container = useRef()
+  const [firstRender, setFirstRender] = useState<boolean>(true)
+
+  useEffect(() => {
+    setFirstRender(false)
+  }, [])
 
   useEffect(() => {
     const currentContainer = container.current as any
-
     const htmlChildren = Array.from(currentContainer!.children || [])
+
+    function clearUp() {
+      if (htmlChildren && !firstRender) {
+        htmlChildren.forEach((child: any) => {
+          try {
+            currentContainer.removeChild(child)
+          } catch {}
+        })
+      }
+    }
+
     const script = document.createElement('script')
     script.src =
       'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
     script.type = 'text/javascript'
     script.async = true
+    const formattedPair = props.pair
+      .replace('-', '')
+      .replace('/', '')
+      .toUpperCase()
     script.innerHTML = `
         {
           "autosize": true,
-          "symbol": "${props.exchange.toUpperCase()}:${props.pair.replace('/', '').toUpperCase()}",
+          "symbol": "${props.exchange.toUpperCase()}:${formattedPair}",
           "interval": "D",
           "timezone": "Etc/UTC",
           "theme": "dark",
@@ -372,8 +393,8 @@ export function TradingViewWidget(props: TradingViewProps) {
           "save_image": false,
           "calendar": false,
           "studies": [
-            "STD;MACD",
-            "STD;Stochastic_RSI"
+            "STD;Bollinger_Bands",
+            "STD;Willams_R"
           ],
           "show_popup_button": true,
           "popup_width": "1000",
@@ -381,20 +402,27 @@ export function TradingViewWidget(props: TradingViewProps) {
           "support_host": "https://www.tradingview.com"
         }`
     if (currentContainer && htmlChildren) {
+      clearUp()
       currentContainer.appendChild(script)
+    }
+    return () => {
+      clearUp()
     }
   }, [props.pair, props.exchange])
 
   return (
-    <div
-      className="tradingview-widget-container"
-      ref={container! as any}
-      style={{ height: '100%', width: '100%' }}
-    >
+    <div style={{ height: '550px' }}>
       <div
-        className="tradingview-widget-container__widget"
-        style={{ height: 'calc(100% - 32px)', width: '100%' }}
-      ></div>
+        className="tradingview-widget-container"
+        ref={container! as any}
+        key="tradingViewContainer"
+        style={{ height: '100%', width: '100%' }}
+      >
+        <div
+          className="tradingview-widget-container__widget"
+          style={{ height: 'calc(100% - 32px)', width: '100%' }}
+        ></div>
+      </div>
     </div>
   )
 }
@@ -441,7 +469,7 @@ export function OhlcvChart(props: OhlcChartProps) {
             variant={chartType === 'crypto-station' ? 'contained' : 'text'}
             onClick={() => setChartType('crypto-station')}
           >
-            Crypto Station
+            C-Metrics
           </Button>
           <Button
             sx={{ fontSize: 10 }}

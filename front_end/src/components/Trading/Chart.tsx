@@ -141,7 +141,8 @@ export function TradingChart(data: { tradingData: tradingDataDef }) {
             />
           </Col>
           <Col sm={2} style={{ zIndex: 2 }}>
-            {Object.keys(data.tradingData.orderBookData).includes('bid') &&
+            {data.tradingData.orderBookData &&
+              Object.keys(data.tradingData.orderBookData).includes('bid') &&
               data.tradingData.orderBookData.bid.length !== 0 && (
                 <OrderBookChart
                   data={data.tradingData.orderBookData}

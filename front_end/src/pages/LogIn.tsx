@@ -15,6 +15,7 @@ import { Copyright } from '../utils/common'
 import axios from 'axios'
 import { Alert, Snackbar } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
+import { HOST, PORT } from '../components/DataManagement'
 
 axios.defaults.withCredentials = true
 
@@ -25,7 +26,7 @@ export default function SignIn() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const data = new FormData(event.currentTarget)
-    const endpoint = 'http://127.0.0.1:8000/log_in/'
+    const endpoint = `http://${HOST}:${PORT}/log_in/`
     try {
       await axios.post(endpoint, data)
       navigate(`/trading?exchange=coinbase&pair=BTC/USD`)

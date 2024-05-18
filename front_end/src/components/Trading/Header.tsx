@@ -23,14 +23,7 @@ import {
   RowClickedEvent,
 } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
-import React, {
-  SyntheticEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Container, Row } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router'
@@ -413,7 +406,7 @@ export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
   }, [
     filterState.pair,
     filterState.exchange,
-    data.tradingData.coinMarketCapMapping,
+    JSON.stringify(data.tradingData.coinMarketCapMapping),
   ])
   useEffect(() => {
     if (cryptoInfo) {
@@ -428,15 +421,15 @@ export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
         Object.keys(cryptoInfo).length > 0 &&
         data.tradingData.cryptoMetaData.length !== 0
       ) {
-        setCryptoMetaData(data.tradingData.cryptoMetaData.data[cryptoInfo.id])
+        if (Object.keys(data.tradingData.cryptoMetaData).includes('data')) {
+          let newData = data.tradingData.cryptoMetaData['data']
+          const pairId = Object.keys(newData)[0]
+          newData.logo = `https://s2.coinmarketcap.com/static/img/coins/64x64/${pairId}.png`
+          setCryptoMetaData(newData)
+        }
       }
     }
-  }, [
-    filterState.pair,
-    filterState.exchange,
-    cryptoInfo,
-    data.tradingData.cryptoMetaData.data,
-  ])
+  }, [cryptoInfo])
 
   return (
     <div>
@@ -464,7 +457,7 @@ export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
             cryptoMetaData === undefined ? (
               <CircularProgress />
             ) : (
-              <Avatar src={cryptoMetaData?.logo} />
+              <Avatar src={cryptoInfo?.logo} />
             )
           }
         >

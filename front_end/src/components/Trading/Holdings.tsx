@@ -10,6 +10,8 @@ import {
   tradingDataDef,
 } from '../DataManagement'
 import { FilterState, filterSlice } from '../StateManagement'
+import { renderCellWithImage } from '../../utils/agGrid'
+import { getPairLogo } from '../../utils/common'
 
 type FormattedHoldings = {
   pair: string
@@ -27,12 +29,17 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
   const [gridData] = useState<FormattedHoldings[]>(getFormattedHoldings)
   const gridStyle = useMemo(() => ({ width: '100%', height: '210px' }), [])
   const dispatch = useDispatch()
-  const selectedPair = useSelector(
-    (state: { filters: FilterState }) => state.filters.pair,
-  )
 
   const [columnDefs] = useState<any>([
-    { field: 'pair' },
+    {
+      field: 'pair',
+      cellRenderer: (params: { value: string }) => {
+        return renderCellWithImage(
+          params.value,
+          getPairLogo(data.tradingData, params.value),
+        )
+      },
+    },
     { field: 'volume', cellRenderer: 'agAnimateShowChangeCellRenderer' },
     { field: 'usdValue', cellRenderer: 'agAnimateShowChangeCellRenderer' },
     { field: 'hasOpenSells' },
@@ -43,11 +50,6 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
       filter: true,
     }
   }, [])
-  const getRowClass = (params: any) => {
-    if (params.data.pair === selectedPair) {
-      return 'ag-selected-row'
-    }
-  }
 
   useEffect(() => {
     const holdings = getHoldingVolumesFromTrades(data.tradingData.trades)
@@ -65,7 +67,6 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
         hasOpenSells: orderHasOpenSells(pair),
       }),
     )
-    console.log(updatedFormattedHoldings)
     updatedFormattedHoldings = updatedFormattedHoldings.sort((a, b) =>
       typeof a.usdValue === 'string' || typeof b.usdValue === 'string'
         ? 0
@@ -81,14 +82,14 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
       gridRef.current.api.refreshCells({ suppressFlash: false })
       gridRef.current.api.flashCells()
     }
-  }, [JSON.stringify(data.tradingData.latestPrices), currentHoldings])
+  }, [currentHoldings])
 
   const handleClick = (row: any) => {
     dispatch(filterSlice.actions.setPair(row.data?.pair))
   }
 
   function getUSDValue(pair: string, volume: number) {
-    const lastPrice = data.tradingData.latestPrices[pair]
+    const lastPrice = data.tradingData.latestPrices![pair]
     if (lastPrice === undefined || lastPrice === null) {
       return 'N/A'
     } else {
@@ -127,9 +128,7 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
         defaultColDef={defaultColDef}
         onRowClicked={(r) => handleClick(r)}
         rowSelection={'single'}
-        getRowClass={getRowClass}
         animateRows={true}
-        enableCellChangeFlash={true}
       />
     </div>
   )

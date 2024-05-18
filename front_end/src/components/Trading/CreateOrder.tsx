@@ -12,6 +12,7 @@ import axios from 'axios'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Col, Container, Row, Stack } from 'react-bootstrap'
 import { useDispatch, useSelector } from 'react-redux'
+import { HOST, PORT } from '../DataManagement'
 import { filterSlice, type FilterState } from '../StateManagement'
 
 interface OrderTypeSideProps {
@@ -95,7 +96,7 @@ function OrderDetails() {
 
   function SubmitOrder() {
     seIsLoading(true)
-    const endpoint = 'http://127.0.0.1:8000/new_order/'
+    const endpoint = `http://${HOST}:${PORT}/new_order/`
 
     const orderData = {
       user_id: 'thomasbouamoud',
