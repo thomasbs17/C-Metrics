@@ -10,7 +10,7 @@ import ccxt.async_support as ccxt
 import pandas as pd
 import pandas_ta as ta
 import websockets
-from indicators.technicals import FractalCandlestickPattern
+from indicators import technicals
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
@@ -45,7 +45,7 @@ class ExchangeScreener:
             tasks += [self.get_pair_ohlcv(pair), self.get_pair_book(pair)]
         await asyncio.gather(*tasks)
 
-    async def add_technical_indicators(self, pair: str):
+    async def add_technical_indicators(self, pair: str) -> bool:
         if self.verbose:
             LOG.info(f"Computing technical indicators for {pair}")
         self.data[pair]["ohlcv"].ta.cores = 0
@@ -53,18 +53,17 @@ class ExchangeScreener:
             name="Momo and Volatility",
             description="SMA 50,200, BBANDS, RSI, MACD and Volume SMA 20",
             ta=[
-                {"kind": "sma", "length": 50},
-                {"kind": "sma", "length": 200},
                 {"kind": "bbands", "length": 20},
                 {"kind": "rsi"},
                 {"kind": "macd", "fast": 8, "slow": 21},
-                {"kind": "sma", "close": "volume", "length": 20, "prefix": "VOLUME"},
             ],
         )
         try:
             self.data[pair]["ohlcv"].ta.strategy(CustomStrategy)
+            return True
         except Exception as e:
             LOG.warning(f"Could not compute all indicators for {pair}:\n \n {e}")
+            return False
 
     async def get_pair_book(self, pair: str):
         if pair not in self.data:
@@ -173,95 +172,119 @@ class ExchangeScreener:
     def technical_indicators_scoring(
         self, scoring: dict, pair: str, is_scorable: bool
     ) -> tuple[dict, bool]:
-        scoring["close"] = self.data[pair]["ohlcv"]["close"].iloc[-1]
-        scoring["24h_change"] = (
-            self.data[pair]["ohlcv"]["close"].iloc[-1]
-            / self.data[pair]["ohlcv"]["open"].iloc[-1]
-            - 1
-        )
-        try:
-            scoring["rsi"] = (
-                int(self.data[pair]["ohlcv"]["RSI_14"].iloc[-1])
-                if "RSI_14" in self.data[pair]["ohlcv"].columns
-                else None
-            )
-        except ValueError:
+        ohlcv = self.data[pair]["ohlcv"]
+        if not ohlcv.empty:
+            scoring["close"] = ohlcv["close"].iloc[-1]
+            scoring["24h_change"] = scoring["close"] / ohlcv["open"].iloc[-1] - 1
+        else:
+            scoring["close"] = None
+            scoring["24h_change"] = None
+            is_scorable = False
+        if "RSI_14" in ohlcv.columns and is_scorable:
+            scoring["rsi"] = int(ohlcv["RSI_14"].iloc[-1])
+        else:
             is_scorable = False
             scoring["rsi"] = None
-        try:
-            scoring["bbl"] = (
-                (scoring["close"] / self.data[pair]["ohlcv"]["BBL_20_2.0"].iloc[-1]) - 1
-                if "BBL_20_2.0" in self.data[pair]["ohlcv"].columns.tolist()
-                else None
-            )
-        except ValueError:
+        if "BBL_20_2.0" in ohlcv.columns.tolist() and is_scorable:
+            scoring["bbl"] = (scoring["close"] / ohlcv["BBL_20_2.0"].iloc[-1]) - 1
+        else:
             is_scorable = False
             scoring["bbl"] = None
         return scoring, is_scorable
 
-    def fractals_based_scoring(
-        self, scoring: dict, pair: str, is_scorable: bool
+    def vbp_based_scoring(
+        self, pair: str, scoring: dict, is_scorable: bool
     ) -> tuple[dict, bool]:
-        levels = FractalCandlestickPattern(self.data[pair]["ohlcv"]).run()
-        supports = [level for level in levels if level < scoring["close"]]
-        resistances = [level for level in levels if level > scoring["close"]]
-        scoring["supports"] = sorted(supports, reverse=True)
-        scoring["resistances"] = sorted(resistances)
-        if len(supports) > 2:
-            scoring["next_support"] = float(max(supports))
-            scoring["downisde"] = (scoring["next_support"] / scoring["supports"][1]) - 1
-            scoring["distance_to_support"] = (
-                scoring["close"] / scoring["next_support"]
-            ) - 1
-        else:
-            is_scorable = False
-            scoring["next_support"] = None
-            scoring["downisde"] = None
-            scoring["distance_to_support"] = None
-        if resistances:
-            scoring["next_resistance"] = float(min(resistances))
-            scoring["distance_to_resistance"] = (
-                scoring["next_resistance"] / scoring["close"]
-            ) - 1
-        else:
-            is_scorable = False
-            scoring["next_resistance"] = None
-            scoring["distance_to_resistance"] = None
-        if len(supports) > 2 and resistances:
+        if is_scorable:
+            ohlcv = self.data[pair]["ohlcv"]
+            ohlcv["usd_volume"] = ohlcv.apply(
+                lambda x: x["volume"] * x["close"], axis=1
+            )
+            scoring["usd_volume"] = ohlcv["usd_volume"].sum()
+            total_volume = ohlcv["volume"].sum()
+            vbp = technicals.get_vbp(ohlcv)
+            fractals = technicals.FractalCandlestickPattern(
+                self.data[pair]["ohlcv"]
+            ).run()
+            fractal_resistances = sorted(
+                [fractal for fractal in fractals if fractal > scoring["close"]]
+            )
+            supports = vbp[vbp["level_type"] == "support"].reset_index(drop=True)
+            resistances = vbp[vbp["level_type"] == "resistance"].reset_index(drop=True)
+            if len(supports) < 2 or resistances.empty or not fractal_resistances:
+                is_scorable = False
+            scoring["next_support"] = supports.loc[0, "close"] if is_scorable else None
+            scoring["support_strength"] = (
+                supports.loc[0, "volume"] / total_volume if is_scorable else None
+            )
+            scoring["next_resistance"] = (
+                min(resistances.loc[0, "close"], fractal_resistances[0])
+                if is_scorable
+                else None
+            )
+            stop_loss_df = (
+                supports[supports["close"] < scoring["next_support"]].reset_index(
+                    drop=True
+                )
+                if is_scorable
+                else pd.DataFrame()
+            )
+            if stop_loss_df.empty:
+                is_scorable = False
+            scoring["stop_loss"] = (
+                stop_loss_df.iloc[0]["close"] if is_scorable else None
+            )
+            scoring["supports"] = (
+                [scoring["next_support"], scoring["stop_loss"]] if is_scorable else None
+            )
+            scoring["resistances"] = (
+                [scoring["next_resistance"]] if is_scorable else None
+            )
             scoring["upside"] = (
-                scoring["next_resistance"] / scoring["next_support"]
-            ) - 1
-            scoring["risk_reward_ratio"] = (scoring["upside"] / scoring["downisde"]) - 1
-        else:
-            is_scorable = False
-            scoring["upside"] = None
-            scoring["risk_reward_ratio"] = None
-        if (
-            is_scorable
-            and scoring["distance_to_resistance"] < scoring["distance_to_support"]
-        ):
-            is_scorable = False
+                scoring["next_resistance"] / scoring["next_support"] - 1
+                if is_scorable
+                else None
+            )
+            scoring["downside"] = (
+                scoring["next_support"] / scoring["stop_loss"] - 1
+                if is_scorable
+                else None
+            )
+            scoring["risk_reward_ratio"] = (
+                scoring["upside"] / scoring["downside"] - 1 if is_scorable else None
+            )
+            scoring["distance_to_support"] = (
+                scoring["close"] / scoring["next_support"] - 1 if is_scorable else None
+            )
+            scoring["distance_to_resistance"] = (
+                scoring["next_resistance"] / scoring["close"] - 1
+                if is_scorable
+                else None
+            )
+            if (
+                is_scorable
+                and scoring["distance_to_resistance"] < scoring["distance_to_support"]
+            ):
+                is_scorable = False
         return scoring, is_scorable
 
     async def score_pair(self, pair: str):
         self.scores = self.scores[self.scores["pair"] != pair]
-        is_scorable = True
         if pair not in self.data:
             self.data[pair] = dict()
         if self.data[pair].get("ohlcv") is not None:
             scoring = dict()
-            await self.add_technical_indicators(pair)
+            is_scorable = await self.add_technical_indicators(pair)
             scoring, is_scorable = self.technical_indicators_scoring(
                 scoring, pair, is_scorable
             )
-            scoring, is_scorable = self.fractals_based_scoring(
-                scoring, pair, is_scorable
-            )
-            book_score_details = self.get_book_scoring(pair, scoring)
-            scoring = {**scoring, **book_score_details}
+            scoring, is_scorable = self.vbp_based_scoring(pair, scoring, is_scorable)
             if is_scorable:
+                book_score_details = self.get_book_scoring(pair, scoring)
+                scoring = {**scoring, **book_score_details}
                 scoring["score"] = (
                     scoring["risk_reward_ratio"]
+                    + scoring["support_strength"]
                     + (1 - (scoring["rsi"] / 100))
                     + (1 - scoring["bbl"])
                     + (1 - scoring["distance_to_support"])
@@ -278,6 +301,11 @@ class ExchangeScreener:
         tasks = [self.score_pair(pair) for pair in pairs_to_screen]
         await asyncio.gather(*tasks)
         if not self.scores.empty:
+            self.scores["score"] = self.scores.apply(
+                lambda x: x["score"]
+                + (x["usd_volume"] / self.scores["usd_volume"].max()),
+                axis=1,
+            )
             self.scores.sort_values(by="score", ascending=False, inplace=True)
 
     def log_scores(self, top_score_amount: int = 10):
