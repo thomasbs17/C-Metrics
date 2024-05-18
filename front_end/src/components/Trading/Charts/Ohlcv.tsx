@@ -199,6 +199,8 @@ export function CryptoStationOhlcChart(props: OhlcChartProps) {
         yAxis: 2,
         type: 'rsi',
         linkedTo: 'ohlc',
+        min: 0,
+        max: 100,
       },
       {
         yAxis: 0,
@@ -278,6 +280,7 @@ export function CryptoStationOhlcChart(props: OhlcChartProps) {
         value: 30,
         id: 'rsiLower',
       })
+      chart.series[2].yAxis.setExtremes(0, 100)
       if (Object.keys(props.pairScoreDetails).length > 0) {
         ;['supports', 'resistances'].forEach((levelType: string, index) => {
           props.pairScoreDetails[levelType].forEach(
@@ -319,8 +322,10 @@ export function CryptoStationOhlcChart(props: OhlcChartProps) {
   function afterSetXExtremes(this: any, e: any) {
     // TODO: find better implementation
     // const data = props.data.ohlcvData[props.pair]
-    // const latestTimestamp = data![data!.length - 1][0]
-    // this.setExtremes(this.min, latestTimestamp)
+    // if (data) {
+    //   const latestTimestamp = data![data!.length - 1][0]
+    //   this.setExtremes(this.min, latestTimestamp)
+    // }
   }
 
   // useEffect(() => {

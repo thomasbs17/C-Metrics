@@ -247,11 +247,13 @@ function PairSelectionModal(props: PairSelectionModalProps) {
     return `${year}/${month}/${day}`
   }
 
-  const pairDropDownCallback = (event: SyntheticEvent) => {
-    const pair = (event.target as any).innerText
-    dispatch(filterSlice.actions.setPair(pair))
+  const pairDropDownCallback = (
+    event: React.ChangeEvent<{}>,
+    value: string | null,
+  ) => {
+    dispatch(filterSlice.actions.setPair(value))
     dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
-    navigate(`/trading?exchange=${exchange}&pair=${pair}`)
+    navigate(`/trading?exchange=${exchange}&pair=${value}`)
     props.handleClose()
   }
 

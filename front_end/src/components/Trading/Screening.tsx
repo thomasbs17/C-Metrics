@@ -1,10 +1,12 @@
 import { Alert, CircularProgress, Stack } from '@mui/material'
 import {
   ColDef,
+  GetContextMenuItemsParams,
   GetRowIdFunc,
   GetRowIdParams,
   GridApi,
   GridReadyEvent,
+  MenuItemDef,
   RowClickedEvent,
   ValueFormatterParams,
 } from 'ag-grid-community'
@@ -103,7 +105,7 @@ function Screening(data: { tradingData: tradingDataDef }) {
       },
     },
     {
-      field: 'downisde',
+      field: 'downside',
       headerTooltip: 'Downside %',
       type: 'number',
       filter: 'agNumberColumnFilter',
@@ -117,7 +119,6 @@ function Screening(data: { tradingData: tradingDataDef }) {
       headerTooltip: 'Risk Reward Ratio',
       type: 'number',
       filter: 'agNumberColumnFilter',
-      valueFormatter: (params) => defaultValueFormat(params),
       cellStyle: (params) => {
         return { color: params.value < 0 ? 'red' : 'green' }
       },
@@ -152,6 +153,10 @@ function Screening(data: { tradingData: tradingDataDef }) {
         rsi: {
           type: 'lessThan',
           filter: 40,
+        },
+        distance_to_support: {
+          type: 'lessThan',
+          filter: 0.1,
         },
         upside: {
           type: 'greaterThan',
@@ -192,6 +197,35 @@ function Screening(data: { tradingData: tradingDataDef }) {
     return (params: GetRowIdParams) => params.data.pair
   }, [])
 
+  function clearAllFilters(event: any) {
+    if (event.api) {
+      setGridApi(event.api)
+      event.api.setFilterModel(null)
+    }
+  }
+
+  const getContextMenuItems = useCallback(
+    (params: GetContextMenuItemsParams): (string | MenuItemDef)[] => {
+      var result: (string | MenuItemDef)[] = [
+        {
+          name: 'Clear Filters',
+          action: (e) => clearAllFilters(e),
+        },
+        {
+          name: 'Set Filters',
+          action: () => setDefaultGridSettings(),
+        },
+        'separator',
+        'copy',
+        'resetColumns',
+        'csvExport',
+        'separator',
+      ]
+      return result
+    },
+    [],
+  )
+
   return data.tradingData.screeningData === false ? (
     <Stack
       direction="row"
@@ -216,6 +250,7 @@ function Screening(data: { tradingData: tradingDataDef }) {
             onRowClicked={(r) => handleClick(r)}
             onGridReady={onGridReady}
             rowSelection={'single'}
+            getContextMenuItems={getContextMenuItems}
             suppressCopyRowsToClipboard={true}
           />
         </div>
