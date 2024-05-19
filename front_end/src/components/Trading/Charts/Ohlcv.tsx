@@ -5,8 +5,7 @@ import HighchartsReact, {
 import Highcharts from 'highcharts/highstock'
 import IndicatorsAll from 'highcharts/indicators/indicators-all'
 import Indicators from 'highcharts/indicators/indicators-all.js'
-import VDP from 'highcharts/indicators/volume-by-price'
-import HighchartsAccessibility from 'highcharts/modules/accessibility'
+import VBP from 'highcharts/indicators/volume-by-price'
 import AnnotationsAdvanced from 'highcharts/modules/annotations-advanced.js'
 import HighchartsBoost from 'highcharts/modules/boost'
 import FullScreen from 'highcharts/modules/full-screen.js'
@@ -22,11 +21,11 @@ import { FilterState } from '../../StateManagement'
 import { OhlcPeriodsFilter } from '../Header'
 import { CHART_HEIGHT } from './common'
 
-HighchartsAccessibility(Highcharts)
+// HighchartsAccessibility(Highcharts)
 IndicatorsAll(Highcharts)
 HighchartsBoost(Highcharts)
 StockTools(Highcharts)
-VDP(Highcharts)
+VBP(Highcharts)
 Indicators(Highcharts)
 AnnotationsAdvanced(Highcharts)
 PriceIndicator(Highcharts)

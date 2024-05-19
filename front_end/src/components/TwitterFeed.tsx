@@ -18,11 +18,7 @@ function TwitterFeed(data: { tradingData: tradingDataDef }) {
       const twitterProfile = metaData[pairId].twitter_username
       setTwitterName(twitterProfile ? twitterProfile : metaData[pairId].name)
     }
-  }, [JSON.stringify(data.tradingData.cryptoMetaData)])
-
-  useEffect(() => {
-    setTwitterName(undefined)
-  }, [pair])
+  }, [pair, JSON.stringify(data.tradingData.cryptoMetaData)])
 
   return (
     <div style={{ height: '210px' }}>

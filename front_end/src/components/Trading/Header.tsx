@@ -447,7 +447,7 @@ export function PairSelectionWidget(data: { tradingData: tradingDataDef }) {
           size="large"
           onClick={handleOpen}
           sx={{
-            width: 350,
+            width: '100%',
             height: 30,
             justifyContent: 'flex-start',
             fontSize: 12,
