@@ -12,6 +12,7 @@ function TwitterFeed(data: { tradingData: tradingDataDef }) {
 
   const [twitterName, setTwitterName] = useState<string | undefined>(undefined)
   useEffect(() => {
+    setTwitterName(undefined)
     if (Object.keys(data.tradingData.cryptoMetaData).includes('data')) {
       const metaData = data.tradingData.cryptoMetaData['data']
       const pairId = Object.keys(metaData)[0]

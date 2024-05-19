@@ -68,8 +68,8 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
     const holdings = getHoldingVolumesFromTrades(data.tradingData.trades)
     let updatedFormattedHoldings: FormattedHoldings[] = []
     Object.keys(holdings.current).forEach((pair: string) => {
-      const usdValue = getUSDValue(pair, holdings.current[pair]);
-      if (typeof(usdValue) === 'number' && usdValue > 1) {
+      const usdValue = getUSDValue(pair, holdings.current[pair])
+      if (typeof usdValue === 'number' && usdValue > 1) {
         updatedFormattedHoldings.push({
           pair: pair,
           volume: holdings.current[pair],
@@ -77,8 +77,7 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
           hasOpenSells: orderHasOpenSells(pair),
         })
       }
-    }
-    )
+    })
     updatedFormattedHoldings = updatedFormattedHoldings.sort((a, b) =>
       typeof a.usdValue === 'string' || typeof b.usdValue === 'string'
         ? 0
@@ -103,7 +102,6 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
         defaultState: { sort: null },
       })
       gridRef.current.api.refreshCells({ suppressFlash: false })
-      gridRef.current.api.flashCells()
     }
   }, [currentHoldings, JSON.stringify(data.tradingData.latestPrices)])
 

@@ -261,11 +261,6 @@ class ExchangeScreener:
                 if is_scorable
                 else None
             )
-            if (
-                is_scorable
-                and scoring["distance_to_resistance"] < scoring["distance_to_support"]
-            ):
-                is_scorable = False
         return scoring, is_scorable
 
     async def score_pair(self, pair: str):

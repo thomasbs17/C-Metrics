@@ -51,6 +51,7 @@ export interface Order {
   fill_pct: number
   order_volume: number
   order_price: number
+  usd_value: number
   order_dim_key: string
 }
 

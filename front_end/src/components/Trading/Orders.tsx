@@ -172,7 +172,7 @@ function OrderStatusChip(props: CustomCellRendererProps) {
     return (
       <Chip label={orderStatus} color="info" variant="outlined" size="small" />
     )
-  } else if (orderStatus == 'executed') {
+  } else if (orderStatus == 'closed') {
     return (
       <Chip
         label={orderStatus}
@@ -181,7 +181,7 @@ function OrderStatusChip(props: CustomCellRendererProps) {
         size="small"
       />
     )
-  } else if (orderStatus == 'cancelled') {
+  } else if (orderStatus == 'canceled') {
     return (
       <Chip
         label={orderStatus}
@@ -254,17 +254,15 @@ function OrderTable({ data }: TableProps) {
     }
   }
 
+  function clearAllFilters(event: any) {
+    if (event.api) {
+      event.api.setFilterModel(null)
+    }
+  }
+
   const getContextMenuItems = useCallback(
     (params: GetContextMenuItemsParams): (string | MenuItemDef)[] => {
       var result: (string | MenuItemDef)[] = [
-        {
-          // custom item
-          name: 'Alert ' + params.value,
-          action: () => {
-            window.alert('Alerting about ' + params.value)
-          },
-          cssClasses: ['red', 'bold'],
-        },
         {
           name: 'Open Orders',
           action: () => applyFilters(''),
@@ -279,6 +277,11 @@ function OrderTable({ data }: TableProps) {
           name: 'Open Sells',
           action: () => applyFilters('openSells'),
           icon: '<img width="20" height="20" src="https://img.icons8.com/ultraviolet/40/sell.png" alt="sell"/>',
+        },
+        {
+          name: 'Remove Filters',
+          action: (e) => clearAllFilters(e),
+          icon: '<img width="20" height="20" src="https://static-00.iconduck.com/assets.00/filter-remove-icon-512x440-0mp279cb.png" alt="remove-filters"/>',
         },
         'separator',
         'copy',
@@ -366,6 +369,7 @@ function OrderTable({ data }: TableProps) {
       },
       { field: 'order_volume', headerName: 'Size' },
       { field: 'order_price', headerName: 'Price' },
+      { field: 'usd_value', headerName: '$ Value' },
       {
         headerName: '',
         field: 'order_id',

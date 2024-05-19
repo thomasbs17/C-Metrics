@@ -210,6 +210,7 @@ function Screening(data: { tradingData: tradingDataDef }) {
         {
           name: 'Clear Filters',
           action: (e) => clearAllFilters(e),
+          icon: '<img width="20" height="20" src="https://static-00.iconduck.com/assets.00/filter-remove-icon-512x440-0mp279cb.png" alt="remove-filters"/>',
         },
         {
           name: 'Set Filters',

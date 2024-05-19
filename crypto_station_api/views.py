@@ -188,6 +188,7 @@ async def get_orders(request: django.core.handlers.wsgi.WSGIRequest):
         order["fill_pct"] = order["filled"] / order["amount"]
         order["order_volume"] = order.pop("amount")
         order["order_price"] = order.pop("price")
+        order["usd_value"] = round(order["order_volume"] * order["order_price"], 0)
         order["order_dim_key"] = order.pop("clientOrderId")
     return django.http.JsonResponse(orders, safe=False)
 
