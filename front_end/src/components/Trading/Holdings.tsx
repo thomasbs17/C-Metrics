@@ -2,16 +2,16 @@ import { CircularProgress } from '@mui/material'
 import { ColDef } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
+import { useDispatch } from 'react-redux'
 import '../../css/tables.css'
+import { renderCellWithImage } from '../../utils/agGrid'
+import { getPairLogo } from '../../utils/common'
 import {
   Order,
   getHoldingVolumesFromTrades,
   tradingDataDef,
 } from '../DataManagement'
-import { FilterState, filterSlice } from '../StateManagement'
-import { renderCellWithImage } from '../../utils/agGrid'
-import { getPairLogo } from '../../utils/common'
+import { filterSlice } from '../StateManagement'
 
 type FormattedHoldings = {
   pair: string
@@ -40,8 +40,16 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
         )
       },
     },
-    { field: 'volume', cellRenderer: 'agAnimateShowChangeCellRenderer' },
-    { field: 'usdValue', cellRenderer: 'agAnimateShowChangeCellRenderer' },
+    {
+      field: 'volume',
+      cellRenderer: 'agAnimateShowChangeCellRenderer',
+    },
+    {
+      field: 'usdValue',
+      type: 'number',
+      filter: 'agNumberColumnFilter',
+      cellRenderer: 'agAnimateShowChangeCellRenderer',
+    },
     { field: 'hasOpenSells' },
   ])
   const defaultColDef = useMemo<ColDef>(() => {
@@ -59,13 +67,17 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
   function getFormattedHoldings() {
     const holdings = getHoldingVolumesFromTrades(data.tradingData.trades)
     let updatedFormattedHoldings: FormattedHoldings[] = []
-    Object.keys(holdings.current).forEach((pair: string) =>
-      updatedFormattedHoldings.push({
-        pair: pair,
-        volume: holdings.current[pair],
-        usdValue: getUSDValue(pair, holdings.current[pair]),
-        hasOpenSells: orderHasOpenSells(pair),
-      }),
+    Object.keys(holdings.current).forEach((pair: string) => {
+      const usdValue = getUSDValue(pair, holdings.current[pair]);
+      if (typeof(usdValue) === 'number' && usdValue > 1) {
+        updatedFormattedHoldings.push({
+          pair: pair,
+          volume: holdings.current[pair],
+          usdValue: usdValue,
+          hasOpenSells: orderHasOpenSells(pair),
+        })
+      }
+    }
     )
     updatedFormattedHoldings = updatedFormattedHoldings.sort((a, b) =>
       typeof a.usdValue === 'string' || typeof b.usdValue === 'string'
@@ -79,21 +91,33 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
     setFormattedHoldings(getFormattedHoldings())
     if (gridRef.current && gridRef.current.api) {
       gridRef.current!.api.setGridOption('rowData', formattedHoldings)
+      const filters = {
+        usdValue: {
+          type: 'greaterThan',
+          filter: 0,
+        },
+      }
+      gridRef.current!.api.setFilterModel(filters)
+      gridRef.current!.api.applyColumnState({
+        state: [{ colId: 'usdValue', sort: 'desc' }],
+        defaultState: { sort: null },
+      })
       gridRef.current.api.refreshCells({ suppressFlash: false })
       gridRef.current.api.flashCells()
     }
-  }, [currentHoldings])
+  }, [currentHoldings, JSON.stringify(data.tradingData.latestPrices)])
 
   const handleClick = (row: any) => {
     dispatch(filterSlice.actions.setPair(row.data?.pair))
   }
 
   function getUSDValue(pair: string, volume: number) {
+    pair = pair.replace('USDC', 'USD')
     const lastPrice = data.tradingData.latestPrices![pair]
     if (lastPrice === undefined || lastPrice === null) {
       return 'N/A'
     } else {
-      return volume * lastPrice
+      return Math.round(volume * lastPrice)
     }
   }
 

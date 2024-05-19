@@ -200,14 +200,16 @@ function LoadOrders() {
   const filterState = useSelector(
     (state: { filters: FilterState }) => state.filters,
   )
-
+  const exchange = useSelector(
+    (state: { filters: FilterState }) => state.filters.exchange,
+  )
   const [pair, ordersNeedReload] = useMemo(
     () => [filterState.pair, filterState.ordersNeedReload],
     [filterState.pair, filterState.ordersNeedReload],
   )
   useEffect(() => {
     async function fetchOrders() {
-      const ordersEndPoint = `http://${HOST}:${PORT}/orders/?format=json`
+      const ordersEndPoint = `http://${HOST}:${PORT}/orders/?exchange=${exchange}`
       try {
         const response = await fetch(ordersEndPoint)
         setOrders(await response.json())
@@ -223,10 +225,13 @@ function LoadOrders() {
 
 function LoadTrades() {
   const [trades, setTrades] = useState<Trade[]>([])
+  const exchange = useSelector(
+    (state: { filters: FilterState }) => state.filters.exchange,
+  )
 
   useEffect(() => {
     async function fetchTrades() {
-      const ordersEndPoint = `http://${HOST}:${PORT}/trades/?format=json`
+      const ordersEndPoint = `http://${HOST}:${PORT}/trades/?exchange=${exchange}`
       try {
         const response = await fetch(ordersEndPoint)
         setTrades(await response.json())
@@ -389,6 +394,7 @@ function LoadLatestPrices(trades: Trade[]) {
   async function fetchLatestPrice(pair: string) {
     if (pair !== undefined) {
       try {
+        pair = pair.replace('USDC', 'USD')
         const response = await fetch(
           `http://${HOST}:${PORT}/public_trades/?exchange=coinbase&pair=${pair}`,
         )
@@ -409,10 +415,26 @@ function LoadLatestPrices(trades: Trade[]) {
   }
 
   useEffect(() => {
+    loadForAllHoldings()
+    const pricesInterval = setInterval(() => {
+      loadForAllHoldings()
+    }, 60000)
+    return () => {
+      clearInterval(pricesInterval)
+    }
+  }, [trades])
+
+  useEffect(() => {
     const holdings = getHoldingVolumesFromTrades(trades)
     if (!Object.keys(holdings['current']).includes(selectedPair)) {
       fetchLatestPrice(selectedPair)
+      const ohlcInterval = setInterval(() => {
+        fetchLatestPrice(selectedPair)
+      }, 60000)
       fetchLatestPrice(selectedPair)
+      return () => {
+        clearInterval(ohlcInterval)
+      }
     }
   }, [])
 
@@ -539,7 +561,7 @@ export function GetTradingData() {
   const screeningData = LoadScreeningData()
   const noDataAnimation = LoadNoDataAnimation()
   const ohlcvData = LoadOhlcvData()
-  const latestPrices = {} //LoadLatestPrices(trades)
+  const latestPrices = LoadLatestPrices(trades)
   const orderBookData = LoadOrderBook()
   const greedAndFearData = LoadGreedAndFear()
 

@@ -14,7 +14,7 @@ export interface FilterState {
 }
 
 const initialState: FilterState = {
-  tradingType: 'Paper Trading',
+  tradingType: 'Live Trading',
   ohlcPeriod: '1d',
   exchange: 'coinbase',
   pair: 'BTC/USD',

@@ -101,7 +101,7 @@ function OrderDetails() {
     const orderData = {
       user_id: 'thomasbouamoud',
       broker_id: exchange,
-      trading_env: 'paper_trading',
+      trading_env: 'live',
       trading_type: 'spot',
       asset_id: pair,
       order_side: selectedOrderSide,

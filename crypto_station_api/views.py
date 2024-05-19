@@ -8,11 +8,9 @@ from asgiref.sync import sync_to_async
 from ccxt.base import errors
 from django.views.decorators.csrf import csrf_exempt
 from GoogleNews import GoogleNews
-from rest_framework import viewsets
 
 from crypto_station_api.data_sources.coinmarketcap import CoinMarketCap
-from crypto_station_api.models import Orders, Trades
-from crypto_station_api.serializers import OrdersSerializer, TradesSerializer
+from crypto_station_api.models import Orders
 from utils.helpers import get_exchange_object
 
 coinmarketcap = CoinMarketCap()
@@ -106,15 +104,16 @@ async def get_news(request: django.core.handlers.wsgi.WSGIRequest):
     return django.http.JsonResponse(data, safe=False)
 
 
-def get_public_trades(request: django.core.handlers.wsgi.WSGIRequest):
+async def get_public_trades(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     pair = request.GET.get("pair")
-    exchange = get_exchange_object(exchange, async_mode=False)
+    exchange = get_exchange_object(exchange, async_mode=True)
     try:
-        data = exchange.fetch_trades(symbol=pair, limit=1000)
+        data = await exchange.fetch_trades(symbol=pair, limit=1000)
     except errors.BadSymbol:
         data = None
-    return django.http.JsonResponse(None, safe=False)
+    await exchange.close()
+    return django.http.JsonResponse(data, safe=False)
 
 
 @csrf_exempt
@@ -170,17 +169,44 @@ async def cancel_order(request: django.core.handlers.wsgi.WSGIRequest):
     return django.http.JsonResponse("success", safe=False)
 
 
-class OrdersViewSet(viewsets.ModelViewSet):
-    queryset = Orders.objects.all()
-    serializer_class = OrdersSerializer
+async def get_orders(request: django.core.handlers.wsgi.WSGIRequest):
+    exchange = request.GET.get("exchange")
+    exchange = get_exchange_object(exchange, async_mode=True)
+    orders = await exchange.fetch_orders()
+    await exchange.close()
+    for order in orders:
+        order["broker_id"] = "coinbase"
+        order["user_id"] = "thomasbouamoud"
+        order["trading_env"] = "live"
+        order["trading_type"] = "spot"
+        order["order_id"] = order.pop("id")
+        order["asset_id"] = order.pop("symbol")
+        order["order_side"] = order.pop("side")
+        order["order_type"] = order.pop("type")
+        order["order_creation_tmstmp"] = order.pop("datetime")
+        order["order_status"] = order.pop("status")
+        order["fill_pct"] = order["filled"] / order["amount"]
+        order["order_volume"] = order.pop("amount")
+        order["order_price"] = order.pop("price")
+        order["order_dim_key"] = order.pop("clientOrderId")
+    return django.http.JsonResponse(orders, safe=False)
 
-    def get_queryset(self):
-        return Orders.objects.filter(expiration_tmstmp__isnull=True)
 
-
-class TradesViewSet(viewsets.ModelViewSet):
-    queryset = Trades.objects.all()
-    serializer_class = TradesSerializer
-
-    def get_queryset(self):
-        return Trades.objects.filter(expiration_tmstmp__isnull=True)
+async def get_trades(request: django.core.handlers.wsgi.WSGIRequest):
+    exchange = request.GET.get("exchange")
+    exchange = get_exchange_object(exchange, async_mode=True)
+    trades = await exchange.fetch_my_trades()
+    await exchange.close()
+    for trade in trades:
+        trade["broker_id"] = "coinbase"
+        trade["user_id"] = "thomasbouamoud"
+        trade["trading_env"] = "live"
+        trade["trading_type"] = "spot"
+        trade["order_id"] = trade.pop("order")
+        trade["trade_id"] = trade.pop("id")
+        trade["asset_id"] = trade.pop("symbol")
+        trade["trade_side"] = trade.pop("side")
+        trade["execution_tmstmp"] = trade.pop("datetime")
+        trade["trade_volume"] = trade.pop("amount")
+        trade["trade_price"] = trade.pop("price")
+    return django.http.JsonResponse(trades, safe=False)

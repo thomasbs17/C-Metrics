@@ -39,7 +39,7 @@ interface FilterProps {
 }
 
 function TradingTypeFilter() {
-  const [selectedValue, setSelectedValue] = useState('Paper')
+  const [selectedValue, setSelectedValue] = useState('Live')
   const dispatch = useDispatch()
 
   const handleSelect = (
@@ -55,12 +55,12 @@ function TradingTypeFilter() {
       aria-label="trading-type-choice"
       sx={{ marginLeft: '7%' }}
     >
-      <Button variant="contained" size="small">
+      <Button disabled variant="contained" size="small">
         Paper
       </Button>
       <Tooltip title="Coming soon..." placement="right">
         <span>
-          <Button disabled size="small">
+          <Button variant="contained" size="small">
             Live
           </Button>
         </span>
