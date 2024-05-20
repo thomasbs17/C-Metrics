@@ -7,6 +7,7 @@ import warnings
 from datetime import datetime as dt
 
 import ccxt.async_support as ccxt
+from ccxt.base.errors import RateLimitExceeded
 import pandas as pd
 import pandas_ta as ta
 import websockets
@@ -68,25 +69,38 @@ class ExchangeScreener:
     async def get_pair_book(self, pair: str):
         if pair not in self.data:
             self.data[pair] = dict()
-        try:
-            self.data[pair]["book"] = await self.exchange_object.fetch_order_book(
-                symbol=pair, limit=100
-            )
-            if self.verbose:
-                LOG.info(f"Downloading Order Book data for {pair}")
-        except Exception as e:
-            LOG.warning(f"Could not download order book for {pair}: \n {e}")
+        success = False
+        throtle = 0.5
+        while not success:
+            try:
+                self.data[pair]["book"] = await self.exchange_object.fetch_order_book(
+                    symbol=pair, limit=100
+                )
+                if self.verbose:
+                    LOG.info(f"Downloading Order Book data for {pair}")
+                time.sleep(0.5)
+                success = True
+            except RateLimitExceeded:
+                LOG.warning(f"Rate Limit Exceeded. Will retry in {throtle} seconds.")
+                time.sleep(throtle)
+                throtle += 1
 
     async def get_pair_ohlcv(self, pair: str):
         if pair not in self.data:
             self.data[pair] = dict()
-        try:
-            ohlc_data = await self.exchange_object.fetch_ohlcv(
-                symbol=pair, timeframe="1d", limit=300
-            )
-        except Exception as e:
-            LOG.warning(f"Could not download OHLCV data for {pair}: \n {e}")
-            return
+        success = False
+        throtle = 0.5
+        while not success:
+            try:
+                ohlc_data = await self.exchange_object.fetch_ohlcv(
+                    symbol=pair, timeframe="1d", limit=300
+                )
+                time.sleep(0.5)
+                success = True
+            except RateLimitExceeded:
+                LOG.warning(f"Rate Limit Exceeded. Will retry in {throtle} seconds.")
+                time.sleep(throtle)
+                throtle += 1
         if self.verbose:
             LOG.info(f"Downloading OHLCV data for {pair}")
         self.data[pair]["ohlcv"] = pd.DataFrame(

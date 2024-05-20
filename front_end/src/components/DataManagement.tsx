@@ -355,17 +355,21 @@ function LoadOhlcvData() {
       if (showSpinner) {
         dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
       }
-      try {
-        const ohlc_response = await fetch(
-          `http://${HOST}:${PORT}/ohlc/?exchange=${exchange}&pair=${pair}&timeframe=${ohlcPeriod}`,
-        )
-        const newOhlcData = await ohlc_response.json()
-        ohlcData[pair] = newOhlcData
-        setOHLCData(ohlcData)
-      } catch (error) {
-        ohlcData[pair] = null
-        setOHLCData(ohlcData)
-        console.error(`Error fetching OHLC data: for ${pair}`, error)
+      let success = false
+      while (!success) {
+        try {
+          const ohlc_response = await fetch(
+            `http://${HOST}:${PORT}/ohlc/?exchange=${exchange}&pair=${pair}&timeframe=${ohlcPeriod}`,
+          )
+          const newOhlcData = await ohlc_response.json()
+          ohlcData[pair] = newOhlcData
+          setOHLCData(ohlcData)
+          success = true
+        } catch (error) {
+          // ohlcData[pair] = null
+          // setOHLCData(ohlcData)
+          console.error(`Error fetching OHLC data: for ${pair}`, error)
+        }
       }
       if (pair === selectedPair) {
         dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', false]))
@@ -490,7 +494,6 @@ function LoadOrderBook(throtle: number = 500) {
       )
       setOrderBookData(formatOrderBook(orderBookResponse.data, false))
     } catch (error) {
-      setOrderBookData({})
       console.error('Error fetching Order Book data:', error)
     }
   }
@@ -562,7 +565,7 @@ export function GetTradingData() {
   const screeningData = LoadScreeningData()
   const noDataAnimation = LoadNoDataAnimation()
   const ohlcvData = LoadOhlcvData()
-  const latestPrices = LoadLatestPrices(trades)
+  const latestPrices = {} //LoadLatestPrices(trades)
   const orderBookData = LoadOrderBook()
   const greedAndFearData = LoadGreedAndFear()
 

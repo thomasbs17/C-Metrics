@@ -69,7 +69,7 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
     let updatedFormattedHoldings: FormattedHoldings[] = []
     Object.keys(holdings.current).forEach((pair: string) => {
       const usdValue = getUSDValue(pair, holdings.current[pair])
-      if (typeof usdValue === 'number' && usdValue > 1) {
+      if (pair.includes('USD') && holdings.current[pair] > 0) {
         updatedFormattedHoldings.push({
           pair: pair,
           volume: holdings.current[pair],
