@@ -172,7 +172,7 @@ async def cancel_order(request: django.core.handlers.wsgi.WSGIRequest):
 async def get_orders(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     exchange = get_exchange_object(exchange, async_mode=True)
-    orders = await exchange.fetch_orders()
+    orders = await exchange.fetch_orders(limit=3000)
     await exchange.close()
     for order in orders:
         order["broker_id"] = "coinbase"
@@ -196,7 +196,7 @@ async def get_orders(request: django.core.handlers.wsgi.WSGIRequest):
 async def get_trades(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     exchange = get_exchange_object(exchange, async_mode=True)
-    trades = await exchange.fetch_my_trades()
+    trades = await exchange.fetch_my_trades(limit=3000)
     await exchange.close()
     for trade in trades:
         trade["broker_id"] = "coinbase"

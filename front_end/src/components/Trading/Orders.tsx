@@ -308,7 +308,14 @@ function OrderTable({ data }: TableProps) {
         .then(() => {
           gridRef
             .current!.api.setColumnFilterModel('order_status', {
-              values: ['open', 'executed'],
+              values: ['open', 'closed'],
+            })
+            .then(() => gridRef.current!.api.onFilterChanged())
+        })
+        .then(() => {
+          gridRef
+            .current!.api.setColumnFilterModel('order_side', {
+              values: ['buy', 'sell'],
             })
             .then(() => gridRef.current!.api.onFilterChanged())
         })
