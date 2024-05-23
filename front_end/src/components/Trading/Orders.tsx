@@ -224,33 +224,44 @@ function OrderTable({ data }: TableProps) {
   const [snackIsOpen, setSnackIsOpen] = useState<boolean>(false)
   const [colDefs, setColDefs] = useState<ColDef<Order>[]>([])
 
-  function applyFilters(filterTyoe: string) {
-    if (gridRef!.current!.api) {
-      let orderSideFilters: string[] = ['buy', 'sell']
-      gridRef!.current!.api.setFilterModel(null)
-      switch (filterTyoe) {
-        case 'openBuys':
-          orderSideFilters = ['buy']
-          break
-        case 'openSells':
-          orderSideFilters = ['sell']
-          break
+  function applyFilters(event: any, filterType: string) {
+    if (event.api) {
+      if (filterType === 'filledOrders') {
+        clearAllFilters(event)
+        event.api
+          .setColumnFilterModel('order_status', {
+            values: ['closed'],
+          })
+          .then(() => {
+            event.api.onFilterChanged()
+          })
+      } else {
+        let orderSideFilters: string[] = ['buy', 'sell']
+        event.api.setFilterModel(null)
+        switch (filterType) {
+          case 'openBuys':
+            orderSideFilters = ['buy']
+            break
+          case 'openSells':
+            orderSideFilters = ['sell']
+            break
+        }
+        event.api
+          .setColumnFilterModel('order_status', {
+            values: ['open'],
+          })
+          .then(() => {
+            event.api.onFilterChanged()
+          })
+        event.api.onFilterChanged()
+        event.api
+          .setColumnFilterModel('order_side', {
+            values: orderSideFilters,
+          })
+          .then(() => {
+            event.api.onFilterChanged()
+          })
       }
-      gridRef
-        .current!.api.setColumnFilterModel('order_status', {
-          values: ['open'],
-        })
-        .then(() => {
-          gridRef.current!.api.onFilterChanged()
-        })
-      gridRef.current!.api.onFilterChanged()
-      gridRef
-        .current!.api.setColumnFilterModel('order_side', {
-          values: orderSideFilters,
-        })
-        .then(() => {
-          gridRef.current!.api.onFilterChanged()
-        })
     }
   }
 
@@ -265,18 +276,23 @@ function OrderTable({ data }: TableProps) {
       var result: (string | MenuItemDef)[] = [
         {
           name: 'Open Orders',
-          action: () => applyFilters(''),
+          action: (e) => applyFilters(e, ''),
           icon: '<img width="20" height="20" src="https://img.icons8.com/ultraviolet/40/open-sign.png" alt="open-sign"/>',
         },
         {
           name: 'Open Buys',
-          action: () => applyFilters('openBuys'),
+          action: (e) => applyFilters(e, 'openBuys'),
           icon: '<img width="20" height="20" src="https://img.icons8.com/ultraviolet/20/buy--v1.png" alt="buy--v1"/>',
         },
         {
           name: 'Open Sells',
-          action: () => applyFilters('openSells'),
+          action: (e) => applyFilters(e, 'openSells'),
           icon: '<img width="20" height="20" src="https://img.icons8.com/ultraviolet/40/sell.png" alt="sell"/>',
+        },
+        {
+          name: 'Filled Orders',
+          action: (e) => applyFilters(e, 'filledOrders'),
+          icon: '✔️',
         },
         {
           name: 'Remove Filters',
