@@ -7,7 +7,6 @@ import warnings
 from datetime import datetime as dt
 
 import ccxt.async_support as ccxt
-from ccxt.base.errors import RateLimitExceeded
 import pandas as pd
 import pandas_ta as ta
 import websockets
@@ -66,41 +65,21 @@ class ExchangeScreener:
             LOG.warning(f"Could not compute all indicators for {pair}:\n \n {e}")
             return False
 
+    @helpers.call_with_retries
     async def get_pair_book(self, pair: str):
         if pair not in self.data:
             self.data[pair] = dict()
-        success = False
-        throtle = 0.5
-        while not success:
-            try:
-                self.data[pair]["book"] = await self.exchange_object.fetch_order_book(
-                    symbol=pair, limit=100
-                )
-                if self.verbose:
-                    LOG.info(f"Downloading Order Book data for {pair}")
-                time.sleep(0.5)
-                success = True
-            except RateLimitExceeded:
-                LOG.warning(f"Rate Limit Exceeded. Will retry in {throtle} seconds.")
-                time.sleep(throtle)
-                throtle += 1
+        self.data[pair]["book"] = await self.exchange_object.fetch_order_book(
+            symbol=pair, limit=100
+        )
 
+    @helpers.call_with_retries
     async def get_pair_ohlcv(self, pair: str):
         if pair not in self.data:
             self.data[pair] = dict()
-        success = False
-        throtle = 0.5
-        while not success:
-            try:
-                ohlc_data = await self.exchange_object.fetch_ohlcv(
-                    symbol=pair, timeframe="1d", limit=300
-                )
-                time.sleep(0.5)
-                success = True
-            except RateLimitExceeded:
-                LOG.warning(f"Rate Limit Exceeded. Will retry in {throtle} seconds.")
-                time.sleep(throtle)
-                throtle += 1
+        ohlc_data = await self.exchange_object.fetch_ohlcv(
+            symbol=pair, timeframe="1d", limit=300
+        )
         if self.verbose:
             LOG.info(f"Downloading OHLCV data for {pair}")
         self.data[pair]["ohlcv"] = pd.DataFrame(
@@ -195,12 +174,14 @@ class ExchangeScreener:
             scoring["24h_change"] = None
             is_scorable = False
         if "RSI_14" in ohlcv.columns and is_scorable:
-            scoring["rsi"] = int(ohlcv["RSI_14"].iloc[-1])
+            rsi = ohlcv["RSI_14"].iloc[-1]
+            scoring["rsi"] = int(rsi) if pd.notna(rsi) else None
         else:
             is_scorable = False
             scoring["rsi"] = None
         if "BBL_20_2.0" in ohlcv.columns.tolist() and is_scorable:
-            scoring["bbl"] = (scoring["close"] / ohlcv["BBL_20_2.0"].iloc[-1]) - 1
+            bbl = ohlcv["BBL_20_2.0"].iloc[-1]
+            scoring["bbl"] = (scoring["close"] / bbl) - 1 if pd.notna(bbl) else None
         else:
             is_scorable = False
             scoring["bbl"] = None

@@ -31,7 +31,10 @@ function TradeTable({ data }: TableProps) {
 
   const [colDefs, setColDefs] = useState<ColDef<Trade>[]>([])
 
-  async function setDefaultGridSettings(gridApi: any) {
+  async function setDefaultGridSettings(gridApi?: any) {
+    if (!gridApi && gridRef.current && gridRef.current.api) {
+      gridApi = gridRef.current.api
+    }
     if (gridApi) {
       gridApi.applyColumnState({
         state: [{ colId: 'execution_tmstmp', sort: 'desc' }],
@@ -45,12 +48,13 @@ function TradeTable({ data }: TableProps) {
           gridApi.onFilterChanged()
         })
       gridApi.onFilterChanged()
+      gridApi.expandAll()
     }
   }
 
   useEffect(() => {
     setColDefs([
-      { field: 'execution_tmstmp' },
+      { field: 'execution_tmstmp',/*rowGroup: true*/},
       { field: 'trading_env', hide: true },
       {
         field: 'broker_id',
@@ -66,7 +70,9 @@ function TradeTable({ data }: TableProps) {
       },
       {
         field: 'asset_id',
+        // rowGroup: true,
         filter: 'agSetColumnFilter',
+        menuTabs: ["filterMenuTab"],
         cellRenderer: (params: { value: string }) => {
           return renderCellWithImage(
             params.value,
@@ -77,19 +83,23 @@ function TradeTable({ data }: TableProps) {
       {
         field: 'trade_side',
         cellRenderer: (params: { value: string }) => {
-          const action = params.value.toLowerCase()
-          let cellClass = ''
-          if (action === 'buy') {
-            cellClass = 'buy-cell'
-          } else if (action === 'sell') {
-            cellClass = 'sell-cell'
+          if (params.value) {
+            const action = params.value.toLowerCase()
+            let cellClass = ''
+            if (action === 'buy') {
+              cellClass = 'buy-cell'
+            } else if (action === 'sell') {
+              cellClass = 'sell-cell'
+            }
+            return <span className={cellClass}>{action}</span>
           }
-          return <span className={cellClass}>{action}</span>
         },
       },
-      { field: 'trade_volume' },
-      { field: 'trade_price' },
-    ])
+      { field: 'trade_volume', aggFunc: "sum" },
+      { field: 'trade_price', /*rowGroup: true*/ },
+      { headerName: '$ Value', valueGetter: "Math.round(data.trade_volume * data.trade_price)", aggFunc: "sum" },
+    ]),
+      setDefaultGridSettings()
   }, [data.trades, pair])
 
   const handleClick = (clickedTrade: RowClickedEvent<Trade, any>) => {
@@ -175,6 +185,7 @@ function TradeTable({ data }: TableProps) {
         onGridReady={onGridReady}
         rowSelection={'single'}
         suppressCopyRowsToClipboard={true}
+        groupDisplayType={'groupRows'}
       />
     </div>
   )
