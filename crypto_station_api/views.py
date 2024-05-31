@@ -1,4 +1,5 @@
 import json
+import time
 import uuid
 from datetime import datetime as dt
 
@@ -35,18 +36,46 @@ async def get_exchanges(request: django.core.handlers.wsgi.WSGIRequest):
     return django.http.JsonResponse(data, safe=False)
 
 
+# @call_with_retries
 async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     timeframe = request.GET.get("timeframe")
     pair = request.GET.get("pair")
     exchange = get_exchange_object(exchange, async_mode=True)
+    time_unit = timeframe[-1:]
+    time_multiplier = int(timeframe[:-1])
+    new_target_tmstmp = None
+    all_history_fetched = False
+
+    max_dataset_size = 300
+
+    unit_to_milliseconds = {
+        "s": 1000,
+        "m": 60 * 1000,
+        "h": 60 * 60 * 1000,
+        "d": 24 * 60 * 60 * 1000,
+        "w": 7 * 24 * 60 * 60 * 1000,
+        "M": 30 * 24 * 60 * 60 * 1000,  # Assuming a month has 30 days
+    }
+
+    ohlc_data = list()
     try:
-        ohlc_data = await exchange.fetch_ohlcv(
-            symbol=pair, timeframe=timeframe, limit=300
-        )
+        while not all_history_fetched:
+            if new_target_tmstmp:
+                time.sleep(1)
+            _ohlc_data = await exchange.fetch_ohlcv(
+                symbol=pair, timeframe=timeframe, limit=300, since=new_target_tmstmp
+            )
+            oldest_tmstmp = _ohlc_data[0][0]
+            new_target_tmstmp = oldest_tmstmp - (
+                max_dataset_size * unit_to_milliseconds[time_unit] * time_multiplier
+            )
+            all_history_fetched = True if len(_ohlc_data) < 300 else False
+            ohlc_data += _ohlc_data
     except errors.BadSymbol:
         ohlc_data = None
     await exchange.close()
+    ohlc_data.sort(key=lambda x: x[0])
     return django.http.JsonResponse(ohlc_data, safe=False)
 
 
