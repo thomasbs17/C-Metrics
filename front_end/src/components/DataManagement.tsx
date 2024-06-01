@@ -358,7 +358,7 @@ function LoadOhlcvData() {
       let success = false
       try {
         const ohlc_response = await fetch(
-          `http://${HOST}:${PORT}/ohlc/?exchange=${exchange}&pair=${pair}&timeframe=${ohlcPeriod}&full_history=y`,
+          `http://${HOST}:${PORT}/ohlc/?exchange=${exchange}&pair=${pair}&timeframe=${ohlcPeriod}`,
         )
         const newOhlcData = await ohlc_response.json()
         ohlcData[pair] = newOhlcData
