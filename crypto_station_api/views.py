@@ -66,9 +66,12 @@ async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
 async def get_order_book(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     pair = request.GET.get("pair")
+    limit = request.GET.get("limit")
     exchange = get_exchange_object(exchange, async_mode=True)
     try:
-        order_book_data = await exchange.fetch_order_book(symbol=pair, limit=10000)
+        order_book_data = await exchange.fetch_order_book(
+            symbol=pair, limit=int(limit) if limit else 10000
+        )
     except:
         order_book_data = None
     await exchange.close()
