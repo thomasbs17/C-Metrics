@@ -9,6 +9,7 @@ from datetime import datetime as dt
 import ccxt.async_support as ccxt
 import pandas as pd
 import pandas_ta as ta
+import requests
 import websockets
 from indicators import technicals
 
@@ -65,28 +66,33 @@ class ExchangeScreener:
             LOG.warning(f"Could not compute all indicators for {pair}:\n \n {e}")
             return False
 
-    @helpers.call_with_retries
     async def get_pair_book(self, pair: str):
+        if self.verbose:
+            LOG.info(f"Downloading Book data for {pair}")
         if pair not in self.data:
             self.data[pair] = dict()
-        self.data[pair]["book"] = await self.exchange_object.fetch_order_book(
-            symbol=pair, limit=100
+        book_data = requests.get(
+            url=f"{helpers.BASE_API}/order_book/?exchange=coinbase&pair={pair}&limit=100"
         )
+        if book_data.status_code == 200:
+            self.data[pair]["book"] = book_data.json()
+        else:
+            LOG.warning(f"No Book data for {pair}")
 
-    @helpers.call_with_retries
     async def get_pair_ohlcv(self, pair: str):
-        if pair not in self.data:
-            self.data[pair] = dict()
-        ohlc_data = await self.exchange_object.fetch_ohlcv(
-            symbol=pair, timeframe="1d", limit=300
-        )
         if self.verbose:
             LOG.info(f"Downloading OHLCV data for {pair}")
-        self.data[pair]["ohlcv"] = pd.DataFrame(
-            data=ohlc_data,
-            columns=["timestamp", "open", "high", "low", "close", "volume"],
+        if pair not in self.data:
+            self.data[pair] = dict()
+        ohlc_data = requests.get(
+            url=f"{helpers.BASE_API}/ohlc/?exchange=coinbase&pair={pair}&timeframe=1d&full_history=y"
         )
-        if self.data[pair]["ohlcv"].empty:
+        if ohlc_data.status_code == 200:
+            self.data[pair]["ohlcv"] = pd.DataFrame(
+                data=ohlc_data.json(),
+                columns=["timestamp", "open", "high", "low", "close", "volume"],
+            )
+        else:
             LOG.warning(f"No OHLCV data for {pair}")
 
     async def live_refresh(self, raw_data: bytes = None):
@@ -137,9 +143,9 @@ class ExchangeScreener:
 
     def get_book_scoring(self, pair: str, scoring: dict) -> dict:
         data = dict()
-        if "book" not in self.data[pair]:
+        pair_book = self.data[pair].get("book")
+        if not pair_book:
             return dict(book_imbalance=None, spread=None)
-        pair_book = self.data[pair]["book"]
         for side in ("bid", "ask"):
             raw_side = side if side in pair_book else side + "s"
             if isinstance(pair_book[raw_side], list):
