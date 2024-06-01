@@ -46,6 +46,7 @@ function Screening(data: { tradingData: tradingDataDef }) {
       type: 'number',
       headerTooltip: '% distance to next support',
       filter: 'agNumberColumnFilter',
+      menuTabs: ["filterMenuTab"],
       valueFormatter: (params) => defaultValueFormat(params),
       cellStyle: (params) => {
         return { color: params.value < 0 ? 'red' : 'green' }
@@ -188,7 +189,7 @@ function Screening(data: { tradingData: tradingDataDef }) {
 
   const handleClick = (clickedPair: RowClickedEvent<any>) => {
     const pairDetails = clickedPair.data
-    dispatch(filterSlice.actions.setPair(pairDetails.pair))
+    dispatch(filterSlice.actions.setPair(`${pairDetails.pair}C`))
     dispatch(filterSlice.actions.setPairScoreDetails(pairDetails))
     dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
   }

@@ -83,6 +83,7 @@ def get_logger(logger_name: str) -> logging.Logger:
     logger.setLevel(logging.INFO)
     return logger
 
+
 def call_with_retries(func):
     async def wrapper(*args):
         success = False
@@ -97,7 +98,10 @@ def call_with_retries(func):
                 return response
             except Exception as e:
                 retry_i += 1
-                logging.warning(f"\n Attempt {retry_i} | Will retry in {throtle} seconds | {e} \n")
+                logging.warning(
+                    f"\n Attempt {retry_i} | Will retry in {throtle} seconds | {e} \n"
+                )
                 time.sleep(throtle)
                 throtle += 1
+
     return wrapper

@@ -262,7 +262,8 @@ class ExchangeScreener:
         self.scores = self.scores[self.scores["pair"] != pair]
         if pair not in self.data:
             self.data[pair] = dict()
-        if self.data[pair].get("ohlcv") is not None:
+        ohlcv = self.data[pair].get("ohlcv")
+        if ohlcv is not None:
             scoring = dict()
             is_scorable = await self.add_technical_indicators(pair)
             scoring, is_scorable = self.technical_indicators_scoring(
@@ -273,11 +274,12 @@ class ExchangeScreener:
                 book_score_details = self.get_book_scoring(pair, scoring)
                 scoring = {**scoring, **book_score_details}
                 scoring["score"] = (
-                    scoring["risk_reward_ratio"]
-                    + scoring["support_strength"]
+                    # scoring["risk_reward_ratio"]
+                    scoring["support_strength"]
                     + (1 - (scoring["rsi"] / 100))
                     + (1 - scoring["bbl"])
-                    + (1 - scoring["distance_to_support"])
+                    # + (1 - scoring["distance_to_support"])
+                    + (len(ohlcv) / 300)
                 )
             else:
                 scoring["score"] = 0
