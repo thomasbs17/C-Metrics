@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -6,6 +7,7 @@ from pathlib import Path
 
 import aiohttp
 import ccxt
+from ccxt.base import errors
 import django
 import environ
 import pandas as pd
@@ -22,6 +24,17 @@ environ.Env.read_env()
 HOST = "localhost"
 BASE_WS = f"ws://{HOST}:"
 BASE_API = "http://127.0.0.1:8000"
+
+UNITS_TO_MILLISECONDS = {
+    "s": 1000,
+    "m": 60 * 1000,
+    "h": 60 * 60 * 1000,
+    "d": 24 * 60 * 60 * 1000,
+    "w": 7 * 24 * 60 * 60 * 1000,
+    "M": 30 * 24 * 60 * 60 * 1000,  # Assuming a month has 30 days
+}
+
+MAX_OHLCV_SIZE = 300
 
 
 def get_api_keys(exchange: str, websocket: bool = False) -> dict:
@@ -83,6 +96,7 @@ def get_logger(logger_name: str) -> logging.Logger:
     logger.setLevel(logging.INFO)
     return logger
 
+
 def call_with_retries(func):
     async def wrapper(*args):
         success = False
@@ -97,7 +111,46 @@ def call_with_retries(func):
                 return response
             except Exception as e:
                 retry_i += 1
-                logging.warning(f"\n Attempt {retry_i} | Will retry in {throtle} seconds | {e} \n")
+                logging.warning(
+                    f"\n Attempt {retry_i} | Will retry in {throtle} seconds | {e} \n"
+                )
                 time.sleep(throtle)
                 throtle += 1
+
     return wrapper
+
+
+async def get_full_history_ohlcv(
+    pair: str, exchange: async_ccxt.Exchange, timeframe: str
+) -> list:
+    time_unit = timeframe[-1:]
+    time_multiplier = int(timeframe[:-1])
+    new_target_tmstmp = None
+    all_history_fetched = False
+    ohlc_data = list()
+    retry_i = 0
+    throtle = 0.5
+
+    while not all_history_fetched:
+        if new_target_tmstmp:
+            time.sleep(1)
+        try:
+            _ohlc_data = await exchange.fetch_ohlcv(
+                symbol=pair, timeframe=timeframe, limit=300, since=new_target_tmstmp
+            )
+        except errors.BadSymbol:
+            return None
+        except Exception as e:
+            retry_i += 1
+            logging.warning(
+                f"\n Attempt {retry_i} | Will retry in {throtle} seconds | {e} \n"
+            )
+            await asyncio.sleep(throtle)
+            throtle += 1
+        oldest_tmstmp = _ohlc_data[0][0]
+        new_target_tmstmp = oldest_tmstmp - (
+            MAX_OHLCV_SIZE * UNITS_TO_MILLISECONDS[time_unit] * time_multiplier
+        )
+        all_history_fetched = True if len(_ohlc_data) < 300 else False
+        ohlc_data += _ohlc_data
+    return ohlc_data
