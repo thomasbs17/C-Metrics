@@ -356,20 +356,18 @@ function LoadOhlcvData() {
         dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', true]))
       }
       let success = false
-      while (!success) {
-        try {
-          const ohlc_response = await fetch(
-            `http://${HOST}:${PORT}/ohlc/?exchange=${exchange}&pair=${pair}&timeframe=${ohlcPeriod}`,
-          )
-          const newOhlcData = await ohlc_response.json()
-          ohlcData[pair] = newOhlcData
-          setOHLCData(ohlcData)
-          success = true
-        } catch (error) {
-          // ohlcData[pair] = null
-          // setOHLCData(ohlcData)
-          console.error(`Error fetching OHLC data: for ${pair}`, error)
-        }
+      try {
+        const ohlc_response = await fetch(
+          `http://${HOST}:${PORT}/ohlc/?exchange=${exchange}&pair=${pair}&timeframe=${ohlcPeriod}&full_history=y`,
+        )
+        const newOhlcData = await ohlc_response.json()
+        ohlcData[pair] = newOhlcData
+        setOHLCData(ohlcData)
+        success = true
+      } catch (error) {
+        // ohlcData[pair] = null
+        // setOHLCData(ohlcData)
+        console.error(`Error fetching OHLC data: for ${pair}`, error)
       }
       if (pair === selectedPair) {
         dispatch(filterSlice.actions.setLoadingComponents(['ohlcv', false]))

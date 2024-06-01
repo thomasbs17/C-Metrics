@@ -97,7 +97,6 @@ def get_logger(logger_name: str) -> logging.Logger:
     return logger
 
 
-
 def call_with_retries(func):
     async def wrapper(*args):
         success = False
@@ -121,7 +120,6 @@ def call_with_retries(func):
                 time.sleep(throtle)
                 throtle += 1
 
-
     return wrapper
 
 
@@ -143,19 +141,19 @@ async def get_full_history_ohlcv(
             _ohlc_data = await exchange.fetch_ohlcv(
                 symbol=pair, timeframe=timeframe, limit=300, since=new_target_tmstmp
             )
+            oldest_tmstmp = _ohlc_data[0][0]
+            new_target_tmstmp = oldest_tmstmp - (
+                MAX_OHLCV_SIZE * UNITS_TO_MILLISECONDS[time_unit] * time_multiplier
+            )
+            all_history_fetched = True if len(_ohlc_data) < 300 else False
+            ohlc_data += _ohlc_data
         except errors.BadSymbol:
             return []
-        except Exception as e:
+        except errors.RateLimitExceeded:
             retry_i += 1
             logging.warning(
-                f"\n Attempt {retry_i} | Will retry in {throtle} seconds | {e} \n"
+                f"\n RATE LIMIT EXCEEDED | Attempt {retry_i} | Will retry in {throtle} seconds \n"
             )
             await asyncio.sleep(throtle)
             throtle += 1
-        oldest_tmstmp = _ohlc_data[0][0]
-        new_target_tmstmp = oldest_tmstmp - (
-            MAX_OHLCV_SIZE * UNITS_TO_MILLISECONDS[time_unit] * time_multiplier
-        )
-        all_history_fetched = True if len(_ohlc_data) < 300 else False
-        ohlc_data += _ohlc_data
     return ohlc_data

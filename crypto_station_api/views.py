@@ -46,7 +46,7 @@ async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = get_exchange_object(exchange, async_mode=True)
 
     if full_history == "y":
-        ohlc_data = get_full_history_ohlcv(
+        ohlc_data = await get_full_history_ohlcv(
             pair=pair, exchange=exchange, timeframe=timeframe
         )
         await exchange.close()
