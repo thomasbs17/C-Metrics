@@ -25,10 +25,9 @@ export function getPairLogo(data: tradingDataDef, pair: string) {
   if (Object.keys(data.coinMarketCapMapping).includes('data')) {
     data.coinMarketCapMapping['data'].forEach((pairData: any) => {
       if (
-        pair && (
-          pairData.symbol === pair.slice(0, pair.indexOf('-')) ||
-          pairData.symbol === pair.slice(0, pair.indexOf('/'))
-        )
+        pair &&
+        (pairData.symbol === pair.slice(0, pair.indexOf('-')) ||
+          pairData.symbol === pair.slice(0, pair.indexOf('/')))
       ) {
         if (!logo) {
           logo = `https://s2.coinmarketcap.com/static/img/coins/64x64/${pairData.id}.png`

@@ -11,7 +11,10 @@ from GoogleNews import GoogleNews
 
 from crypto_station_api.data_sources.coinmarketcap import CoinMarketCap
 from crypto_station_api.models import Orders
-from utils.helpers import get_exchange_object
+from utils.helpers import (
+    get_exchange_object,
+    get_full_history_ohlcv,
+)
 
 coinmarketcap = CoinMarketCap()
 
@@ -39,13 +42,23 @@ async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     timeframe = request.GET.get("timeframe")
     pair = request.GET.get("pair")
+    full_history = request.GET.get("full_history")
     exchange = get_exchange_object(exchange, async_mode=True)
-    try:
-        ohlc_data = await exchange.fetch_ohlcv(
-            symbol=pair, timeframe=timeframe, limit=300
+
+    if full_history == "y":
+        ohlc_data = get_full_history_ohlcv(
+            pair=pair, exchange=exchange, timeframe=timeframe
         )
-    except errors.BadSymbol:
-        ohlc_data = None
+        await exchange.close()
+        ohlc_data.sort(key=lambda x: x[0])
+        return django.http.JsonResponse(ohlc_data, safe=False)
+    else:
+        try:
+            ohlc_data = await exchange.fetch_ohlcv(
+                symbol=pair, timeframe=timeframe, limit=300
+            )
+        except errors.BadSymbol:
+            ohlc_data = None
     await exchange.close()
     return django.http.JsonResponse(ohlc_data, safe=False)
 

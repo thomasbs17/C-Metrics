@@ -54,7 +54,7 @@ function TradeTable({ data }: TableProps) {
 
   useEffect(() => {
     setColDefs([
-      { field: 'execution_tmstmp',/*rowGroup: true*/},
+      { field: 'execution_tmstmp' /*rowGroup: true*/ },
       { field: 'trading_env', hide: true },
       {
         field: 'broker_id',
@@ -72,7 +72,7 @@ function TradeTable({ data }: TableProps) {
         field: 'asset_id',
         // rowGroup: true,
         filter: 'agSetColumnFilter',
-        menuTabs: ["filterMenuTab"],
+        menuTabs: ['filterMenuTab'],
         cellRenderer: (params: { value: string }) => {
           return renderCellWithImage(
             params.value,
@@ -95,9 +95,13 @@ function TradeTable({ data }: TableProps) {
           }
         },
       },
-      { field: 'trade_volume', aggFunc: "sum" },
-      { field: 'trade_price', /*rowGroup: true*/ },
-      { headerName: '$ Value', valueGetter: "Math.round(data.trade_volume * data.trade_price)", aggFunc: "sum" },
+      { field: 'trade_volume', aggFunc: 'sum' },
+      { field: 'trade_price' /*rowGroup: true*/ },
+      {
+        headerName: '$ Value',
+        valueGetter: 'Math.round(data.trade_volume * data.trade_price)',
+        aggFunc: 'sum',
+      },
     ]),
       setDefaultGridSettings()
   }, [data.trades, pair])
