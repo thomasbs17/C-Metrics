@@ -139,7 +139,7 @@ async def get_full_history_ohlcv(
                 symbol=pair, timeframe=timeframe, limit=300, since=new_target_tmstmp
             )
         except errors.BadSymbol:
-            return None
+            return []
         except Exception as e:
             retry_i += 1
             logging.warning(
