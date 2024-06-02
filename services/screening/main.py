@@ -3,7 +3,6 @@ import json
 import os
 import sys
 import time
-import warnings
 from datetime import datetime as dt
 
 import ccxt.async_support as ccxt
@@ -17,7 +16,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 
 from utils import helpers
 
-warnings.filterwarnings("ignore")
 WS_PORT = 8768
 LOG = helpers.get_logger("screening_service")
 
@@ -41,10 +39,11 @@ class ExchangeScreener:
         self.updated = True
 
     async def load_all_data(self):
-        tasks = list()
+        # tasks = list()
         for pair in self.pairs:
-            tasks += [self.get_pair_ohlcv(pair), self.get_pair_book(pair)]
-        await asyncio.gather(*tasks)
+            self.get_pair_ohlcv(pair)
+            # tasks += [self.get_pair_ohlcv(pair)] #self.get_pair_book(pair)
+        # await asyncio.gather(*tasks)
 
     async def add_technical_indicators(self, pair: str) -> bool:
         if self.verbose:
@@ -79,13 +78,14 @@ class ExchangeScreener:
         else:
             LOG.warning(f"No Book data for {pair}")
 
-    async def get_pair_ohlcv(self, pair: str):
+    @helpers.call_with_retries
+    def get_pair_ohlcv(self, pair: str):
         if self.verbose:
             LOG.info(f"Downloading OHLCV data for {pair}")
         if pair not in self.data:
             self.data[pair] = dict()
         ohlc_data = requests.get(
-            url=f"{helpers.BASE_API}/ohlc/?exchange=coinbase&pair={pair}&timeframe=1d&full_history=y"
+            url=f"{helpers.BASE_API}/ohlc/?exchange=coinbase&pair={pair}&timeframe=1d&full_history=n"
         )
         if ohlc_data.status_code == 200:
             self.data[pair]["ohlcv"] = pd.DataFrame(
@@ -277,8 +277,8 @@ class ExchangeScreener:
             )
             scoring, is_scorable = self.vbp_based_scoring(pair, scoring, is_scorable)
             if is_scorable:
-                book_score_details = self.get_book_scoring(pair, scoring)
-                scoring = {**scoring, **book_score_details}
+                # book_score_details = self.get_book_scoring(pair, scoring)
+                scoring = {**scoring}  # **book_score_details
                 scoring["score"] = (
                     # scoring["risk_reward_ratio"]
                     scoring["support_strength"]

@@ -77,24 +77,24 @@ function Screening(data: { tradingData: tradingDataDef }) {
         return { color: params.value < 0 ? 'red' : 'green' }
       },
     },
-    {
-      field: 'book_imbalance',
-      headerTooltip: 'Book Imbalance',
-      type: 'number',
-      filter: 'agNumberColumnFilter',
-      valueFormatter: (params) => defaultValueFormat(params),
-      cellStyle: (params) => {
-        return { color: params.value < 0 ? 'red' : 'green' }
-      },
-    },
-    {
-      field: 'spread',
-      headerTooltip: 'Spread',
-      valueFormatter: (params) => defaultValueFormat(params),
-      cellStyle: (params) => {
-        return { color: params.value < 0 ? 'red' : 'green' }
-      },
-    },
+    // {
+    //   field: 'book_imbalance',
+    //   headerTooltip: 'Book Imbalance',
+    //   type: 'number',
+    //   filter: 'agNumberColumnFilter',
+    //   valueFormatter: (params) => defaultValueFormat(params),
+    //   cellStyle: (params) => {
+    //     return { color: params.value < 0 ? 'red' : 'green' }
+    //   },
+    // },
+    // {
+    //   field: 'spread',
+    //   headerTooltip: 'Spread',
+    //   valueFormatter: (params) => defaultValueFormat(params),
+    //   cellStyle: (params) => {
+    //     return { color: params.value < 0 ? 'red' : 'green' }
+    //   },
+    // },
     {
       field: 'upside',
       headerTooltip: 'Upside %',
@@ -148,9 +148,9 @@ function Screening(data: { tradingData: tradingDataDef }) {
   function setDefaultGridSettings() {
     if (gridApi) {
       const filters = {
-        book_imbalance: {
-          type: 'notBlank',
-        },
+        // book_imbalance: {
+        //   type: 'notBlank',
+        // },
         rsi: {
           type: 'lessThan',
           filter: 40,
