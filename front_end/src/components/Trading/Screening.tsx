@@ -78,24 +78,6 @@ function Screening(data: { tradingData: tradingDataDef }) {
       },
     },
     {
-      field: 'book_imbalance',
-      headerTooltip: 'Book Imbalance',
-      type: 'number',
-      filter: 'agNumberColumnFilter',
-      valueFormatter: (params) => defaultValueFormat(params),
-      cellStyle: (params) => {
-        return { color: params.value < 0 ? 'red' : 'green' }
-      },
-    },
-    {
-      field: 'spread',
-      headerTooltip: 'Spread',
-      valueFormatter: (params) => defaultValueFormat(params),
-      cellStyle: (params) => {
-        return { color: params.value < 0 ? 'red' : 'green' }
-      },
-    },
-    {
       field: 'upside',
       headerTooltip: 'Upside %',
       type: 'number',
@@ -148,21 +130,18 @@ function Screening(data: { tradingData: tradingDataDef }) {
   function setDefaultGridSettings() {
     if (gridApi) {
       const filters = {
-        book_imbalance: {
-          type: 'notBlank',
-        },
         rsi: {
           type: 'lessThan',
           filter: 40,
         },
-        distance_to_support: {
-          type: 'lessThan',
-          filter: 0.1,
-        },
-        upside: {
-          type: 'greaterThan',
-          filter: 0.1,
-        },
+        // distance_to_support: {
+        //   type: 'lessThan',
+        //   filter: 0.1,
+        // },
+        // upside: {
+        //   type: 'greaterThan',
+        //   filter: 0.1,
+        // },
         risk_reward_ratio: {
           type: 'greaterThan',
           filter: 0,
@@ -189,7 +168,7 @@ function Screening(data: { tradingData: tradingDataDef }) {
 
   const handleClick = (clickedPair: RowClickedEvent<any>) => {
     const pairDetails = clickedPair.data
-    dispatch(filterSlice.actions.setPair(`${pairDetails.pair}C`))
+    dispatch(filterSlice.actions.setPair(`${pairDetails.pair}`))
     dispatch(filterSlice.actions.setPairScoreDetails(pairDetails))
     dispatch(filterSlice.actions.setSelectedOrder(['', '', '']))
   }

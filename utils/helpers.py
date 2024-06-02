@@ -36,6 +36,9 @@ UNITS_TO_MILLISECONDS = {
 
 MAX_OHLCV_SIZE = 300
 
+THROTLE_PERIOD = 1
+MAX_RETRIES = 20
+
 
 def get_api_keys(exchange: str, websocket: bool = False) -> dict:
     try:
@@ -100,10 +103,8 @@ def get_logger(logger_name: str) -> logging.Logger:
 def call_with_retries(func):
     def wrapper(*args, **kwargs):
         success = False
-        throtle = 0.5
-        max_retries = 10
         retry_i = 0
-        while not success and retry_i <= max_retries:
+        while not success and retry_i <= MAX_RETRIES:
             try:
                 response = func(*args, **kwargs)
                 success = True
@@ -111,10 +112,9 @@ def call_with_retries(func):
             except Exception as e:
                 retry_i += 1
                 logging.warning(
-                    f"\n Attempt {retry_i} | Will retry in {throtle} seconds | {e} \n"
+                    f"\n Attempt {retry_i} | Will retry in {THROTLE_PERIOD} seconds | {e} \n"
                 )
-                time.sleep(throtle)
-                throtle += 1
+                time.sleep(THROTLE_PERIOD)
 
     return wrapper
 
@@ -122,10 +122,8 @@ def call_with_retries(func):
 def a_call_with_retries(func):
     async def wrapper(*args, **kwargs):
         success = False
-        throtle = 0.5
-        max_retries = 10
         retry_i = 0
-        while not success and retry_i <= max_retries:
+        while not success and retry_i <= MAX_RETRIES:
             try:
                 response = await func(*args, **kwargs)
                 success = True
@@ -133,10 +131,9 @@ def a_call_with_retries(func):
             except Exception as e:
                 retry_i += 1
                 logging.warning(
-                    f"\n Attempt {retry_i} | Will retry in {throtle} seconds | {e} \n"
+                    f"\n Attempt {retry_i} | Will retry in {THROTLE_PERIOD} seconds | {e} \n"
                 )
-                await asyncio.sleep(throtle)
-                throtle += 1
+                await asyncio.sleep(THROTLE_PERIOD)
 
     return wrapper
 

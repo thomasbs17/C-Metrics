@@ -31,6 +31,7 @@ def login_view(request: django.core.handlers.wsgi.WSGIRequest):
         return django.http.HttpResponseForbidden()
 
 
+@h.a_call_with_retries
 async def get_exchanges(request: django.core.handlers.wsgi.WSGIRequest):
     data = ccxt.exchanges
     return django.http.JsonResponse(data, safe=False)
@@ -50,11 +51,13 @@ async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
 
     if from_db:
         # TODO: needs better async support
-        query = f"""select distinct date_part('epoch', timestamp) * 1000, open, high, low, close, volume from market_data.ohlcv 
-        where exchange = '{exchange}' and pair = '{pair}' and time_period = '{timeframe}'"""
+        query = f"""select distinct date_part('epoch', timestamp) * 1000, open, high, low, close, volume{',pair,insert_tmstmp' if not pair else ''} 
+        from market_data.ohlcv where exchange = '{exchange}' and time_period = '{timeframe}'"""
+        if pair:
+            query += f" and pair = '{pair}'"
         if from_tmstmp:
             query += f" and timestamp >= '{from_tmstmp}'"
-        query += " order by date_part('epoch', timestamp) * 1000"
+        query += f" order by {'pair,' if not pair else ''} date_part('epoch', timestamp) * 1000"
         db = h.get_db_connection()
         ohlc_data = pd.read_sql_query(sql=query, con=db)
         ohlc_data = ohlc_data.values.tolist()
@@ -72,6 +75,7 @@ async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
     return django.http.JsonResponse(ohlc_data, safe=False)
 
 
+@h.a_call_with_retries
 async def get_order_book(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     pair = request.GET.get("pair")
@@ -110,6 +114,7 @@ async def get_crypto_meta_data(request: django.core.handlers.wsgi.WSGIRequest):
     )
 
 
+@h.a_call_with_retries
 async def get_exchange_markets(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     exchange = h.get_exchange_object(exchange, async_mode=False)
@@ -194,6 +199,7 @@ async def cancel_order(request: django.core.handlers.wsgi.WSGIRequest):
     return django.http.JsonResponse("success", safe=False)
 
 
+@h.a_call_with_retries
 async def get_orders(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     exchange = h.get_exchange_object(exchange, async_mode=True)
@@ -218,6 +224,7 @@ async def get_orders(request: django.core.handlers.wsgi.WSGIRequest):
     return django.http.JsonResponse(orders, safe=False)
 
 
+@h.a_call_with_retries
 async def get_trades(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     exchange = h.get_exchange_object(exchange, async_mode=True)

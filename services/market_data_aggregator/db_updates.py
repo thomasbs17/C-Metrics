@@ -19,7 +19,7 @@ class MarketDataDbUpdates:
         self,
         ref_currency="USDC",
         exchange_list: list = ["coinbase"],
-        time_periods: list = ["1m", "1d"],
+        time_periods: list = ["1d"],
     ):
         LOG.info("Launching Market Data DB Updates")
         self.db = helpers.get_db_connection()
