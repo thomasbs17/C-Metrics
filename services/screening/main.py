@@ -14,7 +14,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 
 from utils import helpers
 
-warnings.filterwarnings("ignore")
 WS_PORT = 8768
 LOG = helpers.get_logger("screening_service")
 
