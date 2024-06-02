@@ -46,7 +46,7 @@ function Screening(data: { tradingData: tradingDataDef }) {
       type: 'number',
       headerTooltip: '% distance to next support',
       filter: 'agNumberColumnFilter',
-      menuTabs: ["filterMenuTab"],
+      menuTabs: ['filterMenuTab'],
       valueFormatter: (params) => defaultValueFormat(params),
       cellStyle: (params) => {
         return { color: params.value < 0 ? 'red' : 'green' }

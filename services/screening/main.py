@@ -6,10 +6,10 @@ import time
 import warnings
 from datetime import datetime as dt
 
+import aiohttp
 import ccxt.async_support as ccxt
 import pandas as pd
 import pandas_ta as ta
-import requests
 import websockets
 from indicators import technicals
 
@@ -71,29 +71,45 @@ class ExchangeScreener:
             LOG.info(f"Downloading Book data for {pair}")
         if pair not in self.data:
             self.data[pair] = dict()
-        book_data = requests.get(
-            url=f"{helpers.BASE_API}/order_book/?exchange=coinbase&pair={pair}&limit=100"
-        )
-        if book_data.status_code == 200:
-            self.data[pair]["book"] = book_data.json()
-        else:
-            LOG.warning(f"No Book data for {pair}")
+        try:
+            url = f"{helpers.BASE_API}/order_book/?exchange=coinbase&pair={pair}&limit=100"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as book_data:
+                    error_mesage = await book_data.text() if not book_data.ok else None
+                    if not error_mesage:
+                        self.data[pair]["book"] = await book_data.json()
+        except Exception as e:
+            error_mesage = e
+        if error_mesage:
+            LOG.warning(f"No Book data for {pair} | {error_mesage}")
 
     async def get_pair_ohlcv(self, pair: str):
         if self.verbose:
             LOG.info(f"Downloading OHLCV data for {pair}")
         if pair not in self.data:
             self.data[pair] = dict()
-        ohlc_data = requests.get(
-            url=f"{helpers.BASE_API}/ohlc/?exchange=coinbase&pair={pair}&timeframe=1d&full_history=y"
-        )
-        if ohlc_data.status_code == 200:
-            self.data[pair]["ohlcv"] = pd.DataFrame(
-                data=ohlc_data.json(),
-                columns=["timestamp", "open", "high", "low", "close", "volume"],
-            )
-        else:
-            LOG.warning(f"No OHLCV data for {pair}")
+        try:
+            url = f"{helpers.BASE_API}/ohlc/?exchange=coinbase&pair={pair}&timeframe=1d&full_history=y"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as ohlc_data:
+                    error_message = await ohlc_data.text() if not ohlc_data.ok else None
+                    if not error_message:
+                        ohlc_data = await ohlc_data.json()
+                        self.data[pair]["ohlcv"] = pd.DataFrame(
+                            data=ohlc_data,
+                            columns=[
+                                "timestamp",
+                                "open",
+                                "high",
+                                "low",
+                                "close",
+                                "volume",
+                            ],
+                        )
+        except Exception as e:
+            error_message = e
+        if error_message:
+            LOG.warning(f"No OHLCV data for {pair} | {error_message}")
 
     async def live_refresh(self, raw_data: bytes = None):
         self.updated = True
@@ -351,7 +367,7 @@ class Screener:
     def __init__(
         self,
         exchange_list: list = None,
-        ref_currency: str = "USD",
+        ref_currency: str = "USDC",
         verbose: bool = False,
         user_symbols_list: list = None,
     ):

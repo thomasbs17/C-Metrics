@@ -8,13 +8,11 @@ from asgiref.sync import sync_to_async
 from ccxt.base import errors
 from django.views.decorators.csrf import csrf_exempt
 from GoogleNews import GoogleNews
+import pandas as pd
 
 from crypto_station_api.data_sources.coinmarketcap import CoinMarketCap
 from crypto_station_api.models import Orders
-from utils.helpers import (
-    get_exchange_object,
-    get_full_history_ohlcv,
-)
+from utils import helpers as h
 
 coinmarketcap = CoinMarketCap()
 
@@ -38,28 +36,39 @@ async def get_exchanges(request: django.core.handlers.wsgi.WSGIRequest):
     return django.http.JsonResponse(data, safe=False)
 
 
+@h.a_call_with_retries
 async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     timeframe = request.GET.get("timeframe")
     pair = request.GET.get("pair")
+    from_tmstmp = request.GET.get("from_tmstmp")
     full_history = request.GET.get("full_history")
-    exchange = get_exchange_object(exchange, async_mode=True)
+    from_db = request.GET.get("from_db")
+    from_tmstmp = int(from_tmstmp) if from_tmstmp else None
+    from_db = True if not from_db or from_db == "y" else False
+    ohlc_data = None
 
-    if full_history == "y":
-        ohlc_data = await get_full_history_ohlcv(
-            pair=pair, exchange=exchange, timeframe=timeframe
+    if from_db:
+        # TODO: needs better async support
+        query = f"""select distinct date_part('epoch', timestamp) * 1000, open, high, low, close, volume from market_data.ohlcv 
+        where exchange = '{exchange}' and pair = '{pair}' and time_period = '{timeframe}'"""
+        if from_tmstmp:
+            query += f" and timestamp >= '{from_tmstmp}'"
+        query += " order by date_part('epoch', timestamp) * 1000"
+        db = h.get_db_connection()
+        ohlc_data = pd.read_sql_query(sql=query, con=db)
+        ohlc_data = ohlc_data.values.tolist()
+    if not ohlc_data:
+        exchange = h.get_exchange_object(exchange, async_mode=True)
+        ohlc_data = await h.get_ohlcv_history(
+            pair=pair,
+            exchange=exchange,
+            timeframe=timeframe,
+            from_tmstmp=from_tmstmp,
+            full_history=True if full_history == "y" else False,
         )
         await exchange.close()
         ohlc_data.sort(key=lambda x: x[0])
-        return django.http.JsonResponse(ohlc_data, safe=False)
-    else:
-        try:
-            ohlc_data = await exchange.fetch_ohlcv(
-                symbol=pair, timeframe=timeframe, limit=300
-            )
-        except errors.BadSymbol:
-            ohlc_data = None
-    await exchange.close()
     return django.http.JsonResponse(ohlc_data, safe=False)
 
 
@@ -67,7 +76,7 @@ async def get_order_book(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     pair = request.GET.get("pair")
     limit = request.GET.get("limit")
-    exchange = get_exchange_object(exchange, async_mode=True)
+    exchange = h.get_exchange_object(exchange, async_mode=True)
     try:
         order_book_data = await exchange.fetch_order_book(
             symbol=pair, limit=int(limit) if limit else 10000
@@ -103,7 +112,7 @@ async def get_crypto_meta_data(request: django.core.handlers.wsgi.WSGIRequest):
 
 async def get_exchange_markets(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
-    exchange = get_exchange_object(exchange, async_mode=False)
+    exchange = h.get_exchange_object(exchange, async_mode=False)
     return django.http.JsonResponse(exchange.load_markets(), safe=False)
 
 
@@ -123,7 +132,7 @@ async def get_news(request: django.core.handlers.wsgi.WSGIRequest):
 async def get_public_trades(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     pair = request.GET.get("pair")
-    exchange = get_exchange_object(exchange, async_mode=True)
+    exchange = h.get_exchange_object(exchange, async_mode=True)
     try:
         data = await exchange.fetch_trades(symbol=pair, limit=1000)
     except errors.BadSymbol:
@@ -187,7 +196,7 @@ async def cancel_order(request: django.core.handlers.wsgi.WSGIRequest):
 
 async def get_orders(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
-    exchange = get_exchange_object(exchange, async_mode=True)
+    exchange = h.get_exchange_object(exchange, async_mode=True)
     orders = await exchange.fetch_orders(limit=3000)
     await exchange.close()
     for order in orders:
@@ -211,7 +220,7 @@ async def get_orders(request: django.core.handlers.wsgi.WSGIRequest):
 
 async def get_trades(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
-    exchange = get_exchange_object(exchange, async_mode=True)
+    exchange = h.get_exchange_object(exchange, async_mode=True)
     trades = await exchange.fetch_my_trades(limit=3000)
     await exchange.close()
     for trade in trades:
