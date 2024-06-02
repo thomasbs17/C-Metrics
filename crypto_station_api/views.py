@@ -39,7 +39,6 @@ async def get_exchanges(request: django.core.handlers.wsgi.WSGIRequest):
 
 
 @h.a_call_with_retries
-@h.a_call_with_retries
 async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     timeframe = request.GET.get("timeframe")
@@ -78,12 +77,10 @@ async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
 
 
 @h.a_call_with_retries
-@h.a_call_with_retries
 async def get_order_book(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     pair = request.GET.get("pair")
     limit = request.GET.get("limit")
-    exchange = h.get_exchange_object(exchange, async_mode=True)
     exchange = h.get_exchange_object(exchange, async_mode=True)
     try:
         order_book_data = await exchange.fetch_order_book(
@@ -119,10 +116,8 @@ async def get_crypto_meta_data(request: django.core.handlers.wsgi.WSGIRequest):
 
 
 @h.a_call_with_retries
-@h.a_call_with_retries
 async def get_exchange_markets(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
-    exchange = h.get_exchange_object(exchange, async_mode=False)
     exchange = h.get_exchange_object(exchange, async_mode=False)
     return django.http.JsonResponse(exchange.load_markets(), safe=False)
 
@@ -143,7 +138,6 @@ async def get_news(request: django.core.handlers.wsgi.WSGIRequest):
 async def get_public_trades(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     pair = request.GET.get("pair")
-    exchange = h.get_exchange_object(exchange, async_mode=True)
     exchange = h.get_exchange_object(exchange, async_mode=True)
     try:
         data = await exchange.fetch_trades(symbol=pair, limit=1000)
@@ -207,10 +201,8 @@ async def cancel_order(request: django.core.handlers.wsgi.WSGIRequest):
 
 
 @h.a_call_with_retries
-@h.a_call_with_retries
 async def get_orders(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
-    exchange = h.get_exchange_object(exchange, async_mode=True)
     exchange = h.get_exchange_object(exchange, async_mode=True)
     orders = await exchange.fetch_orders(limit=3000)
     await exchange.close()
@@ -234,10 +226,8 @@ async def get_orders(request: django.core.handlers.wsgi.WSGIRequest):
 
 
 @h.a_call_with_retries
-@h.a_call_with_retries
 async def get_trades(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
-    exchange = h.get_exchange_object(exchange, async_mode=True)
     exchange = h.get_exchange_object(exchange, async_mode=True)
     trades = await exchange.fetch_my_trades(limit=3000)
     await exchange.close()
