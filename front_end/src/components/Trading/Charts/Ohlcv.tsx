@@ -378,6 +378,7 @@ export function TradingViewWidget(props: TradingViewProps) {
     const formattedPair = props.pair
       .replace('-', '')
       .replace('/', '')
+      .replace('USDC', 'USD')
       .toUpperCase()
     script.innerHTML = `
         {
@@ -395,7 +396,7 @@ export function TradingViewWidget(props: TradingViewProps) {
           "calendar": false,
           "studies": [
             "STD;Bollinger_Bands",
-            "STD;Willams_R"
+            "STD;RSI"
           ],
           "show_popup_button": true,
           "popup_width": "1000",

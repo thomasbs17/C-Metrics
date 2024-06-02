@@ -200,11 +200,12 @@ class ExchangeScreener:
                     scoring, is_scorable = self.vbp_based_scoring(
                         pair, scoring, is_scorable
                     )
+                    scoring["available_data_length"] = len(ohlcv)
                     if is_scorable:
                         scoring["score"] = (
                             # scoring["risk_reward_ratio"]
-                            scoring["support_strength"]
-                            + (1 - (scoring["rsi"] / 100))
+                            # scoring["support_strength"]
+                            +(1 - (scoring["rsi"] / 100))
                             + (1 - scoring["bbl"])
                             # + (1 - scoring["distance_to_support"])
                         )

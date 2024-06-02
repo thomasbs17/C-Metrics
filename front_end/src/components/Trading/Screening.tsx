@@ -78,6 +78,12 @@ function Screening(data: { tradingData: tradingDataDef }) {
       },
     },
     {
+      field: 'available_data_length',
+      type: 'number',
+      hide: true,
+      filter: 'agNumberColumnFilter',
+    },
+    {
       field: 'upside',
       headerTooltip: 'Upside %',
       type: 'number',
@@ -134,6 +140,10 @@ function Screening(data: { tradingData: tradingDataDef }) {
           type: 'lessThan',
           filter: 40,
         },
+        available_data_length: {
+          type: 'greaterThan',
+          filter: 150,
+        },
         // distance_to_support: {
         //   type: 'lessThan',
         //   filter: 0.1,
@@ -142,10 +152,10 @@ function Screening(data: { tradingData: tradingDataDef }) {
         //   type: 'greaterThan',
         //   filter: 0.1,
         // },
-        risk_reward_ratio: {
-          type: 'greaterThan',
-          filter: 0,
-        },
+        // risk_reward_ratio: {
+        //   type: 'greaterThan',
+        //   filter: 0,
+        // },
         score: {
           type: 'greaterThan',
           filter: 0,
