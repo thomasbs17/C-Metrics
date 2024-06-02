@@ -17,7 +17,7 @@ const initialState: FilterState = {
   tradingType: 'Live Trading',
   ohlcPeriod: '1d',
   exchange: 'coinbase',
-  pair: 'BTC/USD',
+  pair: 'BTC/USDC',
   selectedArticle: ['', ''],
   selectedOrder: ['', '', ''],
   ordersNeedReload: true,

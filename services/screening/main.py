@@ -1,14 +1,12 @@
 import asyncio
-import json
 import os
 import sys
-import time
-from datetime import datetime as dt
+import warnings
 
+import aiohttp
 import ccxt.async_support as ccxt
 import pandas as pd
 import pandas_ta as ta
-import requests
 import websockets
 from indicators import technicals
 
@@ -38,17 +36,11 @@ class ExchangeScreener:
         self.scores = pd.DataFrame(columns=["pair"])
         self.updated = True
 
-    async def load_all_data(self):
-        # tasks = list()
-        for pair in self.pairs:
-            self.get_pair_ohlcv(pair)
-            # tasks += [self.get_pair_ohlcv(pair)] #self.get_pair_book(pair)
-        # await asyncio.gather(*tasks)
-
-    async def add_technical_indicators(self, pair: str) -> bool:
+    def add_technical_indicators(self, pair: str) -> tuple[pd.DataFrame, bool]:
         if self.verbose:
             LOG.info(f"Computing technical indicators for {pair}")
-        self.data[pair]["ohlcv"].ta.cores = 0
+        ohlcv = self.data["ohlcv"][self.data["ohlcv"]["pair"] == pair]
+        ohlcv.ta.cores = 0
         CustomStrategy = ta.Strategy(
             name="Momo and Volatility",
             description="SMA 50,200, BBANDS, RSI, MACD and Volume SMA 20",
@@ -59,119 +51,45 @@ class ExchangeScreener:
             ],
         )
         try:
-            self.data[pair]["ohlcv"].ta.strategy(CustomStrategy)
-            return True
+            ohlcv.ta.strategy(CustomStrategy)
+            is_scorable = True
         except Exception as e:
             LOG.warning(f"Could not compute all indicators for {pair}:\n \n {e}")
-            return False
+            is_scorable = False
+        return ohlcv, is_scorable
 
-    async def get_pair_book(self, pair: str):
+    async def get_ohlcv(self):
         if self.verbose:
-            LOG.info(f"Downloading Book data for {pair}")
-        if pair not in self.data:
-            self.data[pair] = dict()
-        book_data = requests.get(
-            url=f"{helpers.BASE_API}/order_book/?exchange=coinbase&pair={pair}&limit=100"
-        )
-        if book_data.status_code == 200:
-            self.data[pair]["book"] = book_data.json()
-        else:
-            LOG.warning(f"No Book data for {pair}")
-
-    @helpers.call_with_retries
-    def get_pair_ohlcv(self, pair: str):
-        if self.verbose:
-            LOG.info(f"Downloading OHLCV data for {pair}")
-        if pair not in self.data:
-            self.data[pair] = dict()
-        ohlc_data = requests.get(
-            url=f"{helpers.BASE_API}/ohlc/?exchange=coinbase&pair={pair}&timeframe=1d&full_history=n"
-        )
-        if ohlc_data.status_code == 200:
-            self.data[pair]["ohlcv"] = pd.DataFrame(
-                data=ohlc_data.json(),
-                columns=["timestamp", "open", "high", "low", "close", "volume"],
-            )
-        else:
-            LOG.warning(f"No OHLCV data for {pair}")
-
-    async def live_refresh(self, raw_data: bytes = None):
-        self.updated = True
-        pair = await self.read_ws_message(raw_data)
-        await self.get_scoring([pair])
-
-    async def update_pair_ohlcv(self, pair: str, data: dict):
-        trade = data["trades"]
-        ohlcv = self.data[pair]["ohlcv"]
-        ohlcv["timestamp"] = ohlcv["timestamp"] / 1000
-        trade_timestamp = dt.utcfromtimestamp(trade["timestamp"]).date()
-        latest_ohlcv_timestamp = dt.utcfromtimestamp(ohlcv["timestamp"].iloc[-1]).date()
-        if trade_timestamp > latest_ohlcv_timestamp:
-            new_row = pd.DataFrame(
-                [
-                    [
-                        trade["timestamp"],
-                        trade["price"],
-                        trade["price"],
-                        trade["price"],
-                        trade["price"],
-                        trade["amount"],
-                    ]
-                ],
-                columns=["timestamp", "open", "high", "low", "close", "volume"],
-            )
-            ohlcv = pd.concat([ohlcv, new_row])
-        else:
-            idx = ohlcv.index[len(ohlcv) - 1]
-            ohlcv.loc[idx, "timestamp"] = time.time()
-            ohlcv.loc[idx, "high"] = max(ohlcv.loc[idx, "high"], trade["price"])
-            ohlcv.loc[idx, "low"] = min(ohlcv.loc[idx, "low"], trade["price"])
-            ohlcv.loc[idx, "close"] = trade["price"]
-            ohlcv.loc[idx, "volume"] += trade["amount"]
-        self.data[pair]["ohlcv"] = ohlcv
-
-    async def read_ws_message(self, raw_data: bytes) -> str:
-        data = json.loads(raw_data)
-        for method in data:
-            pair = data[method]["symbol"].replace("-", "/")
-            if pair in self.pairs:
-                if method == "trades":
-                    await self.update_pair_ohlcv(pair, data)
-                if method == "book":
-                    self.data[pair]["book"] = data[method][method]
-            return pair
-
-    def get_book_scoring(self, pair: str, scoring: dict) -> dict:
-        data = dict()
-        pair_book = self.data[pair].get("book")
-        if not pair_book:
-            return dict(book_imbalance=None, spread=None)
-        for side in ("bid", "ask"):
-            raw_side = side if side in pair_book else side + "s"
-            if isinstance(pair_book[raw_side], list):
-                df = pd.DataFrame(pair_book[raw_side], columns=["price", "volume"])
-                df.set_index("price", inplace=True)
-            else:
-                df = pd.DataFrame.from_dict(
-                    pair_book[raw_side], orient="index", columns=["volume"]
-                )
-            mask = (
-                df.index <= scoring["next_resistance"]
-                if side == "ask"
-                else df.index >= scoring["next_support"]
-            )
-            df = df[mask]
-            if df.empty:
-                return dict(book_imbalance=None, spread=None)
-            data[side] = df
-        spread = (float(data["ask"].index[0]) / float(data["bid"].index[0])) - 1
-        book_imbalance = (data["bid"]["volume"].sum() / data["ask"]["volume"].sum()) - 1
-        return dict(book_imbalance=book_imbalance, spread=spread)
+            LOG.info("Downloading OHLCV data")
+        try:
+            url = f"{helpers.BASE_API}/ohlc/?exchange=coinbase&timeframe=1d&full_history=y"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as ohlc_data:
+                    error_message = await ohlc_data.text() if not ohlc_data.ok else None
+                    if not error_message:
+                        ohlc_data = await ohlc_data.json()
+                        self.data["ohlcv"] = pd.DataFrame(
+                            data=ohlc_data,
+                            columns=[
+                                "timestamp",
+                                "open",
+                                "high",
+                                "low",
+                                "close",
+                                "volume",
+                                "pair",
+                                "insert_tmstmp",
+                            ],
+                        )
+        except Exception as e:
+            error_message = e
+        if error_message:
+            LOG.warning(f"No OHLCV data | {error_message}")
 
     def technical_indicators_scoring(
-        self, scoring: dict, pair: str, is_scorable: bool
+        self, scoring: dict, pair: str
     ) -> tuple[dict, bool]:
-        ohlcv = self.data[pair]["ohlcv"]
+        ohlcv, is_scorable = self.add_technical_indicators(pair)
         if not ohlcv.empty:
             scoring["close"] = ohlcv["close"].iloc[-1]
             scoring["24h_change"] = scoring["close"] / ohlcv["open"].iloc[-1] - 1
@@ -197,16 +115,14 @@ class ExchangeScreener:
         self, pair: str, scoring: dict, is_scorable: bool
     ) -> tuple[dict, bool]:
         if is_scorable:
-            ohlcv = self.data[pair]["ohlcv"]
+            ohlcv = self.data["ohlcv"][self.data["ohlcv"]["pair"] == pair]
             ohlcv["usd_volume"] = ohlcv.apply(
                 lambda x: x["volume"] * x["close"], axis=1
             )
             scoring["usd_volume"] = ohlcv["usd_volume"].sum()
             total_volume = ohlcv["volume"].sum()
             vbp = technicals.get_vbp(ohlcv)
-            fractals = technicals.FractalCandlestickPattern(
-                self.data[pair]["ohlcv"]
-            ).run()
+            fractals = technicals.FractalCandlestickPattern(ohlcv).run()
             fractal_resistances = sorted(
                 [fractal for fractal in fractals if fractal > scoring["close"]]
             )
@@ -264,40 +180,44 @@ class ExchangeScreener:
             )
         return scoring, is_scorable
 
-    async def score_pair(self, pair: str):
-        self.scores = self.scores[self.scores["pair"] != pair]
+    def score_pair(self, pair: str):
         if pair not in self.data:
             self.data[pair] = dict()
-        ohlcv = self.data[pair].get("ohlcv")
-        if ohlcv is not None:
-            scoring = dict()
-            is_scorable = await self.add_technical_indicators(pair)
-            scoring, is_scorable = self.technical_indicators_scoring(
-                scoring, pair, is_scorable
-            )
-            scoring, is_scorable = self.vbp_based_scoring(pair, scoring, is_scorable)
-            if is_scorable:
-                # book_score_details = self.get_book_scoring(pair, scoring)
-                scoring = {**scoring}  # **book_score_details
-                scoring["score"] = (
-                    # scoring["risk_reward_ratio"]
-                    scoring["support_strength"]
-                    + (1 - (scoring["rsi"] / 100))
-                    + (1 - scoring["bbl"])
-                    # + (1 - scoring["distance_to_support"])
-                    + (len(ohlcv) / 300)
-                )
-            else:
-                scoring["score"] = 0
-            scoring["pair"] = pair
-            pair_score_df = pd.DataFrame([scoring])
-            if not pair_score_df.empty:
-                self.scores = pd.concat([self.scores, pair_score_df])
+        if "ohlcv" in self.data:
+            ohlcv = self.data["ohlcv"][self.data["ohlcv"]["pair"] == pair]
+            last_update_tmstmp = self.data[pair].get("last_update_tmstmp")
+            if not last_update_tmstmp or last_update_tmstmp < pd.to_datetime(
+                ohlcv["insert_tmstmp"].max()
+            ):
+                self.scores = self.scores[self.scores["pair"] != pair]
+                self.data[pair]["last_update_tmstmp"] = pd.Timestamp.now(tz="UTC")
+                if not ohlcv.empty:
+                    scoring = dict()
+                    scoring, is_scorable = self.technical_indicators_scoring(
+                        scoring, pair
+                    )
+                    scoring, is_scorable = self.vbp_based_scoring(
+                        pair, scoring, is_scorable
+                    )
+                    scoring["available_data_length"] = len(ohlcv)
+                    if is_scorable:
+                        scoring["score"] = (
+                            # scoring["risk_reward_ratio"]
+                            # scoring["support_strength"]
+                            +(1 - (scoring["rsi"] / 100))
+                            + (1 - scoring["bbl"])
+                            # + (1 - scoring["distance_to_support"])
+                        )
+                    else:
+                        scoring["score"] = 0
+                    scoring["pair"] = pair
+                    pair_score_df = pd.DataFrame([scoring])
+                    if not pair_score_df.empty:
+                        self.scores = pd.concat([self.scores, pair_score_df])
 
-    async def get_scoring(self, pairs_to_screen: list = None):
-        pairs_to_screen = pairs_to_screen if pairs_to_screen else self.pairs
-        tasks = [self.score_pair(pair) for pair in pairs_to_screen]
-        await asyncio.gather(*tasks)
+    async def get_scoring(self):
+        for pair in self.pairs:
+            self.score_pair(pair)
         if not self.scores.empty:
             self.scores["score"] = self.scores.apply(
                 lambda x: x["score"]
@@ -306,52 +226,19 @@ class ExchangeScreener:
             )
             self.scores.sort_values(by="score", ascending=False, inplace=True)
 
-    def log_scores(self, top_score_amount: int = 10):
-        if self.scores is not None:
-            top_scores = self.scores.head(top_score_amount)
-            LOG.info(top_scores.to_string())
-
-    async def get_ws_uri(self) -> str:
-        pair_str = ",".join(self.all_symbols)
-        return f"{helpers.BASE_WS}{WS_PORT}?exchange={self.exchange_name}?trades={pair_str}?book={pair_str}"
-
-    async def handle_unavailable_server(self):
-        LOG.error("The Real Time Data service is down.")
+    async def screen_exchange(self):
         while True:
             self.updated = True
-            await self.load_all_data()
+            await self.get_ohlcv()
             await self.get_scoring()
             await asyncio.sleep(0)
-
-    async def screen_exchange(self):
-        uri = await self.get_ws_uri()
-        await self.load_all_data()
-        await self.get_scoring()
-        try:
-            async with websockets.connect(uri, ping_interval=None) as server_ws:
-                while True:
-                    try:
-                        response = await server_ws.recv()
-                        if response != "heartbeat":
-                            await self.live_refresh(response)
-                            if self.verbose:
-                                self.log_scores()
-                    except (
-                        websockets.ConnectionClosedError or asyncio.IncompleteReadError
-                    ):
-                        await self.exchange_object.close()
-                        await self.handle_unavailable_server()
-                        break
-                    await asyncio.sleep(0)
-        except ConnectionRefusedError:
-            await self.handle_unavailable_server()
 
 
 class Screener:
     def __init__(
         self,
         exchange_list: list = None,
-        ref_currency: str = "USD",
+        ref_currency: str = "USDC",
         verbose: bool = False,
         user_symbols_list: list = None,
     ):
@@ -382,7 +269,7 @@ class Screener:
 
     async def run_screening(self):
         await self.get_exchanges_mappings()
-        for exchange, details in self.data.items():
+        for details in self.data.values():
             self.screener = ExchangeScreener(
                 self.verbose, details["mapping"], details["object"], self.all_symbols
             )

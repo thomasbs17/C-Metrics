@@ -284,16 +284,18 @@ export function CryptoStationOhlcChart(props: OhlcChartProps) {
       chart.series[2].yAxis.setExtremes(0, 100)
       if (Object.keys(props.pairScoreDetails).length > 0) {
         ;['supports', 'resistances'].forEach((levelType: string, index) => {
-          props.pairScoreDetails[levelType].forEach(
-            (level: number, levelIndex: number) => {
-              chart.series[0].yAxis.addPlotLine({
-                color: levelType === 'supports' ? 'red' : 'green',
-                width: 0.5 * (1 / (levelIndex + 1)),
-                id: `${levelIndex}-${levelType}`,
-                value: level,
-              })
-            },
-          )
+          if (props.pairScoreDetails[levelType]) {
+            props.pairScoreDetails[levelType].forEach(
+              (level: number, levelIndex: number) => {
+                chart.series[0].yAxis.addPlotLine({
+                  color: levelType === 'supports' ? 'red' : 'green',
+                  width: 0.5 * (1 / (levelIndex + 1)),
+                  id: `${levelIndex}-${levelType}`,
+                  value: level,
+                })
+              },
+            )
+          }
         })
       }
       chart.series[0].xAxis.addPlotLine({
@@ -376,6 +378,7 @@ export function TradingViewWidget(props: TradingViewProps) {
     const formattedPair = props.pair
       .replace('-', '')
       .replace('/', '')
+      .replace('USDC', 'USD')
       .toUpperCase()
     script.innerHTML = `
         {
@@ -393,7 +396,7 @@ export function TradingViewWidget(props: TradingViewProps) {
           "calendar": false,
           "studies": [
             "STD;Bollinger_Bands",
-            "STD;Willams_R"
+            "STD;RSI"
           ],
           "show_popup_button": true,
           "popup_width": "1000",
