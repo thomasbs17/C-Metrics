@@ -5,7 +5,6 @@ from datetime import datetime as dt
 import ccxt
 import django
 from asgiref.sync import sync_to_async
-from ccxt.base import errors
 from django.views.decorators.csrf import csrf_exempt
 from GoogleNews import GoogleNews
 import pandas as pd
@@ -36,6 +35,31 @@ def login_view(request: django.core.handlers.wsgi.WSGIRequest):
 async def get_exchanges(request: django.core.handlers.wsgi.WSGIRequest):
     data = ccxt.exchanges
     return django.http.JsonResponse(data, safe=False)
+
+
+@h.a_call_with_retries
+async def get_latest_prices(request: django.core.handlers.wsgi.WSGIRequest):
+    exchange = request.GET.get("exchange")
+    if not exchange:
+        return django.http.JsonResponse({"error": "Invalid Parameters!"}, status=500)
+    query = f"""
+    with latest_tmstmp as (
+        select
+            pair,
+            max(timestamp) as tmstmp
+        from 
+            market_data.ohlcv
+        where
+            exchange = '{exchange}'
+        group by
+            pair
+    )
+    select ohlcv.pair, close from market_data.ohlcv ohlcv join latest_tmstmp lt on ohlcv.pair = lt.pair and ohlcv.timestamp = lt.tmstmp
+    """
+    db = h.get_db_connection()
+    latest_prices = pd.read_sql_query(sql=query, con=db)
+    latest_prices = latest_prices.set_index("pair")["close"].to_dict()
+    return django.http.JsonResponse(latest_prices, safe=False)
 
 
 @h.a_call_with_retries
@@ -132,18 +156,6 @@ async def get_news(request: django.core.handlers.wsgi.WSGIRequest):
         for article in data
         if isinstance(article["datetime"], dt) and article["datetime"] <= dt.now()
     ]
-    return django.http.JsonResponse(data, safe=False)
-
-
-async def get_public_trades(request: django.core.handlers.wsgi.WSGIRequest):
-    exchange = request.GET.get("exchange")
-    pair = request.GET.get("pair")
-    exchange = h.get_exchange_object(exchange, async_mode=True)
-    try:
-        data = await exchange.fetch_trades(symbol=pair, limit=1000)
-    except errors.BadSymbol:
-        data = None
-    await exchange.close()
     return django.http.JsonResponse(data, safe=False)
 
 

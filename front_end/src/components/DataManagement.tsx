@@ -390,56 +390,26 @@ function LoadOhlcvData() {
 
 function LoadLatestPrices(trades: Trade[]) {
   const [latestPrices, setLatestPrices] = useState<LatestPrices>({})
-  const selectedPair = useSelector(
-    (state: { filters: FilterState }) => state.filters.pair,
-  )
 
-  async function fetchLatestPrice(pair: string) {
-    if (pair !== undefined) {
-      try {
-        pair = pair.replace('USDC', 'USD')
-        const response = await fetch(
-          `http://${HOST}:${PORT}/public_trades/?exchange=coinbase&pair=${pair}`,
-        )
-        const latestPublicTrades = await response.json()
-        const latestPrice =
-          latestPublicTrades[latestPublicTrades.length - 1]['price'] || 0
-        latestPrices[pair] = latestPrice
-        setLatestPrices(latestPrices)
-      } catch (error) {}
-    }
-  }
-
-  function loadForAllHoldings() {
-    const holdings = getHoldingVolumesFromTrades(trades)
-    Object.keys(holdings['current']).forEach((pair: string) => {
-      fetchLatestPrice(pair)
-    })
+  async function fetchLatestPrice() {
+    try {
+      const response = await fetch(
+        `http://${HOST}:${PORT}/latest_prices/?exchange=coinbase`,
+      )
+      const latestPrices = await response.json()
+      setLatestPrices(latestPrices)
+    } catch (error) {}
   }
 
   useEffect(() => {
-    loadForAllHoldings()
+    fetchLatestPrice()
     const pricesInterval = setInterval(() => {
-      loadForAllHoldings()
-    }, 60000)
+      fetchLatestPrice()
+    }, 5000)
     return () => {
       clearInterval(pricesInterval)
     }
   }, [trades])
-
-  useEffect(() => {
-    const holdings = getHoldingVolumesFromTrades(trades)
-    if (!Object.keys(holdings['current']).includes(selectedPair)) {
-      fetchLatestPrice(selectedPair)
-      const ohlcInterval = setInterval(() => {
-        fetchLatestPrice(selectedPair)
-      }, 60000)
-      fetchLatestPrice(selectedPair)
-      return () => {
-        clearInterval(ohlcInterval)
-      }
-    }
-  }, [])
 
   return latestPrices
 }
@@ -563,7 +533,7 @@ export function GetTradingData() {
   const screeningData = LoadScreeningData()
   const noDataAnimation = LoadNoDataAnimation()
   const ohlcvData = LoadOhlcvData()
-  const latestPrices = {} //LoadLatestPrices(trades)
+  const latestPrices = LoadLatestPrices(trades)
   const orderBookData = LoadOrderBook()
   const greedAndFearData = LoadGreedAndFear()
 

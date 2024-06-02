@@ -34,7 +34,7 @@ import axios from 'axios'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import '../../css/charts.css'
-import { renderCellWithImage } from '../../utils/agGrid'
+import { defaultValueFormat, renderCellWithImage } from '../../utils/agGrid'
 import { getPairLogo } from '../../utils/common'
 import { HOST, PORT, type Order, type tradingDataDef } from '../DataManagement'
 import { filterSlice, type FilterState } from '../StateManagement'
@@ -394,6 +394,22 @@ function OrderTable({ data }: TableProps) {
       { field: 'order_price', headerName: 'Price' },
       { field: 'usd_value', headerName: '$ Value' },
       {
+        headerName: 'distance_to_last',
+        cellRenderer: 'agAnimateShowChangeCellRenderer',
+        valueGetter: (params) => {
+          if (params.data) {
+            const pair = params.data.asset_id
+            const price = params.data.order_price
+            const latestPrice = data.latestPrices[pair] || 0
+            return latestPrice / price - 1
+          }
+        },
+        valueFormatter: (params) => defaultValueFormat(params),
+        cellStyle: (params) => {
+          return { color: params.value < 0 ? 'red' : 'green' }
+        },
+      },
+      {
         headerName: '',
         field: 'order_id',
         cellRenderer: CustomizedMenus,
@@ -404,8 +420,17 @@ function OrderTable({ data }: TableProps) {
         },
       },
     ])
+  }, [data.orders, filterState.selectedOrder, data.coinMarketCapMapping])
+
+  useEffect(() => {
     setDefaultGridSettings()
-  }, [data.orders, pair, filterState.selectedOrder, data.coinMarketCapMapping])
+  }, [pair])
+
+  useEffect(() => {
+    if (gridRef.current && gridRef.current.api) {
+      gridRef.current.api.refreshCells({ force: true })
+    }
+  }, [data.latestPrices])
 
   const displayChartForSelectedOrder = (order: Order) => {
     if (order) {

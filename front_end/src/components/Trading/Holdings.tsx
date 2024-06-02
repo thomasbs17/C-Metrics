@@ -110,7 +110,6 @@ function HoldingsTable(data: { tradingData: tradingDataDef }) {
   }
 
   function getUSDValue(pair: string, volume: number) {
-    pair = pair.replace('USDC', 'USD')
     const lastPrice = data.tradingData.latestPrices![pair]
     if (lastPrice === undefined || lastPrice === null) {
       return 'N/A'

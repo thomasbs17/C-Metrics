@@ -16,6 +16,7 @@ import { useDispatch } from 'react-redux'
 import '../../css/charts.css'
 import { tradingDataDef } from '../DataManagement'
 import { filterSlice } from '../StateManagement'
+import { defaultValueFormat } from '../../utils/agGrid'
 
 function Screening(data: { tradingData: tradingDataDef }) {
   const gridRef = useRef<AgGridReact>(null)
@@ -23,10 +24,6 @@ function Screening(data: { tradingData: tradingDataDef }) {
   const gridStyle = useMemo(() => ({ width: '100%', height: '210px' }), [])
   const [rowData, setRowData] = useState<any[]>()
   const [gridApi, setGridApi] = useState<GridApi>()
-
-  function defaultValueFormat(params: ValueFormatterParams) {
-    return params.value ? `${Number(params.value * 100).toFixed(2)}%` : ''
-  }
 
   const [columnDefs] = useState<ColDef[]>([
     { field: 'pair' },
