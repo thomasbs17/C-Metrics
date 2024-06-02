@@ -11,10 +11,7 @@ from GoogleNews import GoogleNews
 
 from crypto_station_api.data_sources.coinmarketcap import CoinMarketCap
 from crypto_station_api.models import Orders
-from utils.helpers import (
-    get_exchange_object,
-    get_full_history_ohlcv,
-)
+from utils import helpers as h
 
 coinmarketcap = CoinMarketCap()
 
@@ -38,15 +35,16 @@ async def get_exchanges(request: django.core.handlers.wsgi.WSGIRequest):
     return django.http.JsonResponse(data, safe=False)
 
 
+@h.a_call_with_retries
 async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     timeframe = request.GET.get("timeframe")
     pair = request.GET.get("pair")
     full_history = request.GET.get("full_history")
-    exchange = get_exchange_object(exchange, async_mode=True)
+    exchange = h.get_exchange_object(exchange, async_mode=True)
 
     if full_history == "y":
-        ohlc_data = await get_full_history_ohlcv(
+        ohlc_data = await h.get_full_history_ohlcv(
             pair=pair, exchange=exchange, timeframe=timeframe
         )
         await exchange.close()
@@ -63,11 +61,12 @@ async def get_ohlc(request: django.core.handlers.wsgi.WSGIRequest):
     return django.http.JsonResponse(ohlc_data, safe=False)
 
 
+@h.a_call_with_retries
 async def get_order_book(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     pair = request.GET.get("pair")
     limit = request.GET.get("limit")
-    exchange = get_exchange_object(exchange, async_mode=True)
+    exchange = h.get_exchange_object(exchange, async_mode=True)
     try:
         order_book_data = await exchange.fetch_order_book(
             symbol=pair, limit=int(limit) if limit else 10000
@@ -101,9 +100,10 @@ async def get_crypto_meta_data(request: django.core.handlers.wsgi.WSGIRequest):
     )
 
 
+@h.a_call_with_retries
 async def get_exchange_markets(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
-    exchange = get_exchange_object(exchange, async_mode=False)
+    exchange = h.get_exchange_object(exchange, async_mode=False)
     return django.http.JsonResponse(exchange.load_markets(), safe=False)
 
 
@@ -123,7 +123,7 @@ async def get_news(request: django.core.handlers.wsgi.WSGIRequest):
 async def get_public_trades(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
     pair = request.GET.get("pair")
-    exchange = get_exchange_object(exchange, async_mode=True)
+    exchange = h.get_exchange_object(exchange, async_mode=True)
     try:
         data = await exchange.fetch_trades(symbol=pair, limit=1000)
     except errors.BadSymbol:
@@ -185,9 +185,10 @@ async def cancel_order(request: django.core.handlers.wsgi.WSGIRequest):
     return django.http.JsonResponse("success", safe=False)
 
 
+@h.a_call_with_retries
 async def get_orders(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
-    exchange = get_exchange_object(exchange, async_mode=True)
+    exchange = h.get_exchange_object(exchange, async_mode=True)
     orders = await exchange.fetch_orders(limit=3000)
     await exchange.close()
     for order in orders:
@@ -209,9 +210,10 @@ async def get_orders(request: django.core.handlers.wsgi.WSGIRequest):
     return django.http.JsonResponse(orders, safe=False)
 
 
+@h.a_call_with_retries
 async def get_trades(request: django.core.handlers.wsgi.WSGIRequest):
     exchange = request.GET.get("exchange")
-    exchange = get_exchange_object(exchange, async_mode=True)
+    exchange = h.get_exchange_object(exchange, async_mode=True)
     trades = await exchange.fetch_my_trades(limit=3000)
     await exchange.close()
     for trade in trades:

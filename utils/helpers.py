@@ -98,14 +98,14 @@ def get_logger(logger_name: str) -> logging.Logger:
 
 
 def call_with_retries(func):
-    async def wrapper(*args):
+    def wrapper(*args):
         success = False
         throtle = 0.5
         max_retries = 10
         retry_i = 0
         while not success and retry_i <= max_retries:
             try:
-                response = await func(*args)
+                response = func(*args)
                 time.sleep(0.5)
                 success = True
                 return response
@@ -118,6 +118,28 @@ def call_with_retries(func):
                     f"\n Attempt {retry_i} | Will retry in {throtle} seconds | {e} \n"
                 )
                 time.sleep(throtle)
+                throtle += 1
+
+    return wrapper
+
+
+def a_call_with_retries(func):
+    async def wrapper(*args, **kwargs):
+        success = False
+        throtle = 0.5
+        max_retries = 10
+        retry_i = 0
+        while not success and retry_i <= max_retries:
+            try:
+                response = await func(*args, **kwargs)
+                success = True
+                return response
+            except Exception as e:
+                retry_i += 1
+                logging.warning(
+                    f"\n Attempt {retry_i} | Will retry in {throtle} seconds | {e} \n"
+                )
+                await asyncio.sleep(throtle)
                 throtle += 1
 
     return wrapper
