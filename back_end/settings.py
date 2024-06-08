@@ -36,7 +36,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
 ]
 
-ROOT_URLCONF = "urls"
+ROOT_URLCONF = "crypto_station_api.urls"
 
 TEMPLATES = [
     {
