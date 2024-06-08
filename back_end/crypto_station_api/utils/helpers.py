@@ -1,16 +1,12 @@
 import asyncio
 import logging
 import os
-import time
 from datetime import datetime as dt, timedelta
 from pathlib import Path
 
-import aiohttp
 import ccxt
 from ccxt.base import errors
 import django
-import environ
-import pandas as pd
 import sqlalchemy as sql
 from ccxt import async_support as async_ccxt
 from dotenv import load_dotenv
@@ -19,8 +15,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = BASE_DIR / ".env"
 
 load_dotenv(ENV_PATH, verbose=True)
-env = environ.Env()
-environ.Env.read_env()
 HOST = "localhost"
 BASE_WS = f"ws://{HOST}:"
 BASE_API = "http://127.0.0.1:8000"
@@ -42,8 +36,8 @@ MAX_RETRIES = 20
 
 def get_api_keys(exchange: str, websocket: bool = False) -> dict:
     try:
-        key = env(f"{exchange}_api_key")
-        secret = env(f"{exchange}_api_secret")
+        key = os.getenv(f"{exchange}_api_key")
+        secret = os.getenv(f"{exchange}_api_secret")
     except django.core.exceptions.ImproperlyConfigured:
         key = secret = None
     if key and secret:
@@ -70,53 +64,6 @@ def get_db_connection() -> sql.Engine:
     port = os.getenv("DB_PORT")
     dsn = f"postgresql://{user}:{pwd}@{host}:{port}/{db_name}"
     return sql.create_engine(dsn)
-
-
-def datetime_unix_conversion(
-    df: pd.DataFrame, convert_to: str, cols: list = None
-) -> pd.DataFrame:
-    cols = cols if cols else df.columns
-    for col in cols:
-        if col.endswith("tmstmp"):
-            if convert_to == "unix":
-                df[col] = pd.to_datetime(df[col], utc=True).astype("int64") // 10**9
-            else:
-                df[col] = df[col].apply(lambda x: dt.utcfromtimestamp(x))
-    return df
-
-
-async def async_get(session: aiohttp.ClientSession, url: str, pair: str = None) -> list:
-    async with session.get(url) as response:
-        data = await response.json()
-        if pair:
-            return [pair, data]
-        return data
-
-
-def get_logger(logger_name: str) -> logging.Logger:
-    logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.INFO)
-    return logger
-
-
-def call_with_retries(func):
-    def wrapper(*args, **kwargs):
-        success = False
-        retry_i = 0
-        while not success and retry_i <= MAX_RETRIES:
-            try:
-                response = func(*args, **kwargs)
-                success = True
-                return response
-            except Exception as e:
-                retry_i += 1
-                logging.warning(
-                    f"\n Attempt {retry_i} | Will retry in {THROTLE_PERIOD} seconds | {e} \n"
-                )
-                time.sleep(THROTLE_PERIOD)
-
-    return wrapper
 
 
 def a_call_with_retries(func):

@@ -22,7 +22,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "corsheaders",
     "rest_framework",
-    "crypto_station_api"
+    "crypto_station_api",
 ]
 
 MIDDLEWARE = [
