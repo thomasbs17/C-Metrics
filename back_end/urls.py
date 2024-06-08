@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from crypto_station_api import views
+import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),

@@ -9,9 +9,8 @@ from django.views.decorators.csrf import csrf_exempt
 from GoogleNews import GoogleNews
 import pandas as pd
 
-from crypto_station_api.data_sources.coinmarketcap import CoinMarketCap
-from crypto_station_api.models import Orders
-from utils import helpers as h
+from data_sources.coinmarketcap import CoinMarketCap
+from models import Orders
 from utils import helpers as h
 
 coinmarketcap = CoinMarketCap()
