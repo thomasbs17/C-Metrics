@@ -12,6 +12,7 @@ import {
   tradingDataDef,
 } from '../DataManagement'
 import { filterSlice } from '../StateManagement'
+import { useLocation } from 'react-router-dom'
 
 type FormattedHoldings = {
   pair: string
@@ -21,13 +22,16 @@ type FormattedHoldings = {
 }
 
 function HoldingsTable(data: { tradingData: tradingDataDef }) {
+
+  const location = useLocation();
+
   const gridRef = useRef<AgGridReact<any>>(null)
   const [currentHoldings, setCurrentHoldings] = useState<any>([])
   const [formattedHoldings, setFormattedHoldings] = useState<
     FormattedHoldings[]
   >([])
   const [gridData] = useState<FormattedHoldings[]>(getFormattedHoldings)
-  const gridStyle = useMemo(() => ({ width: '100%', height: '210px' }), [])
+  const gridStyle = useMemo(() => ({ width: '100%', height: location.pathname.endsWith('portfolio') ? '400px' : '210px'  }), [])
   const dispatch = useDispatch()
 
   const [columnDefs] = useState<any>([

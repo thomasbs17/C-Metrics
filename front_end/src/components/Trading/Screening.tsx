@@ -18,6 +18,8 @@ import { tradingDataDef } from '../DataManagement'
 import { filterSlice } from '../StateManagement'
 import { defaultValueFormat } from '../../utils/agGrid'
 
+const RSI_THRESHOLD = 35
+
 function Screening(data: { tradingData: tradingDataDef }) {
   const gridRef = useRef<AgGridReact>(null)
   const containerStyle = useMemo(() => ({ width: '100%', height: '210px' }), [])
@@ -130,12 +132,49 @@ function Screening(data: { tradingData: tradingDataDef }) {
     setDefaultGridSettings()
   }, [gridApi, data.tradingData.screeningData])
 
+
+  function closeToPocFilter() {
+    if (gridApi) {
+      const filters = {
+        rsi: {
+          type: 'lessThan',
+          filter: RSI_THRESHOLD,
+        },
+        available_data_length: {
+          type: 'greaterThan',
+          filter: 150,
+        },
+        distance_to_support: {
+          type: 'lessThan',
+          filter: 0.1,
+        },
+        upside: {
+          type: 'greaterThan',
+          filter: 0.1,
+        },
+        risk_reward_ratio: {
+          type: 'greaterThan',
+          filter: 0,
+        },
+        score: {
+          type: 'greaterThan',
+          filter: 0,
+        },
+      }
+      gridApi.setFilterModel(filters)
+      gridApi.applyColumnState({
+        state: [{ colId: 'score', sort: 'desc' }],
+        defaultState: { sort: null },
+      })
+    }
+  }
+
   function setDefaultGridSettings() {
     if (gridApi) {
       const filters = {
         rsi: {
           type: 'lessThan',
-          filter: 40,
+          filter: RSI_THRESHOLD,
         },
         available_data_length: {
           type: 'greaterThan',
@@ -202,6 +241,11 @@ function Screening(data: { tradingData: tradingDataDef }) {
         {
           name: 'Set Filters',
           action: () => setDefaultGridSettings(),
+        },
+        {
+          name: 'Close to Point of Control',
+          action: () => closeToPocFilter(),
+          icon: '🤏'
         },
         'separator',
         'copy',
