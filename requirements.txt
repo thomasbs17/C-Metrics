@@ -7,7 +7,7 @@ ccxt==4.3.49
 GoogleNews==1.6.14
 cryptofeed==2.4.0
 pandas==2.2.2
-redis==5.0.6
+redis==5.0.7
 msgpack==1.0.8
 websockets==12.0
 sqlalchemy==2.0.30
