@@ -12,7 +12,7 @@
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.5.1",
     "@types/jest": "^29.5.8",
-    "@types/node": "^20.9.0",
+    "@types/node": "^22.2.0",
     "@types/react": "^18.2.18",
     "@types/react-dom": "^18.2.7",
     "ag-grid-community": "^32.0.0",
