@@ -129,12 +129,11 @@ function Screening(data: { tradingData: tradingDataDef }) {
     if (gridApi) {
       gridApi.setGridOption('rowData', data.tradingData.screeningData)
     }
-    setDefaultGridSettings()
   }, [gridApi, data.tradingData.screeningData])
 
 
-  function closeToPocFilter() {
-    if (gridApi) {
+  function closeToPocFilter(event: any) {
+    if (event.api) {
       const filters = {
         rsi: {
           type: 'lessThan',
@@ -161,16 +160,16 @@ function Screening(data: { tradingData: tradingDataDef }) {
           filter: 0,
         },
       }
-      gridApi.setFilterModel(filters)
-      gridApi.applyColumnState({
+      event.api.setFilterModel(filters)
+      event.api.applyColumnState({
         state: [{ colId: 'score', sort: 'desc' }],
         defaultState: { sort: null },
       })
     }
   }
 
-  function setDefaultGridSettings() {
-    if (gridApi) {
+  function setDefaultGridSettings(event: any) {
+    if (event.api) {
       const filters = {
         rsi: {
           type: 'lessThan',
@@ -180,25 +179,25 @@ function Screening(data: { tradingData: tradingDataDef }) {
           type: 'greaterThan',
           filter: 150,
         },
-        // distance_to_support: {
-        //   type: 'lessThan',
-        //   filter: 0.1,
-        // },
-        // upside: {
-        //   type: 'greaterThan',
-        //   filter: 0.1,
-        // },
-        // risk_reward_ratio: {
-        //   type: 'greaterThan',
-        //   filter: 0,
-        // },
+        distance_to_support: {
+          type: 'lessThan',
+          filter: 0.1,
+        },
+        upside: {
+          type: 'greaterThan',
+          filter: 0.1,
+        },
+        risk_reward_ratio: {
+          type: 'greaterThan',
+          filter: 0,
+        },
         score: {
           type: 'greaterThan',
           filter: 0,
         },
       }
-      gridApi.setFilterModel(filters)
-      gridApi.applyColumnState({
+      event.api.setFilterModel(filters)
+      event.api.applyColumnState({
         state: [{ colId: 'score', sort: 'desc' }],
         defaultState: { sort: null },
       })
@@ -209,7 +208,6 @@ function Screening(data: { tradingData: tradingDataDef }) {
     setRowData(data.tradingData.screeningData)
     setGridApi(event.api)
     event.api.setGridOption('rowData', data.tradingData.screeningData)
-    setDefaultGridSettings()
   }, [])
 
   const handleClick = (clickedPair: RowClickedEvent<any>) => {
@@ -240,11 +238,11 @@ function Screening(data: { tradingData: tradingDataDef }) {
         },
         {
           name: 'Set Filters',
-          action: () => setDefaultGridSettings(),
+          action: (e) => setDefaultGridSettings(e),
         },
         {
           name: 'Close to Point of Control',
-          action: () => closeToPocFilter(),
+          action: (e) => closeToPocFilter(e),
           icon: '🤏'
         },
         'separator',

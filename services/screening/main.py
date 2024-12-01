@@ -9,8 +9,7 @@ import pandas as pd
 import pandas_ta as ta
 import websockets
 
-import services.screening.indicators.vbp
-from services.screening.indicators.fractals import FractalCandlestickPattern
+from indicators import vbp, fractals
 
 warnings.filterwarnings("ignore")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -124,35 +123,37 @@ class ExchangeScreener:
             )
             scoring["usd_volume"] = ohlcv["usd_volume"].sum()
             total_volume = ohlcv["volume"].sum()
-            vbp = services.screening.indicators.vbp.get_vbp(ohlcv)
-            fractals = FractalCandlestickPattern(ohlcv).run()
+            vbp_df = vbp.get_vbp(ohlcv)
+            fractals_list = fractals.FractalCandlestickPattern(ohlcv).run()
             fractal_resistances = sorted(
-                [fractal for fractal in fractals if fractal > scoring["close"]]
+                [fractal for fractal in fractals_list if fractal > scoring["close"]]
             )
-            supports = vbp[vbp["level_type"] == "support"].reset_index(drop=True)
-            resistances = vbp[vbp["level_type"] == "resistance"].reset_index(drop=True)
-            if len(supports) < 2 or resistances.empty or not fractal_resistances:
+            supports = vbp_df[vbp_df["level_type"] == "support"].reset_index(drop=True)
+            resistances = vbp_df[vbp_df["level_type"] == "resistance"].reset_index(
+                drop=True
+            )
+            if supports.empty or resistances.empty or not fractal_resistances:
                 is_scorable = False
-            scoring["next_support"] = supports.loc[0, "close"] if is_scorable else None
+            scoring["next_support"] = supports.loc[0, "price"] if is_scorable else None
             scoring["support_strength"] = (
                 supports.loc[0, "volume"] / total_volume if is_scorable else None
             )
             scoring["next_resistance"] = (
-                min(resistances.loc[0, "close"], fractal_resistances[0])
+                min(resistances.loc[0, "price"], fractal_resistances[0])
                 if is_scorable
                 else None
             )
             stop_loss_df = (
-                supports[supports["close"] < scoring["next_support"]].reset_index(
+                supports[supports["price"] < scoring["next_support"]].reset_index(
                     drop=True
                 )
                 if is_scorable
                 else pd.DataFrame()
             )
-            if stop_loss_df.empty:
-                is_scorable = False
+            # if stop_loss_df.empty:
+            #     is_scorable = False
             scoring["stop_loss"] = (
-                stop_loss_df.iloc[0]["close"] if is_scorable else None
+                stop_loss_df.iloc[0]["price"] if not stop_loss_df.empty else 0
             )
             scoring["supports"] = (
                 [scoring["next_support"], scoring["stop_loss"]] if is_scorable else None
@@ -314,5 +315,4 @@ async def run_websocket():
 
 
 if __name__ == "__main__":
-    screener = Screener(exchange_list=["coinbase"], verbose=True)
-    asyncio.run(screener.run_screening())
+    asyncio.run(run_websocket())
