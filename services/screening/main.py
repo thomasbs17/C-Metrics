@@ -8,7 +8,9 @@ import ccxt.async_support as ccxt
 import pandas as pd
 import pandas_ta as ta
 import websockets
-from indicators import technicals
+
+import services.screening.indicators.vbp
+from services.screening.indicators.fractals import FractalCandlestickPattern
 
 warnings.filterwarnings("ignore")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -122,8 +124,8 @@ class ExchangeScreener:
             )
             scoring["usd_volume"] = ohlcv["usd_volume"].sum()
             total_volume = ohlcv["volume"].sum()
-            vbp = technicals.get_vbp(ohlcv)
-            fractals = technicals.FractalCandlestickPattern(ohlcv).run()
+            vbp = services.screening.indicators.vbp.get_vbp(ohlcv)
+            fractals = FractalCandlestickPattern(ohlcv).run()
             fractal_resistances = sorted(
                 [fractal for fractal in fractals if fractal > scoring["close"]]
             )
@@ -205,8 +207,7 @@ class ExchangeScreener:
                         scoring["score"] = (
                             # scoring["risk_reward_ratio"]
                             # scoring["support_strength"]
-                            +(1 - (scoring["rsi"] / 100))
-                            + (1 - scoring["bbl"])
+                            +(1 - (scoring["rsi"] / 100)) + (1 - scoring["bbl"])
                             # + (1 - scoring["distance_to_support"])
                         )
                     else:
@@ -236,6 +237,8 @@ class ExchangeScreener:
 
 
 class Screener:
+    screener: ExchangeScreener
+
     def __init__(
         self,
         exchange_list: list = None,
@@ -311,4 +314,5 @@ async def run_websocket():
 
 
 if __name__ == "__main__":
-    asyncio.run(run_websocket())
+    screener = Screener(exchange_list=["coinbase"], verbose=True)
+    asyncio.run(screener.run_screening())
