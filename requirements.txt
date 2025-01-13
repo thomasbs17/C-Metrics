@@ -10,7 +10,7 @@ pandas==2.2.3
 redis==5.2.0
 msgpack==1.1.0
 websockets==14.1
-sqlalchemy==2.0.36
+sqlalchemy==2.0.37
 
 # POSTGRES
 #If running on Linux, the below commands must be entered first
