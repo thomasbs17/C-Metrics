@@ -8,8 +8,9 @@ from pathlib import Path
 import aiohttp
 import ccxt
 from ccxt.base import errors
-import django
-import environ
+
+# import django
+# import environ
 import pandas as pd
 import sqlalchemy as sql
 from ccxt import async_support as async_ccxt
@@ -19,8 +20,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = BASE_DIR / ".env"
 
 load_dotenv(ENV_PATH, verbose=True)
-env = environ.Env()
-environ.Env.read_env()
 HOST = "localhost"
 BASE_WS = f"ws://{HOST}:"
 BASE_API = "http://127.0.0.1:8000"
@@ -41,11 +40,12 @@ MAX_RETRIES = 20
 
 
 def get_api_keys(exchange: str, websocket: bool = False) -> dict:
-    try:
-        key = env(f"{exchange}_api_key")
-        secret = env(f"{exchange}_api_secret")
-    except django.core.exceptions.ImproperlyConfigured:
-        key = secret = None
+    # try:
+    #     key = env(f"{exchange}_api_key")
+    #     secret = env(f"{exchange}_api_secret")
+    # except django.core.exceptions.ImproperlyConfigured:
+    key = os.environ.get(f"{exchange}_api_key")
+    secret = os.environ.get(f"{exchange}_api_secret")
     if key and secret:
         if websocket:
             return dict(key_id=key, key_secret=secret)
