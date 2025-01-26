@@ -17,7 +17,7 @@ load_dotenv(ENV_PATH, verbose=True)
 warnings.filterwarnings("ignore")
 
 
-class AddIndicators:
+class TrainingDataset:
     pair_df: pd.DataFrame
 
     stop_loss: float = 0.02
@@ -145,7 +145,7 @@ class AddIndicators:
         return self.pair_df
 
     def get_greed_and_fear(self):
-        if not self.greed_and_fear:
+        if self.greed_and_fear is None:
             url = "https://api.alternative.me/fng/?limit=0"
             resp = requests.get(url)
             resp_json = resp.json()
@@ -170,7 +170,6 @@ class AddIndicators:
             0, "day_return", self.pair_df["close"] / self.pair_df["open"] - 1
         )
         self.pair_df["volume"] = self.pair_df["volume"] * self.pair_df["close"]
-        self.pair_df.drop(columns=["open", "high", "low"], inplace=True)
 
     def is_valid_trade(
         self,
@@ -262,7 +261,7 @@ class AddIndicators:
         return df
 
     def get_open_interest_history(self):
-        if not self.open_interest:
+        if self.open_interest is None:
             df = self.call_coinalyze_api(
                 endpoint="open-interest-history", symbols="BTCUSDT_PERP.A"
             )
@@ -271,7 +270,7 @@ class AddIndicators:
             self.open_interest = df
 
     def get_funding_rate_history(self):
-        if not self.funding_rates:
+        if self.funding_rates is None:
             df = self.call_coinalyze_api(
                 endpoint="funding-rate-history", symbols="BTCUSDT_PERP.A"
             )
@@ -281,7 +280,7 @@ class AddIndicators:
             self.funding_rates = df
 
     def get_liquidations_history(self):
-        if not self.liquidations:
+        if self.liquidations is None:
             self.liquidations = self.call_coinalyze_api(
                 endpoint="liquidation-history", symbols="BTCUSDT_PERP.A"
             )
@@ -290,7 +289,7 @@ class AddIndicators:
             )
 
     def get_long_short_ratio_history(self):
-        if not self.long_short_ratio:
+        if self.long_short_ratio is None:
             self.long_short_ratio = self.call_coinalyze_api(
                 endpoint="long-short-ratio-history", symbols="BTCUSDT_PERP.A"
             )
@@ -315,7 +314,7 @@ class AddIndicators:
         self.pair_df[column] = self.pair_df[column].fillna(oldest_metric_value)
 
     def add_bitcoin_dominance(self):
-        if not self.bitcoin_dominance:
+        if self.bitcoin_dominance is None:
             self.bitcoin_dominance = pd.read_csv("services/ai/bitcoin_dominance.csv")
             self.bitcoin_dominance["timestamp"] = pd.to_datetime(
                 self.bitcoin_dominance["timestamp"], utc=True
@@ -326,7 +325,7 @@ class AddIndicators:
         self.custom_ffill(df=self.bitcoin_dominance, column="bitcoin_dominance")
 
     def add_btc_returns(self):
-        if not self.btc_returns:
+        if self.btc_returns is None:
             self.btc_returns = self.get_pair_ohlcv("BTC/USDC")
             self.btc_returns["btc_return_1d"] = self.btc_returns["close"].pct_change(
                 periods=1
@@ -447,7 +446,7 @@ class AddIndicators:
         self.pair_df["greed_and_fear_index_change"] = self.pair_df[
             "greed_and_fear_index"
         ].pct_change()
-        if not self.vix:
+        if self.vix is None:
             self.vix = pd.read_csv("services/ai/vix.csv")
             self.vix["timestamp"] = pd.to_datetime(
                 self.vix["timestamp"], format="%d/%m/%Y"
@@ -499,7 +498,7 @@ class AddIndicators:
         self.pair_df = final_df
 
     def add_btc_eth_correlation(self):
-        if not self.btc_eth_correlation:
+        if self.btc_eth_correlation is None:
             eth_usd = self.get_pair_ohlcv("ETH/USDC")
             eth_usd["eth_return_1d"] = eth_usd["close"].pct_change(periods=1)
             btc_usd = self.get_pair_ohlcv("BTC/USDC")
@@ -529,7 +528,6 @@ class AddIndicators:
         asset_name = "gold" if symbol == "GC=F" else "nasdaq"
         df[f"{asset_name}_1d_return"] = df["Close"].pct_change(periods=1)
         df = df[["timestamp", f"{asset_name}_1d_return"]]
-        df[f"{asset_name}_1d_return"] = df[f"{asset_name}_1d_return"].fillna(0)
         return df
 
     def add_market_beta_indicators(self):
@@ -545,14 +543,14 @@ class AddIndicators:
         self.add_bitcoin_dominance()
         self.add_btc_returns()
         self.add_btc_eth_correlation()
-        if not self.gold_returns:
+        if self.gold_returns is None:
             self.gold_returns = self.call_yahoo_finance_api(symbol="GC=F")
-        if not self.nasdaq_returns:
+        if self.nasdaq_returns is None:
             self.nasdaq_returns = self.call_yahoo_finance_api(symbol="^IXIC")
-        self.pair_df = self.pair_df.merge(self.gold_returns, how="left", on="timestamp")
-        self.pair_df = self.pair_df.merge(
-            self.nasdaq_returns, how="left", on="timestamp"
-        )
+        for asset in ("gold", "nasdaq"):
+            df = getattr(self, f"{asset}_returns")
+            self.pair_df = self.pair_df.merge(df, how="left", on="timestamp")
+            self.pair_df[f"{asset}_1d_return"] = df[f"{asset}_1d_return"].fillna(0)
 
     def add_macro_indicators(self):
         """
@@ -562,7 +560,7 @@ class AddIndicators:
         - Days to next FOMC decision
         """
         for df_name in ("nfp", "fed_decisions"):
-            if not getattr(self, df_name):
+            if getattr(self, df_name) is None:
                 setattr(self, df_name, pd.read_csv(f"services/ai/{df_name}.csv"))
             df = getattr(self, df_name)
             df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.date
@@ -614,5 +612,5 @@ class AddIndicators:
 
 
 if __name__ == "__main__":
-    model = AddIndicators()
-    training_df = model.get_raw_training_dataset()
+    dataset = TrainingDataset()
+    training_df = dataset.get_raw_training_dataset()
