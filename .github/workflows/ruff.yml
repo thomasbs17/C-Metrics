@@ -1,10 +1,32 @@
 name: Ruff
-on: [ push, pull_request ]
+
+on: 
+  [push, pull_request]
+
 jobs:
   ruff:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: chartboost/ruff-action@v1
+      
+      # Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          src: "./crypto_station_api/"
+          python-version: "3.x"
+
+      # Install Ruff
+      - name: Install Ruff
+        run: pip install ruff
+      
+      # Run Ruff check and fix issues
+      - name: Ruff Check and Fix
+        run: ruff check . --fix
+
+      # Run Ruff format
+      - name: Ruff Format
+        run: ruff format .
+
+      # Run Ruff isort for import sorting
+      - name: Ruff Import Sorting
+        run: ruff isort .
