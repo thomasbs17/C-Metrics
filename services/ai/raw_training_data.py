@@ -1,3 +1,4 @@
+import asyncio
 import os
 import warnings
 from datetime import datetime
@@ -8,10 +9,16 @@ import requests
 import talib
 from dotenv import load_dotenv
 import yfinance as yf
+from sqlalchemy import sql
 
 from services.screening.indicators.fractals import FractalCandlestickPattern
 from services.screening.indicators.vbp import get_vbp
-from utils.helpers import get_db_connection, ENV_PATH
+from utils.helpers import (
+    get_db_connection,
+    ENV_PATH,
+    get_ohlcv_history,
+    get_exchange_object,
+)
 
 load_dotenv(ENV_PATH, verbose=True)
 warnings.filterwarnings("ignore")
@@ -43,11 +50,26 @@ class TrainingDataset:
 
     def __init__(self):
         self.db = get_db_connection()
+        self.available_pairs = self.get_available_pairs()
 
-    def get_pair_ohlcv(self, pair: str) -> pd.DataFrame:
-        query = f"select pair, timestamp, open, high, low, close, volume from market_data.ohlcv where pair = '{pair}' order by timestamp"
-        df = pd.read_sql_query(sql=query, con=self.db)
-        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.date
+    @staticmethod
+    def get_available_pairs() -> list[str]:
+        exchanges = ["binance", "coinbase"]
+        pairs = list()
+        for exchange in exchanges:
+            exchange_object = get_exchange_object(exchange, async_mode=False)
+            exchange_pairs = exchange_object.load_markets()
+            for pair, pair_details in exchange_pairs.items():
+                if pair_details["base"] == "USDC" and pair not in pairs:
+                    pairs.append(pair)
+        return pairs
+
+    @staticmethod
+    async def get_pair_ohlcv(pair: str) -> pd.DataFrame:
+        exchange = get_exchange_object("binance", async_mode=True)
+        df = await get_ohlcv_history(
+            pair=pair, exchange=exchange, timeframe="1d", full_history=True
+        )
         return df
 
     def get_all_pairs(self) -> list[str]:
@@ -324,9 +346,9 @@ class TrainingDataset:
         )
         self.custom_ffill(df=self.bitcoin_dominance, column="bitcoin_dominance")
 
-    def add_btc_returns(self):
+    async def add_btc_returns(self):
         if self.btc_returns is None:
-            self.btc_returns = self.get_pair_ohlcv("BTC/USDC")
+            self.btc_returns = await self.get_pair_ohlcv("BTC/USDC")
             self.btc_returns["btc_return_1d"] = self.btc_returns["close"].pct_change(
                 periods=1
             )
@@ -497,11 +519,11 @@ class TrainingDataset:
             final_df = pd.concat([final_df, date_df])
         self.pair_df = final_df
 
-    def add_btc_eth_correlation(self):
+    async def add_btc_eth_correlation(self):
         if self.btc_eth_correlation is None:
-            eth_usd = self.get_pair_ohlcv("ETH/USDC")
+            eth_usd = await self.get_pair_ohlcv("ETH/USDC")
             eth_usd["eth_return_1d"] = eth_usd["close"].pct_change(periods=1)
-            btc_usd = self.get_pair_ohlcv("BTC/USDC")
+            btc_usd = await self.get_pair_ohlcv("BTC/USDC")
             btc_usd["btc_return_1d"] = btc_usd["close"].pct_change(periods=1)
             df = pd.merge(
                 btc_usd[["timestamp", "btc_return_1d"]],
@@ -530,7 +552,7 @@ class TrainingDataset:
         df = df[["timestamp", f"{asset_name}_1d_return"]]
         return df
 
-    def add_market_beta_indicators(self):
+    async def add_market_beta_indicators(self):
         """
         - BTC dominance
         - BTC/USD return 1d
@@ -541,8 +563,8 @@ class TrainingDataset:
         - NASDAQ return 1d
         """
         self.add_bitcoin_dominance()
-        self.add_btc_returns()
-        self.add_btc_eth_correlation()
+        await self.add_btc_returns()
+        await self.add_btc_eth_correlation()
         if self.gold_returns is None:
             self.gold_returns = self.call_yahoo_finance_api(symbol="GC=F")
         if self.nasdaq_returns is None:
@@ -587,30 +609,46 @@ class TrainingDataset:
             - self.pair_df["timestamp"]
         ).dt.days
 
-    def get_raw_training_dataset(self) -> pd.DataFrame:
+    def clear_existing_data(self, pair: str):
+        query = f"delete from public.training_dataset where pair = '{pair}'"
+        with self.db.connect() as connection:
+            connection.execute(sql.text(query))
+            connection.commit()
+
+    def should_get_data(self, pair: str, force_refresh: bool) -> bool:
+        if pair in self.available_pairs:
+            if force_refresh:
+                self.clear_existing_data(pair)
+                return True
+            return False
+        return True
+
+    async def get_raw_training_dataset(self, force_refresh: bool = False):
         all_pairs = self.get_all_pairs()
-        formatted_df = pd.DataFrame()
         for pair in all_pairs:
-            print(f"Processing {pair}")
-            self.pair_df = self.get_pair_ohlcv(pair)
+            if self.should_get_data(pair, force_refresh):
+                print(f"Processing {pair}")
+                self.pair_df = await self.get_pair_ohlcv(pair)
 
-            self.add_valid_trades()
+                self.add_valid_trades()
 
-            self.add_trend_indicators()
-            self.add_price_indicators()
-            self.add_derivatives_indicators()
-            self.add_momentum_indicators()
-            self.add_volatility_indicators()
-            self.add_volume_indicators()
-            self.add_market_beta_indicators()
-            self.add_macro_indicators()
-            self.add_seasonality()
-            self.add_patterns()
-            self.transform_ohlcv()
-            formatted_df = pd.concat([formatted_df, self.pair_df])
-        return formatted_df
+                self.add_trend_indicators()
+                # self.add_price_indicators()
+                self.add_derivatives_indicators()
+                self.add_momentum_indicators()
+                self.add_volatility_indicators()
+                self.add_volume_indicators()
+                await self.add_market_beta_indicators()
+                self.add_macro_indicators()
+                self.add_seasonality()
+                self.add_patterns()
+                self.transform_ohlcv()
+                self.pair_df.to_sql(
+                    "training_dataset", con=self.db, if_exists="append", index=False
+                )
+                print(f"    {len(self.pair_df)} rows added to training_dataset")
 
 
 if __name__ == "__main__":
     dataset = TrainingDataset()
-    training_df = dataset.get_raw_training_dataset()
+    asyncio.run(dataset.get_raw_training_dataset(force_refresh=True))
