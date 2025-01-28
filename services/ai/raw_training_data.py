@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import warnings
 from datetime import datetime
@@ -7,20 +8,16 @@ import numpy as np
 import pandas as pd
 import requests
 import talib
+from ccxt import BadSymbol
 from dotenv import load_dotenv
 import yfinance as yf
 from sqlalchemy import sql
 
 from services.screening.indicators.fractals import FractalCandlestickPattern
 from services.screening.indicators.vbp import get_vbp
-from utils.helpers import (
-    get_db_connection,
-    ENV_PATH,
-    get_ohlcv_history,
-    get_exchange_object,
-)
+from utils import helpers
 
-load_dotenv(ENV_PATH, verbose=True)
+load_dotenv(helpers.ENV_PATH, verbose=True)
 warnings.filterwarnings("ignore")
 
 
@@ -43,39 +40,132 @@ class TrainingDataset:
     nfp: pd.DataFrame = None
     fed_decisions: pd.DataFrame = None
 
+    btc_usd: pd.DataFrame = None
+    eth_usd: pd.DataFrame = None
     btc_eth_correlation: pd.DataFrame = None
 
     gold_returns: pd.DataFrame = None
     nasdaq_returns: pd.DataFrame = None
 
-    def __init__(self):
-        self.db = get_db_connection()
+    def __init__(self, force_refresh: bool):
+        self.log = self.get_logger()
+        self.force_refresh = force_refresh
+        self.db = helpers.get_db_connection()
         self.available_pairs = self.get_available_pairs()
 
     @staticmethod
-    def get_available_pairs() -> list[str]:
-        exchanges = ["binance", "coinbase"]
-        pairs = list()
-        for exchange in exchanges:
-            exchange_object = get_exchange_object(exchange, async_mode=False)
-            exchange_pairs = exchange_object.load_markets()
-            for pair, pair_details in exchange_pairs.items():
-                if pair_details["base"] == "USDC" and pair not in pairs:
-                    pairs.append(pair)
-        return pairs
+    def get_logger() -> logging.Logger:
+        logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO)
+        return logging.getLogger("training-dataset")
 
     @staticmethod
-    async def get_pair_ohlcv(pair: str) -> pd.DataFrame:
-        exchange = get_exchange_object("binance", async_mode=True)
-        df = await get_ohlcv_history(
-            pair=pair, exchange=exchange, timeframe="1d", full_history=True
-        )
-        return df
+    def call_coinmarket_cap(endpoint: str) -> dict:
+        endpoint = f"https://pro-api.coinmarketcap.com/v1/cryptocurrency/{endpoint}"
+        headers = {"X-CMC_PRO_API_KEY": os.environ.get("COIN_MARKET_CAP_API_KEY")}
+        resp = requests.get(url=endpoint, headers=headers)
+        return resp.json()["data"]
 
-    def get_all_pairs(self) -> list[str]:
-        query = "select distinct pair from market_data.ohlcv"
-        df = pd.read_sql_query(sql=query, con=self.db)
-        return df["pair"].unique().tolist()
+    def get_stable_coins_categories(self) -> list[str]:
+        data = self.call_coinmarket_cap("categories")
+        stable_coins_category_id = list()
+        for category in data:
+            if "STABLE" in str(category).upper():
+                stable_coins_category_id.append(category["id"])
+        return stable_coins_category_id
+
+    def get_stable_coins(self) -> list[str]:
+        id_list = self.get_stable_coins_categories()
+        coins = list()
+        for category_id in id_list:
+            data = self.call_coinmarket_cap(f"category?id={category_id}")
+            for coin in data["coins"]:
+                coins.append(coin["symbol"])
+        return coins
+
+    def get_available_pairs(self) -> dict:
+        self.log.info("Retrieving available pairs")
+        exchanges = ["binance", "coinbase"]
+        pairs = dict()
+        stable_coins = self.get_stable_coins()
+        for exchange in exchanges:
+            exchange_object = helpers.get_exchange_object(exchange, async_mode=False)
+            exchange_pairs = exchange_object.load_markets()
+            for pair, pair_details in exchange_pairs.items():
+                base = pair_details["base"]
+                quote = pair_details["quote"]
+                if (
+                    any(quote == usd for usd in ("USD", "USDC", "USDT"))
+                    and base not in stable_coins
+                    and pair_details["type"] == "spot"
+                ):
+                    if base not in pairs:
+                        pairs[base] = list()
+                    if pair not in pairs[base]:
+                        pairs[base].append(pair)
+        self.log.info(f"{len(pairs)} available pairs")
+        return pairs
+
+    async def get_pair_ohlcv(self, asset: str) -> pd.DataFrame:
+        if asset == "BTC" and self.btc_usd is not None:
+            return self.btc_usd
+        if asset == "ETH" and self.eth_usd is not None:
+            return self.eth_usd
+        final_df = pd.DataFrame()
+        final_pair = None
+        final_exchange = None
+        for exchange in ("binance", "coinbase"):
+            pairs = self.available_pairs[asset]
+            for pair in pairs:
+                try:
+                    exchange_object = helpers.get_exchange_object(
+                        exchange, async_mode=False
+                    )
+                    ohlcv_data = helpers.get_ohlcv_history(
+                        pair=pair,
+                        exchange=exchange_object,
+                        timeframe="1d",
+                        full_history=True,
+                    )
+                    self.log.info(f"    Checking {exchange}: {pair}")
+                    df = pd.DataFrame(
+                        ohlcv_data,
+                        columns=["timestamp", "open", "high", "low", "close", "volume"],
+                    )
+                    df["timestamp"] = pd.to_datetime(
+                        df["timestamp"], utc=True, unit="ms"
+                    ).dt.date
+                    df.sort_values(by="timestamp", inplace=True)
+                    df.drop_duplicates(inplace=True)
+                    full_date_range = pd.date_range(
+                        start=df["timestamp"].min(), end=df["timestamp"].max()
+                    )
+                    missing_dates = full_date_range.difference(df["timestamp"])
+                    if not missing_dates.empty:
+                        self.log.info(f"    {len(missing_dates)} missing dates")
+                        df = (
+                            df.set_index("timestamp")
+                            .reindex(full_date_range)
+                            .reset_index()
+                        )
+                        df.rename(columns={"index": "timestamp"}, inplace=True)
+                        df["timestamp"] = pd.to_datetime(
+                            df["timestamp"], utc=True, unit="ms"
+                        ).dt.date
+                    if final_df.empty or len(df.dropna()) >= len(final_df.dropna()):
+                        final_pair = pair
+                        final_exchange = exchange
+                        final_df = df
+                except BadSymbol:
+                    pass
+        self.log.info(
+            f"    Pair with the most amount of data is {final_exchange}: {final_pair}"
+        )
+        final_df = final_df[1:-1]
+        if asset == "BTC":
+            self.btc_usd = final_df
+        if asset == "ETH":
+            self.eth_usd = final_df
+        return final_df
 
     def add_returns(self, periods: list[int]):
         for period in periods:
@@ -85,6 +175,7 @@ class TrainingDataset:
 
     def add_patterns(self):
         # https://github.com/TA-Lib/ta-lib-python/blob/master/docs/func_groups/pattern_recognition.md
+        self.log.info("Adding trading patterns")
         pattern_list = [
             "CDL2CROWS",
             "CDL3BLACKCROWS",
@@ -182,6 +273,7 @@ class TrainingDataset:
             self.greed_and_fear = df
 
     def transform_ohlcv(self):
+        self.log.info("Transforming OHLCV")
         self.pair_df.insert(
             0, "day_peak", self.pair_df["high"] / self.pair_df["open"] - 1
         )
@@ -210,6 +302,7 @@ class TrainingDataset:
         return False
 
     def add_valid_trades(self):
+        self.log.info("Adding valid trades")
         self.pair_df["next_open"] = self.pair_df["open"].shift(-1)
         self.pair_df["next_high"] = self.pair_df["high"].shift(-1)
         self.pair_df["next_low"] = self.pair_df["low"].shift(-1)
@@ -330,10 +423,10 @@ class TrainingDataset:
     def custom_ffill(self, df: pd.DataFrame, column: str):
         self.pair_df[column] = self.pair_df[column].ffill()
         oldest_ohlcv_value = self.pair_df["timestamp"].min()
-        oldest_metric_value = (
-            df[df["timestamp"] <= oldest_ohlcv_value].iloc[-1, 1:].item()
-        )
-        self.pair_df[column] = self.pair_df[column].fillna(oldest_metric_value)
+        df = df[df["timestamp"] <= oldest_ohlcv_value]
+        if not df.empty:
+            oldest_metric_value = df.iloc[-1, 1:].item()
+            self.pair_df[column] = self.pair_df[column].fillna(oldest_metric_value)
 
     def add_bitcoin_dominance(self):
         if self.bitcoin_dominance is None:
@@ -348,7 +441,7 @@ class TrainingDataset:
 
     async def add_btc_returns(self):
         if self.btc_returns is None:
-            self.btc_returns = await self.get_pair_ohlcv("BTC/USDC")
+            self.btc_returns = await self.get_pair_ohlcv("BTC")
             self.btc_returns["btc_return_1d"] = self.btc_returns["close"].pct_change(
                 periods=1
             )
@@ -372,6 +465,7 @@ class TrainingDataset:
         - Current Trend
         - Is Death Cross
         """
+        self.log.info("Adding trend indicators")
         self.pair_df["sma_50"] = talib.SMA(self.pair_df["close"], timeperiod=50)
         self.pair_df["sma_200"] = talib.SMA(self.pair_df["close"], timeperiod=200)
         self.pair_df["ema_100"] = talib.EMA(self.pair_df["close"], timeperiod=100)
@@ -392,6 +486,7 @@ class TrainingDataset:
         - Has crossed previous day fractal support
         - Distance to ATL and ATH
         """
+        self.log.info("Adding price indicators")
         self.add_returns(periods=[1, 7, 30])
 
         all_dates = self.pair_df["timestamp"].unique().tolist()
@@ -420,6 +515,7 @@ class TrainingDataset:
         - BTC/USD liquidations
         - BTC/USD l/s ratio
         """
+        self.log.info("Adding derivatives indicators")
         self.get_open_interest_history()
         self.get_funding_rate_history()
         self.get_liquidations_history()
@@ -436,6 +532,7 @@ class TrainingDataset:
         """
         - RSI
         """
+        self.log.info("Adding momentum indicators")
         self.pair_df["rsi"] = talib.RSI(self.pair_df["close"])
 
     def add_volatility_indicators(self):
@@ -447,6 +544,7 @@ class TrainingDataset:
         - VIX
         - Bollinger Bands
         """
+        self.log.info("Adding volatility indicators")
         self.pair_df["historical_volatility"] = self.pair_df["1d_return"].rolling(
             window=14
         ).std() * np.sqrt(252)  # Annualized
@@ -491,6 +589,7 @@ class TrainingDataset:
         - Has crossed previous day PoC support
 
         """
+        self.log.info("Adding volume indicators")
         self.pair_df["volume_smma_50"] = talib.SMA(
             self.pair_df["volume"], timeperiod=50
         )
@@ -521,9 +620,9 @@ class TrainingDataset:
 
     async def add_btc_eth_correlation(self):
         if self.btc_eth_correlation is None:
-            eth_usd = await self.get_pair_ohlcv("ETH/USDC")
+            eth_usd = await self.get_pair_ohlcv("ETH")
             eth_usd["eth_return_1d"] = eth_usd["close"].pct_change(periods=1)
-            btc_usd = await self.get_pair_ohlcv("BTC/USDC")
+            btc_usd = await self.get_pair_ohlcv("BTC")
             btc_usd["btc_return_1d"] = btc_usd["close"].pct_change(periods=1)
             df = pd.merge(
                 btc_usd[["timestamp", "btc_return_1d"]],
@@ -562,6 +661,7 @@ class TrainingDataset:
         - Gold return 1d
         - NASDAQ return 1d
         """
+        self.log.info("Adding market/beta indicators")
         self.add_bitcoin_dominance()
         await self.add_btc_returns()
         await self.add_btc_eth_correlation()
@@ -581,6 +681,7 @@ class TrainingDataset:
         - Current FOMC rate
         - Days to next FOMC decision
         """
+        self.log.info("Adding macro indicators")
         for df_name in ("nfp", "fed_decisions"):
             if getattr(self, df_name) is None:
                 setattr(self, df_name, pd.read_csv(f"services/ai/{df_name}.csv"))
@@ -599,6 +700,7 @@ class TrainingDataset:
         - month of the year
         - days to quarter end
         """
+        self.log.info("Adding seasonality indicators")
         self.pair_df["timestamp"] = pd.to_datetime(self.pair_df["timestamp"], utc=True)
         self.pair_df["day_of_week"] = self.pair_df["timestamp"].dt.dayofweek
         self.pair_df["month_of_year"] = self.pair_df["timestamp"].dt.month
@@ -615,25 +717,24 @@ class TrainingDataset:
             connection.execute(sql.text(query))
             connection.commit()
 
-    def should_get_data(self, pair: str, force_refresh: bool) -> bool:
-        if pair in self.available_pairs:
-            if force_refresh:
-                self.clear_existing_data(pair)
-                return True
-            return False
-        return True
+    def should_get_data(self, pair: str) -> bool:
+        if self.force_refresh:
+            self.clear_existing_data(pair)
+            return True
+        return False
 
-    async def get_raw_training_dataset(self, force_refresh: bool = False):
-        all_pairs = self.get_all_pairs()
-        for pair in all_pairs:
-            if self.should_get_data(pair, force_refresh):
-                print(f"Processing {pair}")
-                self.pair_df = await self.get_pair_ohlcv(pair)
+    async def get_raw_training_dataset(self):
+        for asset in self.available_pairs:
+            pair = f"{asset}/USD"
+            if self.should_get_data(pair):
+                self.log.info(f"Processing {pair}")
+                self.pair_df = await self.get_pair_ohlcv(asset)
+                self.pair_df["pair"] = pair
 
                 self.add_valid_trades()
 
                 self.add_trend_indicators()
-                # self.add_price_indicators()
+                self.add_price_indicators()
                 self.add_derivatives_indicators()
                 self.add_momentum_indicators()
                 self.add_volatility_indicators()
@@ -643,12 +744,15 @@ class TrainingDataset:
                 self.add_seasonality()
                 self.add_patterns()
                 self.transform_ohlcv()
+                if self.pair_df["timestamp"].duplicated().any():
+                    raise Exception("Duplicates found!")
+                self.log.info("Adding to DB")
                 self.pair_df.to_sql(
                     "training_dataset", con=self.db, if_exists="append", index=False
                 )
-                print(f"    {len(self.pair_df)} rows added to training_dataset")
+                self.log.info(f"    {len(self.pair_df)} rows added to training_dataset")
 
 
 if __name__ == "__main__":
-    dataset = TrainingDataset()
-    asyncio.run(dataset.get_raw_training_dataset(force_refresh=True))
+    dataset = TrainingDataset(force_refresh=True)
+    asyncio.run(dataset.get_raw_training_dataset())

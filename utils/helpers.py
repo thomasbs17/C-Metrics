@@ -1,13 +1,13 @@
 import asyncio
 import logging
 import os
+import sys
 import time
 from datetime import datetime as dt, timedelta
 from pathlib import Path
 
 import aiohttp
 import ccxt
-from ccxt.base import errors
 
 # import django
 # import environ
@@ -58,8 +58,12 @@ def get_exchange_object(
 ) -> ccxt.Exchange | async_ccxt.Exchange:
     module = async_ccxt if async_mode else ccxt
     exchange_class = getattr(module, exchange)
+    options = dict()
+    options["options"] = dict(adjustForTimeDifference=False)
     keys = get_api_keys(exchange)
-    return exchange_class(keys) if keys else exchange_class()
+    if keys:
+        options = {**options, **keys}
+    return exchange_class(options)
 
 
 def get_db_connection() -> sql.Engine:
@@ -138,13 +142,14 @@ def a_call_with_retries(func):
     return wrapper
 
 
-async def get_ohlcv_history(
+def get_ohlcv_history(
     pair: str,
-    exchange: async_ccxt.Exchange,
+    exchange: ccxt.Exchange,
     timeframe: str,
     from_tmstmp: int = None,
     full_history: bool = False,
 ) -> list:
+    limit = 200
     time_unit = timeframe[-1:]
     time_multiplier = int(timeframe[:-1])
     all_history_fetched = False
@@ -152,16 +157,24 @@ async def get_ohlcv_history(
     full_history = full_history
 
     while not all_history_fetched:
-        try:
-            _ohlc_data = await exchange.fetch_ohlcv(
-                symbol=pair, timeframe=timeframe, limit=300, since=from_tmstmp
-            )
+        _ohlc_data = exchange.fetch_ohlcv(
+            symbol=pair, timeframe=timeframe, limit=limit, since=from_tmstmp
+        )
+        if not _ohlc_data:
+            return _ohlc_data
+        else:
             if full_history:
                 oldest_tmstmp = _ohlc_data[0][0]
-                from_tmstmp = oldest_tmstmp - (
-                    MAX_OHLCV_SIZE * UNITS_TO_MILLISECONDS[time_unit] * time_multiplier
+                new_from_tmstmp = oldest_tmstmp - (
+                    limit * UNITS_TO_MILLISECONDS[time_unit] * time_multiplier
                 )
-                all_history_fetched = True if len(_ohlc_data) < 300 else False
+                all_history_fetched = (
+                    True
+                    if new_from_tmstmp == from_tmstmp or len(_ohlc_data) < limit
+                    else False
+                )
+                if not all_history_fetched:
+                    from_tmstmp = new_from_tmstmp
             else:
                 if len(_ohlc_data) <= 1:
                     all_history_fetched = True
@@ -175,6 +188,4 @@ async def get_ohlcv_history(
                     else:
                         all_history_fetched = True
             ohlc_data += _ohlc_data
-        except errors.BadSymbol:
-            all_history_fetched = True
     return ohlc_data
