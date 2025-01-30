@@ -1,3 +1,5 @@
+sudo dnf install python3-devel -y
+
 python-dotenv==1.0.1
 ccxt==4.4.49
 pandas==2.2.3
@@ -9,14 +11,15 @@ yfinance==0.2.52
 # sudo apt-get install python-pip
 # sudo apt-get update
 # sudo apt-get install libpq-dev python2-dev python2 python-dev-is-python3
-psycopg2==2.9.10
+
+pip install psycopg2-binary
+# psycopg2==2.9.10
 
 # TA-Lib Installation:
-# curl -SLO http://downloads.sourceforge.net/project/ta-lib/ta-lib/0.4.0/ta-lib-0.4.0-src.tar.gz
-# tar -xzf ta-lib-0.4.0-src.tar.gz
-# cd ta-lib/
-# ./configure --prefix=/usr
-# make
-# sudo make install
-# TA-Lib==0.4.28
+curl -SLO https://github.com/ta-lib/ta-lib/releases/download/v0.6.4/ta-lib-0.6.4-src.tar.gz
+tar -xzf ta-lib-0.6.4-src.tar.gz
+cd ta-lib-0.6.4/
+./configure --prefix=/usr
+make
+sudo make install
 ta-lib
