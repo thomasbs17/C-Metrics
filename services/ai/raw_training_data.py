@@ -755,7 +755,11 @@ class TrainingDataset:
                     raise Exception("Duplicates found!")
                 self.log.info("Adding to DB")
                 self.pair_df.to_sql(
-                    "training_dataset", con=self.db, if_exists="append", index=False
+                    "training_dataset",
+                    schema="training_data",
+                    con=self.db,
+                    if_exists="append",
+                    index=False,
                 )
                 self.log.info(f"    {len(self.pair_df)} rows added to training_dataset")
 
