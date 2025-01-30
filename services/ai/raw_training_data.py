@@ -737,7 +737,6 @@ class TrainingDataset:
             if self.should_get_data(pair):
                 self.log.info(f"Processing {pair}")
                 self.pair_df = await self.get_pair_ohlcv(asset)
-                self.pair_df = self.pair_df.iloc[:100]
                 self.pair_df["pair"] = pair
 
                 self.add_valid_trades()
