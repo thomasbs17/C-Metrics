@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import sys
 import time
 from datetime import datetime as dt, timedelta
 from pathlib import Path

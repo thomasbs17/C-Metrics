@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import sys
 import warnings
 from datetime import datetime
 
@@ -8,10 +9,12 @@ import numpy as np
 import pandas as pd
 import requests
 import talib
+import yfinance as yf
 from ccxt import BadSymbol
 from dotenv import load_dotenv
-import yfinance as yf
 from sqlalchemy import sql
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from services.screening.indicators.fractals import FractalCandlestickPattern
 from services.screening.indicators.vbp import get_vbp
