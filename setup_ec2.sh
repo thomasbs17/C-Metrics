@@ -9,4 +9,7 @@ cd ta-lib-0.6.4/
 ./configure --prefix=/usr
 make
 sudo make install
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 cd ..
