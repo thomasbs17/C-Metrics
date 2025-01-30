@@ -4,7 +4,7 @@ pandas==2.2.3
 sqlalchemy==2.0.37
 yfinance==0.2.52
 
-pip install psycopg2-binary
+psycopg2-binary
 # psycopg2==2.9.10
 
 ta-lib
