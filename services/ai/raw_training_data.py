@@ -13,6 +13,7 @@ import yfinance as yf
 from ccxt import BadSymbol
 from dotenv import load_dotenv
 from sqlalchemy import sql
+from sqlalchemy.exc import ProgrammingError
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
@@ -715,10 +716,13 @@ class TrainingDataset:
         ).dt.days
 
     def clear_existing_data(self, pair: str):
-        query = f"delete from public.training_dataset where pair = '{pair}'"
+        query = f"delete from training_data.training_dataset where pair = '{pair}'"
         with self.db.connect() as connection:
-            connection.execute(sql.text(query))
-            connection.commit()
+            try:
+                connection.execute(sql.text(query))
+                connection.commit()
+            except ProgrammingError:
+                self.log.info("'training_data.training_dataset' does not yet exist")
 
     def should_get_data(self, pair: str) -> bool:
         if self.force_refresh:
