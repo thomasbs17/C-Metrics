@@ -637,7 +637,7 @@ class TrainingDataset:
                 df["btc_return_1d"].rolling(window=14).corr(df["eth_return_1d"])
             )
             df = df[["timestamp", "btc_eth_correlation"]]
-            self.eth_usd.drop(columns=["eth_return_1d"])
+            self.eth_usd.drop(columns=["eth_return_1d"], inplace=True)
             self.btc_eth_correlation = df
         self.pair_df = self.pair_df.merge(
             self.btc_eth_correlation, how="left", on="timestamp"
