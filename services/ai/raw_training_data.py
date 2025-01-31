@@ -55,6 +55,7 @@ class TrainingDataset:
         self.log = self.get_logger()
         self.force_refresh = force_refresh
         self.db = helpers.get_db_connection()
+        self.pre_stored_pairs = self.get_pre_stored_pairs()
         self.available_pairs = self.get_available_pairs()
 
     @staticmethod
@@ -68,6 +69,11 @@ class TrainingDataset:
         headers = {"X-CMC_PRO_API_KEY": os.environ.get("COIN_MARKET_CAP_API_KEY")}
         resp = requests.get(url=endpoint, headers=headers)
         return resp.json()["data"]
+
+    def get_pre_stored_pairs(self) -> list[str]:
+        query = "select distinct pair from training_data.training_dataset"
+        df = pd.read_sql(sql=query, con=self.db)
+        return df["pair"].unique().tolist()
 
     def get_stable_coins_categories(self) -> list[str]:
         data = self.call_coinmarket_cap("categories")
@@ -729,6 +735,8 @@ class TrainingDataset:
         if self.force_refresh:
             self.clear_existing_data(pair)
             return True
+        if pair not in self.pre_stored_pairs:
+            return True
         return False
 
     async def get_raw_training_dataset(self):
@@ -766,5 +774,5 @@ class TrainingDataset:
 
 
 if __name__ == "__main__":
-    dataset = TrainingDataset(force_refresh=True)
+    dataset = TrainingDataset(force_refresh=False)
     asyncio.run(dataset.get_raw_training_dataset())
