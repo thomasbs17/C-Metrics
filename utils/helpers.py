@@ -168,7 +168,7 @@ def get_ohlcv_history(
     while not all_history_fetched:
         _ohlc_data = _fetch_ohlcv(
             exchange=exchange,
-            symbol=pair,
+            pair=pair,
             timeframe=timeframe,
             limit=limit,
             from_tmstmp=from_tmstmp,
