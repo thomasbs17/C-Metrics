@@ -4,6 +4,7 @@ pandas==2.2.3
 sqlalchemy==2.0.37
 yfinance==0.2.52
 tenacity==9.0.0
+scikit-learn==1.6.1
 
 psycopg2-binary==2.9.10
 ta-lib==0.6.1

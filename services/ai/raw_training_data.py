@@ -27,6 +27,7 @@ warnings.filterwarnings("ignore")
 
 class TrainingDataset:
     pair_df: pd.DataFrame
+    available_pairs: dict
 
     stop_loss: float = 0.02
     take_profit: float = 0.05
@@ -56,7 +57,6 @@ class TrainingDataset:
         self.force_refresh = force_refresh
         self.db = helpers.get_db_connection()
         self.pre_stored_pairs = self.get_pre_stored_pairs()
-        self.available_pairs = self.get_available_pairs()
 
     @staticmethod
     def get_logger() -> logging.Logger:
@@ -750,7 +750,16 @@ class TrainingDataset:
             return True
         return False
 
+    def load_training_dataset(self, pair: str = None) -> pd.DataFrame:
+        self.log.info("Loading training data")
+        query = "select * from training_data.training_dataset"
+        if pair:
+            query += f" where pair = '{pair}'"
+        query += " order by timestamp"
+        return pd.read_sql_query(sql=query, con=self.db)
+
     async def get_raw_training_dataset(self):
+        self.available_pairs = self.get_available_pairs()
         for asset in self.available_pairs:
             pair = f"{asset}/USD"
             if self.should_get_data(pair):
