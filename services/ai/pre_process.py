@@ -14,7 +14,7 @@ class PreProcessing(TrainingDataset):
     def __init__(self):
         super().__init__(force_refresh=False)
         os.makedirs(self.assets_path, exist_ok=True)
-        self.raw_data = self.load_training_dataset(pair="BTC/USD")
+        self.raw_data = self.load_training_dataset()
         self.training_dataset = self.raw_data.copy(deep=True)
 
     def remove_non_used_columns(self):
