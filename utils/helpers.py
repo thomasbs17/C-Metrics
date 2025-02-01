@@ -14,6 +14,7 @@ import pandas as pd
 import sqlalchemy as sql
 from ccxt import async_support as async_ccxt
 from dotenv import load_dotenv
+from tenacity import retry, stop_after_attempt
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = BASE_DIR / ".env"
@@ -141,6 +142,15 @@ def a_call_with_retries(func):
     return wrapper
 
 
+@retry(stop=stop_after_attempt(3))
+def _fetch_ohlcv(
+    exchange: ccxt.Exchange, pair: str, timeframe: str, limit: int, from_tmstmp: int
+):
+    return exchange.fetch_ohlcv(
+        symbol=pair, timeframe=timeframe, limit=limit, since=from_tmstmp
+    )
+
+
 def get_ohlcv_history(
     pair: str,
     exchange: ccxt.Exchange,
@@ -156,8 +166,12 @@ def get_ohlcv_history(
     full_history = full_history
 
     while not all_history_fetched:
-        _ohlc_data = exchange.fetch_ohlcv(
-            symbol=pair, timeframe=timeframe, limit=limit, since=from_tmstmp
+        _ohlc_data = _fetch_ohlcv(
+            exchange=exchange,
+            symbol=pair,
+            timeframe=timeframe,
+            limit=limit,
+            from_tmstmp=from_tmstmp,
         )
         if not _ohlc_data:
             return _ohlc_data

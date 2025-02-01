@@ -115,11 +115,22 @@ class TrainingDataset:
         self.log.info(f"{len(pairs)} available pairs")
         return pairs
 
+    def maybe_get_from_db(self, asset: str) -> pd.DataFrame:
+        pair = f"{asset}/USD"
+        if pair in self.available_pairs:
+            return pd.read_sql(
+                sql=f"select * from training_data.training_dataset where pair = '{pair}'",
+                con=self.db,
+            )
+
     async def get_pair_ohlcv(self, asset: str) -> pd.DataFrame:
         if asset == "BTC" and self.btc_usd is not None:
             return self.btc_usd
         if asset == "ETH" and self.eth_usd is not None:
             return self.eth_usd
+        db_df = self.maybe_get_from_db(asset)
+        if db_df is not None:
+            return db_df
         final_df = pd.DataFrame()
         final_pair = None
         final_exchange = None
