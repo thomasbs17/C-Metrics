@@ -451,7 +451,9 @@ class TrainingDataset:
 
     def add_bitcoin_dominance(self):
         if self.bitcoin_dominance is None:
-            self.bitcoin_dominance = pd.read_csv("services/ai/bitcoin_dominance.csv")
+            self.bitcoin_dominance = pd.read_csv(
+                "services/ai/assets/bitcoin_dominance.csv"
+            )
             self.bitcoin_dominance["timestamp"] = pd.to_datetime(
                 self.bitcoin_dominance["timestamp"], utc=True
             ).dt.date
@@ -588,7 +590,7 @@ class TrainingDataset:
             "greed_and_fear_index"
         ].pct_change()
         if self.vix is None:
-            self.vix = pd.read_csv("services/ai/vix.csv")
+            self.vix = pd.read_csv("services/ai/assets/vix.csv")
             self.vix["timestamp"] = pd.to_datetime(
                 self.vix["timestamp"], format="%d/%m/%Y"
             ).dt.date
@@ -706,7 +708,7 @@ class TrainingDataset:
         self.log.info("Adding macro indicators")
         for df_name in ("nfp", "fed_decisions"):
             if getattr(self, df_name) is None:
-                setattr(self, df_name, pd.read_csv(f"services/ai/{df_name}.csv"))
+                setattr(self, df_name, pd.read_csv(f"services/ai/assets/{df_name}.csv"))
             df = getattr(self, df_name)
             df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.date
             self.pair_df = self.pair_df.merge(df, how="left", on="timestamp")
