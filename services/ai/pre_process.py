@@ -3,36 +3,23 @@ from pathlib import Path
 
 import joblib
 import numpy as np
-import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 from services.ai.raw_training_data import TrainingDataset
 
-# params = {
-#     "objective": "binary:logistic",
-#     "tree_method": "gpu_hist",  # Use GPU
-#     "max_depth": 6,  # Control overfitting
-#     "subsample": 0.8,  # Stochastic training
-#     "colsample_bytree": 0.7,  # Reduce feature noise impact
-#     "learning_rate": 0.05,
-#     "scale_pos_weight": ratio_of_negative_to_positive_samples,  # Handle class imbalance
-# }
-
 
 class PreProcessing(TrainingDataset):
-    X: pd.Series
-    Y: pd.Series
-
     assets_path: Path = Path("./services/ai/assets")
 
     def __init__(self):
         super().__init__(force_refresh=False)
         os.makedirs(self.assets_path, exist_ok=True)
-        self.training_dataset = self.load_training_dataset(pair="BTC/USD")
+        self.raw_data = self.load_training_dataset(pair="BTC/USD")
+        self.training_dataset = self.raw_data.copy(deep=True)
 
     def remove_non_used_columns(self):
         self.training_dataset.drop(
-            columns=["open", "high", "low", "close"], inplace=True
+            columns=["open", "high", "low", "close", "timestamp"], inplace=True
         )
 
     def to_pct(self, columns: list[str]):
@@ -241,11 +228,14 @@ class PreProcessing(TrainingDataset):
         )
 
     def pre_process_data(self):
+        self.log.info("Pre-processing data")
+        # self.add_same_day_valid_trades()
         self.handle_non_available_fractals()
         self.encode_time_features()
         self.encode_categorical_data()
         self.handle_absolute_values()
         self.remove_non_used_columns()
+        self.training_dataset.replace([np.inf, -np.inf], np.nan, inplace=True)
         self.standardize_values(
             columns=[
                 "distance_to_atl",
@@ -257,6 +247,7 @@ class PreProcessing(TrainingDataset):
                 "qrt_liquidity",
             ]
         )
+        self.log.info("Pre-processing ended")
 
 
 if __name__ == "__main__":

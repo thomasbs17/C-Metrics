@@ -29,7 +29,7 @@ class TrainingDataset:
     pair_df: pd.DataFrame
     available_pairs: dict
 
-    stop_loss: float = 0.02
+    stop_loss: float = -0.02
     take_profit: float = 0.05
 
     greed_and_fear: pd.DataFrame = None
