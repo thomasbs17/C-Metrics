@@ -16,33 +16,38 @@ from services.ai.pre_process import PreProcessing
 class TrainingOptimization(PreProcessing):
     model_base_params: dict
 
+    datasets: dict
+    train_x: pd.DataFrame
+    val_x: pd.DataFrame
+    test_x: pd.DataFrame
+
     def __init__(self):
         super().__init__()
         self.best_params_path = f"{self.assets_path}/best_hyperparameters.json"
 
+    def backtest(self, confidence_threshold: float):
+        pass
+
     def objective(self, trial):
         params = {
-            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3),
-            "max_depth": trial.suggest_int("max_depth", 3, 9),
-            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-            "gamma": trial.suggest_float("gamma", 0, 5),
-            "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
-            "reg_alpha": trial.suggest_float("reg_alpha", 0, 10),
-            "reg_lambda": trial.suggest_float("reg_lambda", 0, 10),
-            **self.model_base_params,  # Inherits base parameters
+            "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.2, log=True),
+            "max_depth": trial.suggest_int("max_depth", 4, 12),
+            "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+            "gamma": trial.suggest_float("gamma", 0, 10),
+            "min_child_weight": trial.suggest_int("min_child_weight", 1, 20),
+            "reg_alpha": trial.suggest_float("reg_alpha", 1e-3, 100, log=True),
+            "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 100, log=True),
         }
         model = xgb.XGBClassifier(**params)
         model.fit(
-            self.X_train.drop(columns=["timestamp"]),
-            self.y_train,
-            eval_set=[(self.X_val.drop(columns=["timestamp"]), self.y_val)],
+            self.train_x,
+            self.datasets["train"]["y"],
+            eval_set=[(self.val_x, self.datasets["val"]["y"])],
             verbose=False,
         )
-        return roc_auc_score(
-            self.y_val,
-            model.predict_proba(self.X_val.drop(columns=["timestamp"]))[:, 1],
-        )
+        final_pnl = self.backtest(confidence_threshold=0.5)
+        return final_pnl
 
     def hyper_parameter_tuning(self) -> dict:
         self.log.info("Hyperparameters fine-tuning...")
@@ -57,29 +62,30 @@ class TrainingOptimization(PreProcessing):
     def time_series_cross_validation(self):
         tscv = TimeSeriesSplit(n_splits=5)
         cv_scores = []
-        best_params = self.hyper_parameter_tuning()
         self.log.info("Running time-series cross-validation...")
-        for fold, (train_idx, val_idx) in enumerate(tscv.split(self.X_train)):
+        y_train = self.datasets["train"]["y"]
+        best_params = self.hyper_parameter_tuning()
+        for fold, (train_idx, val_idx) in enumerate(tscv.split(self.train_x)):
             self.log.info(f"Fold {fold + 1}")
             x_train_fold, x_val_fold = (
-                self.X_train.iloc[train_idx],
-                self.X_train.iloc[val_idx],
+                self.train_x.iloc[train_idx],
+                self.train_x.iloc[val_idx],
             )
             y_train_fold, y_val_fold = (
-                self.y_train.iloc[train_idx],
-                self.y_train.iloc[val_idx],
+                y_train.iloc[train_idx],
+                y_train.iloc[val_idx],
             )
             model = xgb.XGBClassifier(**best_params)
             model.fit(
-                x_train_fold.drop(columns=["timestamp"]),
+                x_train_fold,
                 y_train_fold,
-                eval_set=[(x_val_fold.drop(columns=["timestamp"]), y_val_fold)],
+                eval_set=[(x_val_fold, y_val_fold)],
                 verbose=50,
             )
 
             score = roc_auc_score(
                 y_val_fold,
-                model.predict_proba(x_val_fold.drop(columns=["timestamp"]))[:, 1],
+                model.predict_proba(x_val_fold)[:, 1],
             )
             cv_scores.append(score)
             self.log.info(f"Fold {fold + 1} AUC: {score:.3f}")
@@ -102,6 +108,21 @@ class Train(TrainingOptimization):
         self.raw_training_data = self.load_training_dataset(pairs=pairs)
         self.fix_target()
         self.split()
+        self.train_x = (
+            self.datasets["train"]["x"]
+            .copy(deep=True)
+            .drop(columns=["pair", "timestamp"])
+        )
+        self.test_x = (
+            self.datasets["test"]["x"]
+            .copy(deep=True)
+            .drop(columns=["pair", "timestamp"])
+        )
+        self.val_x = (
+            self.datasets["val"]["x"]
+            .copy(deep=True)
+            .drop(columns=["pair", "timestamp"])
+        )
 
     def split(self):
         # Temporal split (80-10-10)
@@ -124,19 +145,29 @@ class Train(TrainingOptimization):
         test_df = self.raw_training_data[
             self.raw_training_data["timestamp"].isin(test_dates)
         ]
-        self.X_train = train_df.drop("is_valid_trade", axis=1)
-        self.y_train = train_df["is_valid_trade"]
-        self.X_val = val_df.drop("is_valid_trade", axis=1)
-        self.y_val = val_df["is_valid_trade"]
-        self.X_test = test_df.drop("is_valid_trade", axis=1)
-        self.y_test = test_df["is_valid_trade"]
+        datasets = {
+            "train": {"x": pd.DataFrame(), "y": pd.DataFrame(), "df": train_df},
+            "val": {"x": pd.DataFrame(), "y": pd.DataFrame(), "df": val_df},
+            "test": {"x": pd.DataFrame(), "y": pd.DataFrame(), "df": test_df},
+        }
+        for dataset, details in datasets.items():
+            new_training = True if dataset == "train" else False
+            datasets[dataset]["x"] = self.pre_process_data(
+                df=details["df"].drop(columns=["is_valid_trade"]),
+                new_training=new_training,
+            )
+            y = details["df"][["timestamp", "pair", "is_valid_trade"]]
+            y = datasets[dataset]["x"].merge(
+                right=y, how="left", on=["timestamp", "pair"]
+            )
+            datasets[dataset]["y"] = y["is_valid_trade"]
+        self.datasets = datasets
 
     @property
     def model_base_params(self) -> dict:
         # Handle class imbalance
-        scale_pos_weight = len(self.y_train[self.y_train == 0]) / len(
-            self.y_train[self.y_train == 1]
-        )
+        y = self.datasets["train"]["y"]
+        scale_pos_weight = len(y[y == 0]) / len(y[y == 1])
         if Path(self.best_params_path).is_file():
             with open(self.best_params_path) as f:
                 return json.loads(f.read())
@@ -164,14 +195,14 @@ class Train(TrainingOptimization):
     ):
         pickle.dump(model, open(self.model_path, "wb"))
         pairs = (
-            self.X_train["pair_encoded"]
+            self.datasets["train"]["x"]["pair_encoded"]
             .apply(lambda x: self.encoded_pair_to_pair(x))
             .unique()
             .tolist()
         )
         metadata = dict(
             trained_on=dt.now().isoformat(),
-            dataset_size=len(self.X_train),
+            dataset_size=len(self.datasets["train"]["x"]),
             included_pairs=pairs,
             train_size=self.train_size,
             validate_size=self.validate_size,
@@ -186,26 +217,22 @@ class Train(TrainingOptimization):
             f.write(content)
 
     def train(self, with_optimization: bool):
-        self.X_train = self.pre_process_data(df=self.X_train, new_training=True)
-        self.X_val = self.pre_process_data(df=self.X_val, new_training=False)
-        self.X_test = self.pre_process_data(df=self.X_test, new_training=False)
-
-        model = xgb.XGBClassifier(**self.model_base_params)
-        model.fit(
-            self.X_train.drop(columns=["timestamp"]),
-            self.y_train,
-            eval_set=[(self.X_val.drop(columns=["timestamp"]), self.y_val)],
-            verbose=20,
-        )
         if with_optimization:
             self.time_series_cross_validation()
-        y_pred = model.predict_proba(self.X_test.drop(columns=["timestamp"]))[:, 1]
-        roc_auc = roc_auc_score(self.y_test, y_pred)
+        model = xgb.XGBClassifier(**self.model_base_params)
+        model.fit(
+            self.train_x,
+            self.datasets["train"]["y"],
+            eval_set=[(self.val_x, self.datasets["val"]["y"])],
+            verbose=20,
+        )
+        roc_auc = roc_auc_score(
+            self.datasets["test"]["y"],
+            model.predict_proba(self.test_x)[:, 1],
+        )
         report = classification_report(
-            self.y_test, model.predict(self.X_test.drop(columns=["timestamp"]))
+            self.datasets["test"]["y"], model.predict(self.test_x)
         )
-        self.save_model_and_metadata(
-            model=model, roc_auc=roc_auc, report=classification_report
-        )
+        self.save_model_and_metadata(model=model, roc_auc=roc_auc, report=report)
         self.log.info(f"Test ROC-AUC: {roc_auc:.3f}")
         print(report)

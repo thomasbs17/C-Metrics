@@ -16,13 +16,6 @@ class PreProcessing(TrainingDataset):
     pre_processed_df: pd.DataFrame
     raw_training_data: pd.DataFrame
 
-    X_train: pd.DataFrame
-    y_train: pd.Series
-    X_val: pd.DataFrame
-    y_val: pd.Series
-    X_test: pd.DataFrame
-    y_test: pd.Series
-
     def __init__(self):
         super().__init__(force_refresh=False)
         os.makedirs(self.assets_path, exist_ok=True)
@@ -91,7 +84,6 @@ class PreProcessing(TrainingDataset):
         self.pre_processed_df["pair_encoded"] = self.pre_processed_df["pair"].map(
             pair_target_means
         )
-        self.pre_processed_df.drop(columns=["pair"], inplace=True)
 
     def encoded_pair_to_pair(self, encoded_pair: float) -> str:
         pair = None
@@ -284,7 +276,7 @@ class PreProcessing(TrainingDataset):
         self.encode_time_features()
 
     def pre_process_data(self, df: pd.DataFrame, new_training: bool) -> pd.DataFrame:
-        self.pre_processed_df = df
+        self.pre_processed_df = df[df["day_return"].notnull()]
         self.new_training = new_training
         self.log.info("Pre-processing data")
         self.handle_non_available_fractals()
