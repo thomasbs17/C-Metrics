@@ -14,7 +14,7 @@ class PreProcessing(TrainingDataset):
     def __init__(self):
         super().__init__(force_refresh=False)
         os.makedirs(self.assets_path, exist_ok=True)
-        self.raw_data = self.load_training_dataset()
+        self.raw_data = self.load_training_dataset(pair="XRP/USD")
         self.training_dataset = self.raw_data.copy(deep=True)
 
     def remove_non_used_columns(self):
@@ -229,7 +229,7 @@ class PreProcessing(TrainingDataset):
 
     def pre_process_data(self):
         self.log.info("Pre-processing data")
-        # self.add_same_day_valid_trades()
+        self.add_valid_trades(df=self.training_dataset)  # todo: redo for each pair
         self.handle_non_available_fractals()
         self.encode_time_features()
         self.encode_categorical_data()

@@ -1,3 +1,4 @@
+import json
 import pickle
 
 import numpy as np
@@ -111,6 +112,8 @@ class TrainWithOptimization(Train):
         study = optuna.create_study(direction="maximize")
         study.optimize(self.objective, n_trials=50)
         best_params = {**self.model_base_params, **study.best_params}
+        with open(f"{self.assets_path}/best_hyperparameters.json", "w") as f:
+            f.write(json.dumps(best_params))
         self.log.info(f"Best parameters:\n{best_params}")
         return best_params
 

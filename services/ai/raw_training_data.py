@@ -316,25 +316,35 @@ class TrainingDataset:
         next_day_drawdown = next_day_low / next_day_open - 1
         next_day_peak = next_day_high / next_day_open - 1
         if (
-            next_day_peak >= self.take_profit and next_day_drawdown <= self.stop_loss
+            next_day_peak >= self.take_profit and next_day_drawdown >= self.stop_loss
             # and next_day_close > next_day_open
         ):
             return True
         return False
 
-    def add_valid_trades(self):
+    def add_valid_trades(self, df: pd.DataFrame = None):
         self.log.info("Adding valid trades")
-        self.pair_df["next_open"] = self.pair_df["open"].shift(-1)
-        self.pair_df["next_high"] = self.pair_df["high"].shift(-1)
-        self.pair_df["next_low"] = self.pair_df["low"].shift(-1)
-        self.pair_df["next_close"] = self.pair_df["close"].shift(-1)
-        self.pair_df["is_valid_trade"] = self.pair_df.apply(
-            lambda row: self.is_valid_trade(
-                row["next_open"], row["next_low"], row["next_high"], row["next_close"]
+        df = self.pair_df if df is None else df
+        df["next_open"] = df["open"].shift(-1)
+        df["next_high"] = df["high"].shift(-1)
+        df["next_low"] = df["low"].shift(-1)
+        df["next_close"] = df["close"].shift(-1)
+        if "is_valid_trade" in df.columns.tolist():
+            df.drop(columns=["is_valid_trade"], inplace=True)
+        df.insert(
+            0,
+            "is_valid_trade",
+            df.apply(
+                lambda row: self.is_valid_trade(
+                    row["next_open"],
+                    row["next_low"],
+                    row["next_high"],
+                    row["next_close"],
+                ),
+                axis=1,
             ),
-            axis=1,
         )
-        self.pair_df.drop(
+        df.drop(
             columns=["next_open", "next_high", "next_low", "next_close"], inplace=True
         )
 
