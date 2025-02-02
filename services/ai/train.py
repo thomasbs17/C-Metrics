@@ -1,5 +1,7 @@
 import json
 import pickle
+from datetime import datetime as dt
+from pathlib import Path
 
 import numpy as np
 import optuna
@@ -11,80 +13,12 @@ from sklearn.model_selection import TimeSeriesSplit
 from services.ai.pre_process import PreProcessing
 
 
-class Train(PreProcessing):
-    X_train: pd.DataFrame
-    y_train: pd.Series
-    X_val: pd.DataFrame
-    y_val: pd.Series
-    X_test: pd.DataFrame
-    y_test: pd.Series
+class TrainingOptimization(PreProcessing):
+    model_base_params: dict
 
     def __init__(self):
         super().__init__()
-        self.model_path = f"{self.assets_path}/next_day_price_direction.pkl"
-        self.pre_process_data()
-        self.split()
-
-    def split(self):
-        # Temporal split (70-15-15)
-        train_size = int(len(self.training_dataset) * 0.7)
-        val_size = int(len(self.training_dataset) * 0.15)
-
-        train_df = self.training_dataset.iloc[:train_size]
-        val_df = self.training_dataset.iloc[train_size : train_size + val_size]
-        test_df = self.training_dataset.iloc[train_size + val_size :]
-
-        self.X_train = train_df.drop("is_valid_trade", axis=1)
-        self.y_train = train_df["is_valid_trade"]
-        self.X_val = val_df.drop("is_valid_trade", axis=1)
-        self.y_val = val_df["is_valid_trade"]
-        self.X_test = test_df.drop("is_valid_trade", axis=1)
-        self.y_test = test_df["is_valid_trade"]
-
-    @property
-    def model_base_params(self) -> dict:
-        # Handle class imbalance
-        scale_pos_weight = len(self.y_train[self.y_train == 0]) / len(
-            self.y_train[self.y_train == 1]
-        )
-        base_params = {
-            "objective": "binary:logistic",
-            "tree_method": "hist",  # Faster for large datasets
-            # "tree_method": "gpu_hist",  # Use GPU
-            "max_depth": 4,  # Control overfitting
-            "subsample": 0.9705016035849733,  # Stochastic training
-            "colsample_bytree": 0.7931496885651367,  # Reduce feature noise impact
-            "scale_pos_weight": scale_pos_weight,
-            "eval_metric": "auc",
-            "learning_rate": 0.12598788046480647,
-            "n_estimators": 1000,
-            "early_stopping_rounds": 50,
-            "random_state": 42,
-        }
-        fine_tuned_params = {
-            "gamma": 0.12598788046480647,
-            "min_child_weight": 5,
-            "reg_alpha": 0.10037763962967822,
-            "reg_lambda": 0.723775972043857,
-        }
-        all_params = {**base_params, **fine_tuned_params}
-        return base_params
-
-    def train(self):
-        model = xgb.XGBClassifier(**self.model_base_params)
-        model.fit(
-            self.X_train, self.y_train, eval_set=[(self.X_val, self.y_val)], verbose=20
-        )
-        pickle.dump(model, open(self.model_path, "wb"))
-        y_pred = model.predict_proba(self.X_test)[:, 1]
-        roc_auc = roc_auc_score(self.y_test, y_pred)
-        self.log.info(f"Test ROC-AUC: {roc_auc:.3f}")
-        self.log.info(classification_report(self.y_test, model.predict(self.X_test)))
-
-
-class TrainWithOptimization(Train):
-    def __init__(self):
-        super().__init__()
+        self.best_params_path = f"{self.assets_path}/best_hyperparameters.json"
 
     def objective(self, trial):
         params = {
@@ -100,19 +34,22 @@ class TrainWithOptimization(Train):
         }
         model = xgb.XGBClassifier(**params)
         model.fit(
-            self.X_train,
+            self.X_train.drop(columns=["timestamp"]),
             self.y_train,
-            eval_set=[(self.X_val, self.y_val)],
+            eval_set=[(self.X_val.drop(columns=["timestamp"]), self.y_val)],
             verbose=False,
         )
-        return roc_auc_score(self.y_val, model.predict_proba(self.X_val)[:, 1])
+        return roc_auc_score(
+            self.y_val,
+            model.predict_proba(self.X_val.drop(columns=["timestamp"]))[:, 1],
+        )
 
     def hyper_parameter_tuning(self) -> dict:
         self.log.info("Hyperparameters fine-tuning...")
         study = optuna.create_study(direction="maximize")
         study.optimize(self.objective, n_trials=50)
         best_params = {**self.model_base_params, **study.best_params}
-        with open(f"{self.assets_path}/best_hyperparameters.json", "w") as f:
+        with open(self.best_params_path, "w") as f:
             f.write(json.dumps(best_params))
         self.log.info(f"Best parameters:\n{best_params}")
         return best_params
@@ -134,20 +71,141 @@ class TrainWithOptimization(Train):
             )
             model = xgb.XGBClassifier(**best_params)
             model.fit(
-                x_train_fold,
+                x_train_fold.drop(columns=["timestamp"]),
                 y_train_fold,
-                eval_set=[(x_val_fold, y_val_fold)],
+                eval_set=[(x_val_fold.drop(columns=["timestamp"]), y_val_fold)],
                 verbose=50,
             )
 
-            score = roc_auc_score(y_val_fold, model.predict_proba(x_val_fold)[:, 1])
+            score = roc_auc_score(
+                y_val_fold,
+                model.predict_proba(x_val_fold.drop(columns=["timestamp"]))[:, 1],
+            )
             cv_scores.append(score)
             self.log.info(f"Fold {fold + 1} AUC: {score:.3f}")
 
         self.log.info(f"\nMean CV AUC: {np.mean(cv_scores):.3f}")
 
 
-if __name__ == "__main__":
-    training = TrainWithOptimization()
-    training.train()
-    training.time_series_cross_validation()
+class Train(TrainingOptimization):
+    raw_training_data: pd.DataFrame
+    model_name: str = "next_day_price_direction"
+
+    train_size: float = 0.8
+    validate_size: float = 0.1
+    test_size: float = 0.1
+
+    def __init__(self, new_training: bool, pairs: list[str] = None):
+        super().__init__()
+        self.new_training = new_training
+        self.model_path = f"{self.assets_path}/{self.model_name}.pkl"
+        self.raw_training_data = self.load_training_dataset(pairs=pairs)
+        self.fix_target()
+        self.split()
+
+    def split(self):
+        # Temporal split (80-10-10)
+        self.raw_training_data["timestamp"] = pd.to_datetime(
+            self.raw_training_data["timestamp"]
+        ).dt.date
+        all_dates = self.raw_training_data["timestamp"].unique().tolist()
+        train_size = int(len(all_dates) * self.train_size)
+        val_size = int(len(all_dates) * self.validate_size)
+        train_dates = all_dates[:train_size]
+        val_dates = all_dates[train_size : train_size + val_size]
+        test_dates = all_dates[train_size + val_size :]
+
+        train_df = self.raw_training_data[
+            self.raw_training_data["timestamp"].isin(train_dates)
+        ]
+        val_df = self.raw_training_data[
+            self.raw_training_data["timestamp"].isin(val_dates)
+        ]
+        test_df = self.raw_training_data[
+            self.raw_training_data["timestamp"].isin(test_dates)
+        ]
+        self.X_train = train_df.drop("is_valid_trade", axis=1)
+        self.y_train = train_df["is_valid_trade"]
+        self.X_val = val_df.drop("is_valid_trade", axis=1)
+        self.y_val = val_df["is_valid_trade"]
+        self.X_test = test_df.drop("is_valid_trade", axis=1)
+        self.y_test = test_df["is_valid_trade"]
+
+    @property
+    def model_base_params(self) -> dict:
+        # Handle class imbalance
+        scale_pos_weight = len(self.y_train[self.y_train == 0]) / len(
+            self.y_train[self.y_train == 1]
+        )
+        if Path(self.best_params_path).is_file():
+            with open(self.best_params_path) as f:
+                return json.loads(f.read())
+        base_params = {
+            "objective": "binary:logistic",
+            "tree_method": "hist",  # Faster for large datasets
+            # "tree_method": "gpu_hist",  # Use GPU
+            "max_depth": 4,  # Control overfitting
+            "subsample": 0.9705016035849733,  # Stochastic training
+            "colsample_bytree": 0.7931496885651367,  # Reduce feature noise impact
+            "scale_pos_weight": scale_pos_weight,
+            "eval_metric": "auc",
+            "learning_rate": 0.12598788046480647,
+            "n_estimators": 1000,
+            "early_stopping_rounds": 50,
+            "random_state": 42,
+        }
+        return base_params
+
+    def save_model_and_metadata(
+        self,
+        model: xgb.XGBClassifier,
+        roc_auc: float,
+        report: str,
+    ):
+        pickle.dump(model, open(self.model_path, "wb"))
+        pairs = (
+            self.X_train["pair_encoded"]
+            .apply(lambda x: self.encoded_pair_to_pair(x))
+            .unique()
+            .tolist()
+        )
+        metadata = dict(
+            trained_on=dt.now().isoformat(),
+            dataset_size=len(self.X_train),
+            included_pairs=pairs,
+            train_size=self.train_size,
+            validate_size=self.validate_size,
+            test_size=self.test_size,
+            roc_auc=roc_auc,
+        )
+        content = ""
+        for k, v in metadata.items():
+            content += f"- {k}: {v}\n"
+        content += f"\n\nTRAINING RESULTS:\n\n{report}"
+        with open(f"{self.assets_path}/{self.model_name}_metadata.txt", "w") as f:
+            f.write(content)
+
+    def train(self, with_optimization: bool):
+        self.X_train = self.pre_process_data(df=self.X_train, new_training=True)
+        self.X_val = self.pre_process_data(df=self.X_val, new_training=False)
+        self.X_test = self.pre_process_data(df=self.X_test, new_training=False)
+
+        model = xgb.XGBClassifier(**self.model_base_params)
+        model.fit(
+            self.X_train.drop(columns=["timestamp"]),
+            self.y_train,
+            eval_set=[(self.X_val.drop(columns=["timestamp"]), self.y_val)],
+            verbose=20,
+        )
+        if with_optimization:
+            self.time_series_cross_validation()
+        y_pred = model.predict_proba(self.X_test.drop(columns=["timestamp"]))[:, 1]
+        roc_auc = roc_auc_score(self.y_test, y_pred)
+        report = classification_report(
+            self.y_test, model.predict(self.X_test.drop(columns=["timestamp"]))
+        )
+        self.save_model_and_metadata(
+            model=model, roc_auc=roc_auc, report=classification_report
+        )
+        self.log.info(f"Test ROC-AUC: {roc_auc:.3f}")
+        print(report)

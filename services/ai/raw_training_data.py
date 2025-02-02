@@ -73,7 +73,9 @@ class TrainingDataset:
     def get_pre_stored_pairs(self) -> list[str]:
         query = "select distinct pair from training_data.training_dataset"
         df = pd.read_sql(sql=query, con=self.db)
-        return df["pair"].unique().tolist()
+        pairs = df["pair"].unique().tolist()
+        self.log.info(f"{len(pairs)} pairs available in DB")
+        return pairs
 
     def get_stable_coins_categories(self) -> list[str]:
         data = self.call_coinmarket_cap("categories")
@@ -316,14 +318,14 @@ class TrainingDataset:
         next_day_drawdown = next_day_low / next_day_open - 1
         next_day_peak = next_day_high / next_day_open - 1
         if (
-            next_day_peak >= self.take_profit and next_day_drawdown >= self.stop_loss
+            next_day_peak >= self.take_profit
+            # and next_day_drawdown >= self.stop_loss
             # and next_day_close > next_day_open
         ):
             return True
         return False
 
     def add_valid_trades(self, df: pd.DataFrame = None):
-        self.log.info("Adding valid trades")
         df = self.pair_df if df is None else df
         df["next_open"] = df["open"].shift(-1)
         df["next_high"] = df["high"].shift(-1)
@@ -762,13 +764,16 @@ class TrainingDataset:
             return True
         return False
 
-    def load_training_dataset(self, pair: str = None) -> pd.DataFrame:
+    def load_training_dataset(self, pairs: list[str] = None) -> pd.DataFrame:
         self.log.info("Loading training data")
         query = "select * from training_data.training_dataset"
-        if pair:
-            query += f" where pair = '{pair}'"
+        if pairs:
+            pairs_str = "','".join(pairs)
+            query += f" where pair in ('{pairs_str}')"
         query += " order by timestamp"
-        return pd.read_sql_query(sql=query, con=self.db)
+        df = pd.read_sql_query(sql=query, con=self.db)
+        self.log.info(f"Retrieved {len(df)} rows")
+        return df
 
     async def get_raw_training_dataset(self):
         self.available_pairs = self.get_available_pairs()
