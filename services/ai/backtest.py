@@ -1,8 +1,10 @@
+import asyncio
 import pickle
 from pathlib import Path
 
 import pandas as pd
 
+from services.ai.raw_training_data import TrainingDataset
 from services.ai.train import Train
 
 
@@ -12,7 +14,10 @@ class BackTest(Train):
     backtest_df: pd.DataFrame
 
     def __init__(self, new_training: bool, pairs: list[str] = None):
-        super().__init__(new_training=new_training, pairs=pairs)
+        super().__init__(
+            new_training=new_training,
+            pairs=pairs,
+        )
         self.new_training = new_training
         if new_training:
             self.train(with_optimization=True)
@@ -80,10 +85,19 @@ class BackTest(Train):
         return (self.balance / self.starting_balance) - 1
 
 
-def run_backtest(
-    new_training: bool, test_multiple_thresholds: bool, pairs: list[str] = None
+async def run_backtest(
+    new_training: bool,
+    refresh_training_data: bool,
+    test_multiple_thresholds: bool,
+    pairs: list[str] = None,
 ):
-    backtest = BackTest(new_training=new_training, pairs=pairs)
+    if refresh_training_data:
+        dataset = TrainingDataset(force_refresh=True)
+        await dataset.get_raw_training_dataset()
+    backtest = BackTest(
+        new_training=new_training,
+        pairs=pairs,
+    )
     threshold_range = range(1, 101) if test_multiple_thresholds else [50]
     data = list()
     metadata_content = "\n\nBACKTESTING RESULTS:\n"
@@ -101,8 +115,11 @@ def run_backtest(
 
 
 if __name__ == "__main__":
-    run_backtest(
-        new_training=False,
-        test_multiple_thresholds=True,
-        pairs=["BTC/USD", "XRP/USD"],
+    asyncio.run(
+        run_backtest(
+            new_training=False,
+            refresh_training_data=True,
+            test_multiple_thresholds=True,
+            pairs=["BTC/USD", "XRP/USD"],
+        )
     )

@@ -259,14 +259,6 @@ class PreProcessing(TrainingDataset):
             axis=1,
         )
 
-    def fix_target(self):
-        full_df = pd.DataFrame()
-        for pair in self.raw_training_data["pair"].unique().tolist():
-            pair_df = self.raw_training_data[self.raw_training_data["pair"] == pair]
-            self.add_valid_trades(df=pair_df)
-            full_df = pd.concat([full_df, pair_df])
-        self.raw_training_data = full_df.sort_values(by="timestamp")
-
     def encoding(self):
         self.pre_processed_df.replace({False: 0, True: 1}, inplace=True)
         self.pre_processed_df["short_term_trend"].replace(

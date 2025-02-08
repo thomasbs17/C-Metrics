@@ -7,13 +7,14 @@ import pandas as pd
 class FractalCandlestickPattern:
     def __init__(self, df: pd.DataFrame):
         self.df = df.reset_index(drop=True)
-        self.levels = []
+        self.levels = dict()
         self.output = []
         self.run()
 
-    def is_far_from_level(self, value, levels):
+    def is_far_from_level(self, value):
         # Vectorized distance calculation to check for nearby levels
         ave = np.mean(self.df["high"] - self.df["low"])
+        levels = list(self.levels.keys())
         return all(abs(value - level) >= ave for _, level in levels)
 
     def run(self):
@@ -42,8 +43,7 @@ class FractalCandlestickPattern:
         # Loop through candidates to filter based on proximity
         for i in candidate_indices:
             level = highs[i] if is_resistance[i - 2] else lows[i]  # Determine high/low
-            if self.is_far_from_level(level, self.levels):
-                self.levels.append((i, level))
+            if self.is_far_from_level(level):
                 self.output.append(level)
 
         return self.output
@@ -57,5 +57,5 @@ class FractalCandlestickPattern:
         elif level == "resistance":
             return min(
                 (level for level in self.output if level > last_close),
-                default=999999999,
+                default=None,
             )

@@ -131,7 +131,6 @@ class Train(TrainingOptimization):
         self.new_training = new_training
         self.model_path = f"{self.assets_path}/{self.model_name}.pkl"
         self.raw_training_data = self.load_training_dataset(pairs=pairs)
-        self.fix_target()
         self.split()
 
     def split(self):
