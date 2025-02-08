@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 
 import pandas as pd
 
@@ -253,7 +254,6 @@ class Indicators:
         )
         self.pair_df.drop(columns=["SMA_short", "SMA_mid", "SMA_long"], inplace=True)
 
-
     @staticmethod
     def call_coinalyze_api(
         endpoint: str,
@@ -323,7 +323,7 @@ class Indicators:
             )
 
     @staticmethod
-    def days_to_next(df: pd.DataFrame, timestamp: datetime.date) -> int:
+    def days_to_next(df: pd.DataFrame, timestamp: date) -> int:
         future_dates = df[df["timestamp"] >= timestamp]
         future_dates.sort_values(by="timestamp", inplace=True)
         if not future_dates.empty:

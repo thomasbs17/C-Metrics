@@ -10,10 +10,9 @@ from dotenv import load_dotenv
 from sqlalchemy import sql
 from sqlalchemy.exc import ProgrammingError
 
-from services.ai.indicators import Indicators
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+from services.ai.indicators import Indicators
 from utils import helpers
 
 load_dotenv(helpers.ENV_PATH, verbose=True)
