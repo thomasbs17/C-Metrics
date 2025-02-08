@@ -21,6 +21,7 @@ warnings.filterwarnings("ignore")
 
 class TrainingDataset(Indicators):
     available_pairs: dict
+    min_data_amt: int = 365
 
     ohlcv_table: str = "ohlcv"
 
@@ -124,13 +125,12 @@ class TrainingDataset(Indicators):
                         final_exchange = exchange
                         df["pair"] = pair
                         df["pair_formatted"] = f"{asset}/USD"
-                        self.pair_df = df
+                        self.pair_df = df.iloc[1:-1]
                 except BadSymbol:
                     pass
         self.log.info(
             f"    Pair with the most amount of data is {final_exchange}: {final_pair}"
         )
-        self.update_table(table_name=self.ohlcv_table)
 
     def update_table(self, table_name: str):
         pair = self.pair_df["pair"].iloc[0]
@@ -177,7 +177,13 @@ class TrainingDataset(Indicators):
             if self.should_get_data(pair):
                 self.log.info(f"Processing {pair}")
                 self.get_pair_ohlcv(asset)
-                self.compute_key_levels()
+                if len(self.pair_df) < self.min_data_amt:
+                    self.log.warning(
+                        f"    Skipping {pair}, available data: {len(self.pair_df)} days"
+                    )
+                else:
+                    self.update_table(table_name=self.ohlcv_table)
+                    self.compute_key_levels()
 
 
 if __name__ == "__main__":
