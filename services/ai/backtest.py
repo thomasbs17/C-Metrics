@@ -15,14 +15,14 @@ class BackTest(Train):
         super().__init__(new_training=new_training, pairs=pairs)
         self.new_training = new_training
         if new_training:
-            self.train(with_optimization=False)
+            self.train(with_optimization=True)
         elif not Path(self.model_path).is_file():
             raise ValueError("Training is required!")
         self.reset()
 
     def reset(self):
         self.balance = self.starting_balance
-        self.backtest_df = self.datasets["test"]["x"].copy(deep=True)
+        self.backtest_df = self.datasets["test"]["detailed_x"].copy(deep=True)
 
     def get_pnl(self, row: pd.Series):
         row.fillna(False, inplace=True)
@@ -57,7 +57,7 @@ class BackTest(Train):
         self.backtest_df.insert(
             0,
             "prediction",
-            model.predict_proba(self.test_x)[:, 1],
+            model.predict_proba(self.datasets["test"]["x"])[:, 1],
         )
         self.backtest_df.insert(
             0,
@@ -102,7 +102,7 @@ def run_backtest(
 
 if __name__ == "__main__":
     run_backtest(
-        new_training=True,
+        new_training=False,
         test_multiple_thresholds=True,
-        pairs=["ETH/USD"],
+        pairs=["BTC/USD", "XRP/USD"],
     )

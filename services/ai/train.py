@@ -17,9 +17,6 @@ class TrainingOptimization(PreProcessing):
     model_base_params: dict
 
     datasets: dict
-    train_x: pd.DataFrame
-    val_x: pd.DataFrame
-    test_x: pd.DataFrame
 
     def __init__(self):
         super().__init__()
@@ -30,29 +27,55 @@ class TrainingOptimization(PreProcessing):
 
     def objective(self, trial):
         params = {
-            "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.2, log=True),
-            "max_depth": trial.suggest_int("max_depth", 4, 12),
-            "subsample": trial.suggest_float("subsample", 0.5, 1.0),
-            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+            # Core model parameters
+            "objective": "binary:logistic",
+            "booster": trial.suggest_categorical("booster", ["gbtree"]),
+            "n_jobs": -1,  # Typically fixed to use all cores
+            # Tree architecture parameters
+            "max_depth": trial.suggest_int("max_depth", 3, 12),
+            "max_leaves": trial.suggest_int("max_leaves", 16, 128),
+            "grow_policy": trial.suggest_categorical(
+                "grow_policy", ["depthwise", "lossguide"]
+            ),
+            "max_bin": trial.suggest_int("max_bin", 100, 1024),
+            # Regularization parameters
             "gamma": trial.suggest_float("gamma", 0, 10),
-            "min_child_weight": trial.suggest_int("min_child_weight", 1, 20),
             "reg_alpha": trial.suggest_float("reg_alpha", 1e-3, 100, log=True),
             "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 100, log=True),
+            "min_child_weight": trial.suggest_int("min_child_weight", 1, 20),
+            # Stochastic training
+            "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+            "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.5, 1.0),
+            # Learning parameters
+            "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.2, log=True),
+            "n_estimators": trial.suggest_int("n_estimators", 500, 3000),
+            # Imbalance handling
+            "max_delta_step": trial.suggest_int("max_delta_step", 0, 10),
+            # Early stopping (if you use early stopping, this is just a suggestion to the training loop)
+            "early_stopping_rounds": trial.suggest_int(
+                "early_stopping_rounds", 10, 100
+            ),
+            # Reproducibility and evaluation
+            "random_state": 42,
+            "eval_metric": trial.suggest_categorical("eval_metric", ["auc", "logloss"]),
         }
         model = xgb.XGBClassifier(**params)
         model.fit(
-            self.train_x,
+            self.datasets["train"]["x"],
             self.datasets["train"]["y"],
-            eval_set=[(self.val_x, self.datasets["val"]["y"])],
+            eval_set=[(self.datasets["val"]["x"], self.datasets["val"]["y"])],
             verbose=False,
         )
-        final_pnl = self.backtest(confidence_threshold=0.5)
-        return final_pnl
+        return roc_auc_score(
+            self.datasets["val"]["y"],
+            model.predict_proba(self.datasets["val"]["x"])[:, 1],
+        )
 
     def hyper_parameter_tuning(self) -> dict:
         self.log.info("Hyperparameters fine-tuning...")
         study = optuna.create_study(direction="maximize")
-        study.optimize(self.objective, n_trials=50)
+        study.optimize(self.objective, n_trials=100)
         best_params = {**self.model_base_params, **study.best_params}
         with open(self.best_params_path, "w") as f:
             f.write(json.dumps(best_params))
@@ -65,11 +88,13 @@ class TrainingOptimization(PreProcessing):
         self.log.info("Running time-series cross-validation...")
         y_train = self.datasets["train"]["y"]
         best_params = self.hyper_parameter_tuning()
-        for fold, (train_idx, val_idx) in enumerate(tscv.split(self.train_x)):
+        for fold, (train_idx, val_idx) in enumerate(
+            tscv.split(self.datasets["train"]["x"])
+        ):
             self.log.info(f"Fold {fold + 1}")
             x_train_fold, x_val_fold = (
-                self.train_x.iloc[train_idx],
-                self.train_x.iloc[val_idx],
+                self.datasets["train"]["x"].iloc[train_idx],
+                self.datasets["train"]["x"].iloc[val_idx],
             )
             y_train_fold, y_val_fold = (
                 y_train.iloc[train_idx],
@@ -108,21 +133,6 @@ class Train(TrainingOptimization):
         self.raw_training_data = self.load_training_dataset(pairs=pairs)
         self.fix_target()
         self.split()
-        self.train_x = (
-            self.datasets["train"]["x"]
-            .copy(deep=True)
-            .drop(columns=["pair", "timestamp"])
-        )
-        self.test_x = (
-            self.datasets["test"]["x"]
-            .copy(deep=True)
-            .drop(columns=["pair", "timestamp"])
-        )
-        self.val_x = (
-            self.datasets["val"]["x"]
-            .copy(deep=True)
-            .drop(columns=["pair", "timestamp"])
-        )
 
     def split(self):
         # Temporal split (80-10-10)
@@ -132,32 +142,27 @@ class Train(TrainingOptimization):
         all_dates = self.raw_training_data["timestamp"].unique().tolist()
         train_size = int(len(all_dates) * self.train_size)
         val_size = int(len(all_dates) * self.validate_size)
-        train_dates = all_dates[:train_size]
-        val_dates = all_dates[train_size : train_size + val_size]
-        test_dates = all_dates[train_size + val_size :]
-
-        train_df = self.raw_training_data[
-            self.raw_training_data["timestamp"].isin(train_dates)
-        ]
-        val_df = self.raw_training_data[
-            self.raw_training_data["timestamp"].isin(val_dates)
-        ]
-        test_df = self.raw_training_data[
-            self.raw_training_data["timestamp"].isin(test_dates)
-        ]
         datasets = {
-            "train": {"x": pd.DataFrame(), "y": pd.DataFrame(), "df": train_df},
-            "val": {"x": pd.DataFrame(), "y": pd.DataFrame(), "df": val_df},
-            "test": {"x": pd.DataFrame(), "y": pd.DataFrame(), "df": test_df},
+            "train": {"dates": all_dates[:train_size]},
+            "val": {"dates": all_dates[train_size : train_size + val_size]},
+            "test": {"dates": all_dates[train_size + val_size :]},
         }
         for dataset, details in datasets.items():
+            df = self.raw_training_data[
+                self.raw_training_data["timestamp"].isin(details["dates"])
+            ]
             new_training = True if dataset == "train" else False
-            datasets[dataset]["x"] = self.pre_process_data(
-                df=details["df"].drop(columns=["is_valid_trade"]),
+            datasets[dataset]["detailed_x"] = self.pre_process_data(
+                df=df.drop(columns=["is_valid_trade"]),
                 new_training=new_training,
             )
-            y = details["df"][["timestamp", "pair", "is_valid_trade"]]
-            y = datasets[dataset]["x"].merge(
+            datasets[dataset]["x"] = (
+                datasets[dataset]["detailed_x"]
+                .copy(deep=True)
+                .drop(columns=["pair", "timestamp"])
+            )
+            y = df[["timestamp", "pair", "is_valid_trade"]]
+            y = datasets[dataset]["detailed_x"].merge(
                 right=y, how="left", on=["timestamp", "pair"]
             )
             datasets[dataset]["y"] = y["is_valid_trade"]
@@ -168,24 +173,44 @@ class Train(TrainingOptimization):
         # Handle class imbalance
         y = self.datasets["train"]["y"]
         scale_pos_weight = len(y[y == 0]) / len(y[y == 1])
+        best_params = {}
         if Path(self.best_params_path).is_file():
             with open(self.best_params_path) as f:
-                return json.loads(f.read())
+                best_params = json.loads(f.read())
         base_params = {
+            # Core Parameters
             "objective": "binary:logistic",
-            "tree_method": "hist",  # Faster for large datasets
-            # "tree_method": "gpu_hist",  # Use GPU
-            "max_depth": 4,  # Control overfitting
-            "subsample": 0.9705016035849733,  # Stochastic training
-            "colsample_bytree": 0.7931496885651367,  # Reduce feature noise impact
+            "tree_method": "hist",  # Switch to "gpu_hist" if available
+            "booster": "gbtree",
+            "n_jobs": -1,  # Utilize all CPU cores
+            # Tree Architecture
+            "max_depth": 6,  # Increased for financial pattern capture
+            "max_leaves": 64,  # Better for financial data patterns
+            "grow_policy": "lossguide",  # Better for high-dimensional data
+            "max_bin": 512,  # Increased resolution for financial features
+            # Regularization
+            "gamma": 0.5,  # Minimum loss reduction for splits
+            "reg_alpha": 1.0,  # L1 regularization
+            "reg_lambda": 5.0,  # Stronger L2 for noisy financial data
+            "min_child_weight": 10,  # Conservative splits
+            # Stochastic Training
+            "subsample": 0.8,  # Slightly reduced for stability
+            "colsample_bytree": 0.7,  # More conservative feature sampling
+            "colsample_bylevel": 0.7,
+            # Learning Rate
+            "learning_rate": 0.05,  # Lower for better generalization
+            "n_estimators": 2000,  # Compensate for lower learning rate
+            # Imbalance Handling
             "scale_pos_weight": scale_pos_weight,
-            "eval_metric": "auc",
-            "learning_rate": 0.12598788046480647,
-            "n_estimators": 1000,
+            "max_delta_step": 2,  # Helps with class imbalance
+            # Early Stopping
             "early_stopping_rounds": 50,
+            # Reproducibility
             "random_state": 42,
+            # Evaluation
+            "eval_metric": ["auc", "logloss"],  # Monitor multiple metrics
         }
-        return base_params
+        return {**base_params, **best_params}
 
     def save_model_and_metadata(
         self,
@@ -221,17 +246,17 @@ class Train(TrainingOptimization):
             self.time_series_cross_validation()
         model = xgb.XGBClassifier(**self.model_base_params)
         model.fit(
-            self.train_x,
+            self.datasets["train"]["x"],
             self.datasets["train"]["y"],
-            eval_set=[(self.val_x, self.datasets["val"]["y"])],
+            eval_set=[(self.datasets["val"]["x"], self.datasets["val"]["y"])],
             verbose=20,
         )
         roc_auc = roc_auc_score(
             self.datasets["test"]["y"],
-            model.predict_proba(self.test_x)[:, 1],
+            model.predict_proba(self.datasets["test"]["x"])[:, 1],
         )
         report = classification_report(
-            self.datasets["test"]["y"], model.predict(self.test_x)
+            self.datasets["test"]["y"], model.predict(self.datasets["test"]["x"])
         )
         self.save_model_and_metadata(model=model, roc_auc=roc_auc, report=report)
         self.log.info(f"Test ROC-AUC: {roc_auc:.3f}")
