@@ -23,7 +23,6 @@ class Indicators:
         pass
 
     def compute_key_levels(self):
-        self.pair_df = self.pair_df[:100]
         self.get_vbp_key_levels()
         self.get_fractal_key_levels()
         self.pair_df.drop(
