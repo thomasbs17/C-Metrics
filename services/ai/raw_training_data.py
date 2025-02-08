@@ -29,7 +29,6 @@ class TrainingDataset(Indicators):
     def __init__(self, force_refresh: bool):
         super().__init__()
         self.force_refresh = force_refresh
-        self.db = helpers.get_db_connection()
         self.pre_stored_pairs = self.get_pre_stored_pairs()
 
     @staticmethod
@@ -141,7 +140,7 @@ class TrainingDataset(Indicators):
                 connection.execute(sql.text(query))
                 connection.commit()
             except ProgrammingError:
-                self.log.info("'training_data.training_dataset' does not yet exist")
+                self.log.info(f"'training_data.{table_name}' does not yet exist")
         self.pair_df.to_sql(
             name=table_name,
             schema="training_data",

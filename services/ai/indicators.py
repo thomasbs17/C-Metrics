@@ -1,18 +1,48 @@
 import logging
+import os
 from datetime import date
 
+import numpy as np
 import pandas as pd
-
+import requests
+import talib
+import yfinance as yf
 from services.screening.indicators.fractals import FractalCandlestickPattern
 from services.screening.indicators.vbp import get_vbp
+from utils.helpers import get_db_connection
 
 
 class Indicators:
     pair_df: pd.DataFrame
     key_level_table: str = "key_levels"
+    raw_data: pd.DataFrame
+
+    stop_loss: float = -0.02
+    take_profit: float = 0.05
+
+    greed_and_fear: pd.DataFrame = None
+    open_interest: pd.DataFrame = None
+    funding_rates: pd.DataFrame = None
+    long_short_ratio: pd.DataFrame = None
+    liquidations: pd.DataFrame = None
+
+    bitcoin_dominance: pd.DataFrame = None
+    btc_returns: pd.DataFrame = None
+    vix: pd.DataFrame = None
+
+    nfp: pd.DataFrame = None
+    fed_decisions: pd.DataFrame = None
+
+    btc_usd: pd.DataFrame = None
+    eth_usd: pd.DataFrame = None
+    btc_eth_correlation: pd.DataFrame = None
+
+    gold_returns: pd.DataFrame = None
+    nasdaq_returns: pd.DataFrame = None
 
     def __init__(self):
         self.log = self.get_logger()
+        self.db = get_db_connection()
 
     @staticmethod
     def get_logger() -> logging.Logger:
@@ -23,8 +53,8 @@ class Indicators:
         pass
 
     def compute_key_levels(self):
-        self.get_vbp_key_levels()
         self.get_fractal_key_levels()
+        self.get_vbp_key_levels()
         self.pair_df.drop(
             columns=["open", "high", "low", "close", "volume", "pair_formatted"],
             inplace=True,
@@ -38,9 +68,13 @@ class Indicators:
         for calendar_date in all_dates:
             date_df = self.pair_df[self.pair_df["calendar_dt"] <= calendar_date]
             fractals = FractalCandlestickPattern(date_df)
+            ath = date_df["high"].max()
+            atl = date_df["low"].min()
             date_df["fractal_support"] = fractals.get_level("support")
             date_df["fractal_resistance"] = fractals.get_level("resistance")
             date_df = date_df[date_df["calendar_dt"] == calendar_date]
+            date_df["distance_to_ath"] = date_df["close"] / ath - 1
+            date_df["distance_to_atl"] = date_df["close"] / atl - 1
             final_df = pd.concat([final_df, date_df])
         self.pair_df = final_df
 
@@ -161,13 +195,13 @@ class Indicators:
             resp = requests.get(url)
             resp_json = resp.json()
             df = pd.DataFrame(resp_json["data"])
-            df = df[["value", "timestamp"]]
+            df = df[["value", "calendar_dt"]]
             df = df.rename(columns={"value": "greed_and_fear_index"})
-            # self.pair_df['timestamp'] = pd.to_datetime(self.pair_df['timestamp'], utc=True).dt.date
-            df["timestamp"] = pd.to_datetime(
-                df["timestamp"].astype(int), unit="s"
+            # self.pair_df['calendar_dt'] = pd.to_datetime(self.pair_df['calendar_dt'], utc=True).dt.date
+            df["calendar_dt"] = pd.to_datetime(
+                df["calendar_dt"].astype(int), unit="s"
             ).dt.date
-            # self.pair_df = self.pair_df.merge(df, how='left', on='timestamp')
+            # self.pair_df = self.pair_df.merge(df, how='left', on='calendar_dt')
             self.greed_and_fear = df
 
     def transform_ohlcv(self):
@@ -200,18 +234,17 @@ class Indicators:
             return True
         return False
 
-    def add_valid_trades(self, df: pd.DataFrame = None):
-        df = self.pair_df if df is None else df
-        df["next_open"] = df["open"].shift(-1)
-        df["next_high"] = df["high"].shift(-1)
-        df["next_low"] = df["low"].shift(-1)
-        df["next_close"] = df["close"].shift(-1)
-        if "is_valid_trade" in df.columns.tolist():
-            df.drop(columns=["is_valid_trade"], inplace=True)
-        df.insert(
+    def add_valid_trades(self):
+        self.pair_df["next_open"] = self.pair_df["open"].shift(-1)
+        self.pair_df["next_high"] = self.pair_df["high"].shift(-1)
+        self.pair_df["next_low"] = self.pair_df["low"].shift(-1)
+        self.pair_df["next_close"] = self.pair_df["close"].shift(-1)
+        if "is_valid_trade" in self.pair_df.columns.tolist():
+            self.pair_df.drop(columns=["is_valid_trade"], inplace=True)
+        self.pair_df.insert(
             0,
             "is_valid_trade",
-            df.apply(
+            self.pair_df.apply(
                 lambda row: self.is_valid_trade(
                     row["next_open"],
                     row["next_low"],
@@ -221,7 +254,7 @@ class Indicators:
                 axis=1,
             ),
         )
-        df.drop(
+        self.pair_df.drop(
             columns=["next_open", "next_high", "next_low", "next_close"], inplace=True
         )
 
@@ -279,8 +312,8 @@ class Indicators:
         resp = requests.get(url=endpoint, headers={"api_key": coinalyze_key})
         resp_json = resp.json()
         df = pd.DataFrame(resp_json[0]["history"])
-        df = df.rename(columns={"t": "timestamp"})
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s").dt.date
+        df = df.rename(columns={"t": "calendar_dt"})
+        df["calendar_dt"] = pd.to_datetime(df["calendar_dt"], unit="s").dt.date
         return df
 
     def get_open_interest_history(self):
@@ -288,7 +321,7 @@ class Indicators:
             df = self.call_coinalyze_api(
                 endpoint="open-interest-history", symbols="BTCUSDT_PERP.A"
             )
-            df = df[["timestamp", "c"]]
+            df = df[["calendar_dt", "c"]]
             df = df.rename(columns={"c": "btc_usd_open_interest"})
             self.open_interest = df
 
@@ -297,9 +330,9 @@ class Indicators:
             df = self.call_coinalyze_api(
                 endpoint="funding-rate-history", symbols="BTCUSDT_PERP.A"
             )
-            df = df[["timestamp", "c"]]
+            df = df[["calendar_dt", "c"]]
             df = df.rename(columns={"c": "btc_usd_funding_rate"})
-            df = df[["timestamp", "btc_usd_funding_rate"]]
+            df = df[["calendar_dt", "btc_usd_funding_rate"]]
             self.funding_rates = df
 
     def get_liquidations_history(self):
@@ -316,22 +349,22 @@ class Indicators:
             self.long_short_ratio = self.call_coinalyze_api(
                 endpoint="long-short-ratio-history", symbols="BTCUSDT_PERP.A"
             )
-            self.long_short_ratio = self.long_short_ratio[["timestamp", "r"]]
+            self.long_short_ratio = self.long_short_ratio[["calendar_dt", "r"]]
             self.long_short_ratio = self.long_short_ratio.rename(
                 columns={"r": "ls_ratio"}
             )
 
     @staticmethod
-    def days_to_next(df: pd.DataFrame, timestamp: date) -> int:
-        future_dates = df[df["timestamp"] >= timestamp]
-        future_dates.sort_values(by="timestamp", inplace=True)
+    def days_to_next(df: pd.DataFrame, calendar_dt: date) -> int:
+        future_dates = df[df["calendar_dt"] >= calendar_dt]
+        future_dates.sort_values(by="calendar_dt", inplace=True)
         if not future_dates.empty:
-            return (future_dates.iloc[0]["timestamp"] - timestamp).days
+            return (future_dates.iloc[0]["calendar_dt"] - calendar_dt).days
 
     def custom_ffill(self, df: pd.DataFrame, column: str):
         self.pair_df[column] = self.pair_df[column].ffill()
-        oldest_ohlcv_value = self.pair_df["timestamp"].min()
-        df = df[df["timestamp"] <= oldest_ohlcv_value]
+        oldest_ohlcv_value = self.pair_df["calendar_dt"].min()
+        df = df[df["calendar_dt"] <= oldest_ohlcv_value]
         if not df.empty:
             oldest_metric_value = df.iloc[-1, 1:].item()
             self.pair_df[column] = self.pair_df[column].fillna(oldest_metric_value)
@@ -341,11 +374,11 @@ class Indicators:
             self.bitcoin_dominance = pd.read_csv(
                 "services/ai/assets/bitcoin_dominance.csv"
             )
-            self.bitcoin_dominance["timestamp"] = pd.to_datetime(
-                self.bitcoin_dominance["timestamp"], utc=True
+            self.bitcoin_dominance["calendar_dt"] = pd.to_datetime(
+                self.bitcoin_dominance["calendar_dt"], utc=True
             ).dt.date
         self.pair_df = self.pair_df.merge(
-            self.bitcoin_dominance, how="left", on="timestamp"
+            self.bitcoin_dominance, how="left", on="calendar_dt"
         )
         self.custom_ffill(df=self.bitcoin_dominance, column="bitcoin_dominance")
 
@@ -362,9 +395,11 @@ class Indicators:
                 periods=30
             )
             self.btc_returns = self.btc_returns[
-                ["timestamp", "btc_return_1d", "btc_return_7d", "btc_return_30d"]
+                ["calendar_dt", "btc_return_1d", "btc_return_7d", "btc_return_30d"]
             ]
-        self.pair_df = self.pair_df.merge(self.btc_returns, how="left", on="timestamp")
+        self.pair_df = self.pair_df.merge(
+            self.btc_returns, how="left", on="calendar_dt"
+        )
 
     def add_trend_indicators(self):
         """
@@ -398,25 +433,13 @@ class Indicators:
         """
         self.log.info("Adding price indicators")
         self.add_returns(periods=[1, 7, 30])
-
-        all_dates = self.pair_df["timestamp"].unique().tolist()
-        final_df = pd.DataFrame()
-        for calendar_date in all_dates:
-            date_df = self.pair_df[self.pair_df["timestamp"] <= calendar_date]
-            fractals = FractalCandlestickPattern(date_df)
-            date_df["fractal_support"] = fractals.get_level("support")
-            date_df["fractal_resistance"] = fractals.get_level("resistance")
-            date_df["has_crossed_fractal_resistance"] = (
-                date_df["fractal_resistance"].shift(1) < date_df["high"]
-            )
-            date_df["has_crossed_fractal_support"] = (
-                date_df["fractal_support"].shift(1) > date_df["low"]
-            )
-            date_df["distance_to_ath"] = date_df["close"] / date_df["high"].max() - 1
-            date_df["distance_to_atl"] = date_df["close"] / date_df["low"].min() - 1
-            date_df = date_df[date_df["timestamp"] == calendar_date]
-            final_df = pd.concat([final_df, date_df])
-        self.pair_df = final_df
+        self.pair_df["has_crossed_fractal_resistance"] = (
+            self.pair_df["high"]
+            > self.pair_df["fractal_resistance"]  # .shift(1)  # prev day resistance
+        )
+        self.pair_df["has_crossed_fractal_support"] = (
+            self.pair_df["low"] < self.pair_df["fractal_support"]
+        )  # .shift(1)  # prev day support
 
     def add_derivatives_indicators(self):
         """
@@ -436,7 +459,7 @@ class Indicators:
             self.long_short_ratio,
             self.liquidations,
         ):
-            self.pair_df = self.pair_df.merge(df, how="left", on="timestamp")
+            self.pair_df = self.pair_df.merge(df, how="left", on="calendar_dt")
 
     def add_momentum_indicators(self):
         """
@@ -467,7 +490,7 @@ class Indicators:
         )
         self.get_greed_and_fear()
         self.pair_df = self.pair_df.merge(
-            self.greed_and_fear, how="left", on="timestamp"
+            self.greed_and_fear, how="left", on="calendar_dt"
         )
         self.pair_df["greed_and_fear_index"] = self.pair_df[
             "greed_and_fear_index"
@@ -478,10 +501,10 @@ class Indicators:
         ].pct_change()
         if self.vix is None:
             self.vix = pd.read_csv("services/ai/assets/vix.csv")
-            self.vix["timestamp"] = pd.to_datetime(
-                self.vix["timestamp"], format="%d/%m/%Y"
+            self.vix["calendar_dt"] = pd.to_datetime(
+                self.vix["calendar_dt"], format="%d/%m/%Y"
             ).dt.date
-        self.pair_df = self.pair_df.merge(self.vix, how="left", on="timestamp")
+        self.pair_df = self.pair_df.merge(self.vix, how="left", on="calendar_dt")
         self.custom_ffill(df=self.vix, column="vix")
         (
             self.pair_df["bollinger_upper"],
@@ -503,30 +526,12 @@ class Indicators:
         self.pair_df["volume_smma_50"] = talib.SMA(
             self.pair_df["volume"], timeperiod=50
         )
-        all_dates = self.pair_df["timestamp"].unique().tolist()
-        final_df = pd.DataFrame()
-        for calendar_date in all_dates:
-            date_df = self.pair_df[self.pair_df["timestamp"] <= calendar_date]
-            last_close = date_df["close"].iloc[-1]
-            vbp_df = get_vbp(date_df)
-            date_df.drop(columns=["price_bin", "volume_type"], inplace=True)
-            vbp_df["price"] = vbp_df["price"].astype(float)
-            date_df["poc"] = vbp_df.loc[vbp_df["volume"].idxmax()]["price"]
-            date_df["poc_resistance"] = vbp_df.loc[vbp_df["price"] > last_close][
-                "price"
-            ].min()
-            date_df["poc_support"] = vbp_df.loc[vbp_df["price"] < last_close][
-                "price"
-            ].max()
-            date_df["has_crossed_poc_resistance"] = (
-                date_df["poc_resistance"].shift(1) < date_df["high"]
-            )
-            date_df["has_crossed_poc_support"] = (
-                date_df["poc_support"].shift(1) > date_df["low"]
-            )
-            date_df = date_df[date_df["timestamp"] == calendar_date]
-            final_df = pd.concat([final_df, date_df])
-        self.pair_df = final_df
+        self.pair_df["has_crossed_poc_resistance"] = (
+            self.pair_df["high"] > self.pair_df["poc_resistance"]  # .shift(1)
+        )
+        self.pair_df["has_crossed_poc_support"] = (
+            self.pair_df["low"] < self.pair_df["poc_support"]  # .shift(1)
+        )
 
     async def add_btc_eth_correlation(self):
         if self.btc_eth_correlation is None:
@@ -535,18 +540,18 @@ class Indicators:
             btc_usd = await self.get_pair_ohlcv("BTC")
             btc_usd["btc_return_1d"] = btc_usd["close"].pct_change(periods=1)
             df = pd.merge(
-                btc_usd[["timestamp", "btc_return_1d"]],
-                eth_usd[["timestamp", "eth_return_1d"]],
-                on="timestamp",
+                btc_usd[["calendar_dt", "btc_return_1d"]],
+                eth_usd[["calendar_dt", "eth_return_1d"]],
+                on="calendar_dt",
             )
             df["btc_eth_correlation"] = (
                 df["btc_return_1d"].rolling(window=14).corr(df["eth_return_1d"])
             )
-            df = df[["timestamp", "btc_eth_correlation"]]
+            df = df[["calendar_dt", "btc_eth_correlation"]]
             self.eth_usd.drop(columns=["eth_return_1d"], inplace=True)
             self.btc_eth_correlation = df
         self.pair_df = self.pair_df.merge(
-            self.btc_eth_correlation, how="left", on="timestamp"
+            self.btc_eth_correlation, how="left", on="calendar_dt"
         )
 
     @staticmethod
@@ -554,12 +559,12 @@ class Indicators:
         df = yf.download(
             symbol, start="2018-01-01", interval="1d", multi_level_index=False
         )
-        df.insert(0, "timestamp", df.index)
-        df["timestamp"] = df["timestamp"].dt.date
+        df.insert(0, "calendar_dt", df.index)
+        df["calendar_dt"] = df["calendar_dt"].dt.date
         df = df.reset_index(drop=True)
         asset_name = "gold" if symbol == "GC=F" else "nasdaq"
         df[f"{asset_name}_1d_return"] = df["Close"].pct_change(periods=1)
-        df = df[["timestamp", f"{asset_name}_1d_return"]]
+        df = df[["calendar_dt", f"{asset_name}_1d_return"]]
         return df
 
     async def add_market_beta_indicators(self):
@@ -582,7 +587,7 @@ class Indicators:
             self.nasdaq_returns = self.call_yahoo_finance_api(symbol="^IXIC")
         for asset in ("gold", "nasdaq"):
             df = getattr(self, f"{asset}_returns")
-            self.pair_df = self.pair_df.merge(df, how="left", on="timestamp")
+            self.pair_df = self.pair_df.merge(df, how="left", on="calendar_dt")
             self.pair_df[f"{asset}_1d_return"] = df[f"{asset}_1d_return"].fillna(0)
 
     def add_macro_indicators(self):
@@ -597,12 +602,12 @@ class Indicators:
             if getattr(self, df_name) is None:
                 setattr(self, df_name, pd.read_csv(f"services/ai/assets/{df_name}.csv"))
             df = getattr(self, df_name)
-            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.date
-            self.pair_df = self.pair_df.merge(df, how="left", on="timestamp")
+            df["calendar_dt"] = pd.to_datetime(df["calendar_dt"], utc=True).dt.date
+            self.pair_df = self.pair_df.merge(df, how="left", on="calendar_dt")
             self.pair_df = self.pair_df.rename(columns={"actual": df_name})
             self.custom_ffill(df=df, column=df_name)
             self.pair_df[f"days_to_next_{df_name}"] = self.pair_df.apply(
-                lambda row: self.days_to_next(df, row["timestamp"]), axis=1
+                lambda row: self.days_to_next(df, row["calendar_dt"]), axis=1
             )
 
     def add_seasonality(self):
@@ -612,12 +617,61 @@ class Indicators:
         - days to quarter end
         """
         self.log.info("Adding seasonality indicators")
-        self.pair_df["timestamp"] = pd.to_datetime(self.pair_df["timestamp"], utc=True)
-        self.pair_df["day_of_week"] = self.pair_df["timestamp"].dt.dayofweek
-        self.pair_df["month_of_year"] = self.pair_df["timestamp"].dt.month
+        self.pair_df["calendar_dt"] = pd.to_datetime(
+            self.pair_df["calendar_dt"], utc=True
+        )
+        self.pair_df["day_of_week"] = self.pair_df["calendar_dt"].dt.dayofweek
+        self.pair_df["month_of_year"] = self.pair_df["calendar_dt"].dt.month
         self.pair_df["days_to_quarter_end"] = (
             pd.to_datetime(
-                self.pair_df["timestamp"].dt.to_period("Q").dt.end_time, utc=True
+                self.pair_df["calendar_dt"].dt.to_period("Q").dt.end_time, utc=True
             )
-            - self.pair_df["timestamp"]
+            - self.pair_df["calendar_dt"]
         ).dt.days
+
+    def get_raw_data(self) -> pd.DataFrame:
+        query = """
+        SELECT *
+        FROM TRAINING_DATA.OHLCV
+        LEFT JOIN TRAINING_DATA.KEY_LEVELS ON OHLCV.PAIR = KEY_LEVELS.PAIR
+        AND OHLCV.CALENDAR_DT = KEY_LEVELS.CALENDAR_DT
+
+        where pair = 'BTC/USD'
+        """
+        # todo: make this a view
+        return pd.read_sql_query(sql=query, con=self.db)
+
+    async def add_indicators(self):
+        self.raw_data = self.get_raw_data()
+        for pair in self.raw_data["pair"].unique().tolist():
+            self.log.info(f"Adding indicators for {pair}")
+            self.pair_df = self.raw_data[self.raw_data["pair"] == pair]
+            if len(self.pair_df) < 100:
+                self.log.warning(
+                    f"Skipping {pair} due to lack of data ({len(self.pair_df)} rows available)"
+                )
+            else:
+                self.add_valid_trades()
+
+                self.add_trend_indicators()
+                self.add_price_indicators()
+                self.add_derivatives_indicators()
+                self.add_momentum_indicators()
+                self.add_volatility_indicators()
+                self.add_volume_indicators()
+                await self.add_market_beta_indicators()
+                self.add_macro_indicators()
+                self.add_seasonality()
+                self.add_patterns()
+                self.transform_ohlcv()
+                if self.pair_df["calendar_dt"].duplicated().any():
+                    raise Exception("Duplicates found!")
+                self.log.info("Adding to DB")
+                self.pair_df.to_sql(
+                    "training_dataset",
+                    schema="training_data",
+                    con=self.db,
+                    if_exists="append",
+                    index=False,
+                )
+                self.log.info(f"    {len(self.pair_df)} rows added to training_dataset")

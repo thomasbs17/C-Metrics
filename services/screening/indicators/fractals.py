@@ -52,10 +52,11 @@ class FractalCandlestickPattern:
         last_close = self.df["close"].iloc[-1]
         if level == "support":
             return max(
-                (level for level in self.output if level < last_close), default=0
+                (level for level in self.output if level < last_close),
+                default=self.df["low"].min(),
             )
         elif level == "resistance":
             return min(
                 (level for level in self.output if level > last_close),
-                default=None,
+                default=self.df["high"].max(),
             )
