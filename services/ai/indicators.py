@@ -84,27 +84,25 @@ class Indicators:
         final_df = pd.DataFrame()
         for calendar_date in all_dates:
             date_df = self.pair_df[self.pair_df["calendar_dt"] <= calendar_date]
-            last_close = date_df["close"].iloc[-1]
             vbp_df = get_vbp(date_df)
-            date_df.drop(columns=["price_bin", "volume_type"], inplace=True)
             vbp_df["price"] = vbp_df["price"].astype(float)
+            date_df = date_df[date_df["calendar_dt"] == calendar_date]
             # date_df["poc"] = vbp_df.loc[vbp_df["volume"].idxmax()]["price"]
 
-            above_close_vbp = vbp_df.loc[vbp_df["price"] > last_close]
-            date_df["poc_resistance"] = (
-                date_df["high"].max()
-                if above_close_vbp.empty
-                else above_close_vbp.loc[above_close_vbp["volume"].idxmax()]["price"]
-            )
-
-            below_close_vbp = vbp_df.loc[vbp_df["price"] < last_close]
+            support_vbp = vbp_df.loc[vbp_df["level_type"] == "support"]
             date_df["poc_support"] = (
                 date_df["low"].min()
-                if below_close_vbp.empty
-                else below_close_vbp.loc[below_close_vbp["volume"].idxmax()]["price"]
+                if support_vbp.empty
+                else support_vbp.loc[support_vbp["volume"].idxmax()]["price"]
             )
 
-            date_df = date_df[date_df["calendar_dt"] == calendar_date]
+            resistance_vbp = vbp_df.loc[vbp_df["level_type"] == "resistance"]
+            date_df["poc_resistance"] = (
+                date_df["high"].max()
+                if resistance_vbp.empty
+                else resistance_vbp.loc[resistance_vbp["volume"].idxmax()]["price"]
+            )
+
             final_df = pd.concat([final_df, date_df])
         self.pair_df = final_df
 
