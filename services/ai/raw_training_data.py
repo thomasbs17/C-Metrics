@@ -187,5 +187,5 @@ class TrainingDataset(Indicators):
 
 
 if __name__ == "__main__":
-    dataset = TrainingDataset(force_refresh=True)
+    dataset = TrainingDataset(force_refresh=False)
     asyncio.run(dataset.get_raw_training_dataset())
