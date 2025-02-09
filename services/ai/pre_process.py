@@ -11,10 +11,8 @@ from services.ai.raw_training_data import TrainingDataset
 
 
 class PreProcessing(TrainingDataset):
-    new_training: bool
     assets_path: Path = Path("./services/ai/assets")
     pre_processed_df: pd.DataFrame
-    raw_training_data: pd.DataFrame
 
     def __init__(self):
         super().__init__(force_refresh=False)
@@ -267,9 +265,11 @@ class PreProcessing(TrainingDataset):
         self.encode_pairs()
         self.encode_time_features()
 
-    def pre_process_data(self, df: pd.DataFrame, new_training: bool) -> pd.DataFrame:
-        self.pre_processed_df = df[df["day_return"].notnull()]
-        self.new_training = new_training
+    async def pre_process_data(
+        self, pairs: list[str], target_type: str
+    ) -> pd.DataFrame:
+        self.raw_data = self.load_training_dataset(pairs=pairs)
+        self.pre_processed_df = await self.add_indicators(target_type)
         self.log.info("Pre-processing data")
         self.handle_non_available_fractals()
         self.encoding()

@@ -4,9 +4,11 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
+import pandas_ta
 import requests
 import talib
 import yfinance as yf
+
 from services.screening.indicators.fractals import FractalCandlestickPattern
 from services.screening.indicators.vbp import get_vbp
 from utils.helpers import get_db_connection
@@ -50,6 +52,9 @@ class Indicators:
         return logging.getLogger("training-dataset")
 
     def update_table(self, table_name: str):
+        pass
+
+    def load_training_dataset(self, pairs: list[str] = None) -> pd.DataFrame:
         pass
 
     def compute_key_levels(self):
@@ -186,7 +191,7 @@ class Indicators:
                 self.pair_df["close"],
             )
 
-    def add_death_cross_pattern(self) -> pd.DataFrame:
+    def add_death_cross_pattern(self):
         self.pair_df["sma_50_below_sma_200"] = (
             self.pair_df["sma_50"] < self.pair_df["sma_200"]
         )
@@ -194,7 +199,6 @@ class Indicators:
             ~self.pair_df["sma_50_below_sma_200"].shift(1, fill_value=False)
         )
         self.pair_df.drop(columns=["sma_50_below_sma_200"], inplace=True)
-        return self.pair_df
 
     def get_greed_and_fear(self):
         if self.greed_and_fear is None:
@@ -224,41 +228,43 @@ class Indicators:
         )
         self.pair_df["volume"] = self.pair_df["volume"] * self.pair_df["close"]
 
-    def is_valid_trade(
+    def is_target(
         self,
         next_day_open: float,
         next_day_low: float,
         next_day_high: float,
-        next_day_close: float,
+        target_type: str,
     ) -> bool:
         next_day_drawdown = next_day_low / next_day_open - 1
         next_day_peak = next_day_high / next_day_open - 1
-        if (
-            next_day_peak >= self.take_profit
-            # and next_day_drawdown >= self.stop_loss
-            # and next_day_close > next_day_open
-        ):
+        if target_type == "take_profit":
+            if next_day_peak >= self.take_profit:
+                return True
+            return False
+        elif target_type == "stop_loss":
+            if next_day_drawdown < self.stop_loss:
+                return False
             return True
-        return False
 
-    def add_valid_trades(self):
+    def add_target(self, target_type: str):
         self.pair_df["next_open"] = self.pair_df["open"].shift(-1)
         self.pair_df["next_high"] = self.pair_df["high"].shift(-1)
         self.pair_df["next_low"] = self.pair_df["low"].shift(-1)
         self.pair_df["next_close"] = self.pair_df["close"].shift(-1)
         self.pair_df.insert(
             0,
-            "is_valid_trade",
+            f"hit_{target_type}",
             self.pair_df.apply(
-                lambda row: self.is_valid_trade(
-                    row["next_open"],
-                    row["next_low"],
-                    row["next_high"],
-                    row["next_close"],
+                lambda row: self.is_target(
+                    next_day_open=row["next_open"],
+                    next_day_low=row["next_low"],
+                    next_day_high=row["next_high"],
+                    target_type=target_type,
                 ),
                 axis=1,
             ),
         )
+        self.pair_df = self.pair_df.iloc[:-1]
         self.pair_df.drop(
             columns=["next_open", "next_high", "next_low", "next_close"], inplace=True
         )
@@ -266,11 +272,11 @@ class Indicators:
     @staticmethod
     def classify_trend(row):
         if row["SMA_short"] > row["SMA_mid"] > row["SMA_long"]:
-            return "BULLISH"
+            return 1
         elif row["SMA_short"] < row["SMA_mid"] < row["SMA_long"]:
-            return "BEARISH"
+            return -1
         else:
-            return "NEUTRAL"
+            return 0
 
     def add_current_trend(self):
         """
@@ -302,7 +308,7 @@ class Indicators:
 
         coinalyze_key = os.environ.get("COINALYZE_API_KEY")
         if not from_date_unix:
-            from_date_unix = 1514764800  # 2018-01-01
+            from_date_unix = 1420070400  # 2015-01-01
         if not to_date_unix:
             to_date_unix = 1735603200  # 2024-12-31
         endpoint = (
@@ -406,24 +412,163 @@ class Indicators:
             self.btc_returns, how="left", on="calendar_dt"
         )
 
+    def add_ichimoku_indicators(self):
+        ichimoku = pandas_ta.ichimoku(
+            self.pair_df["high"],
+            self.pair_df["low"],
+            self.pair_df["close"],
+            lookahead=False,
+        )
+        ichimoku_lines = ichimoku[0]
+        self.pair_df = pd.concat([self.pair_df, ichimoku_lines], axis=1)
+        self.pair_df["ichimoku_bullish_trend"] = (
+            self.pair_df["close"] > self.pair_df[["ISA_9", "ISB_26"]].max(axis=1)
+        ) & (self.pair_df["ISA_9"] > self.pair_df["ISB_26"])
+        self.pair_df["ichimoku_bearish_trend"] = (
+            self.pair_df["close"] < self.pair_df[["ISA_9", "ISB_26"]].min(axis=1)
+        ) & (self.pair_df["ISA_9"] < self.pair_df["ISB_26"])
+        self.pair_df["ichimoku_trend"] = self.pair_df.apply(
+            lambda row: 1
+            if row["ichimoku_bullish_trend"]
+            else (-1 if row["ichimoku_bearish_trend"] else 0),
+            axis=1,
+        )
+        self.pair_df.drop(
+            columns=["ichimoku_bullish_trend", "ichimoku_bearish_trend"], inplace=True
+        )
+
+        self.pair_df["ichimoku_tenkan_kijun_bullish_cross"] = (
+            self.pair_df["ITS_9"] > self.pair_df["IKS_26"]
+        ) & (self.pair_df["ITS_9"].shift(1) <= self.pair_df["IKS_26"].shift(1))
+        self.pair_df["ichimoku_tenkan_kijun_bearish_cross"] = (
+            self.pair_df["ITS_9"] < self.pair_df["IKS_26"]
+        ) & (self.pair_df["ITS_9"].shift(1) >= self.pair_df["IKS_26"].shift(1))
+        self.pair_df["ichimoku_tenkan_signal"] = self.pair_df.apply(
+            lambda row: 1
+            if row["ichimoku_tenkan_kijun_bullish_cross"]
+            else (-1 if row["ichimoku_tenkan_kijun_bearish_cross"] else 0),
+            axis=1,
+        )
+        self.pair_df.drop(
+            columns=[
+                "ichimoku_tenkan_kijun_bullish_cross",
+                "ichimoku_tenkan_kijun_bearish_cross",
+            ],
+            inplace=True,
+        )
+
+        self.pair_df["ichimoku_cloud_bullish_cross"] = (
+            self.pair_df["close"] > self.pair_df[["ISA_9", "ISB_26"]].max(axis=1)
+        ) & (
+            self.pair_df["close"].shift(1)
+            <= self.pair_df[["ISA_9", "ISB_26"]].max(axis=1).shift(1)
+        )
+        self.pair_df["ichimoku_cloud_bearish_cross"] = (
+            self.pair_df["close"] < self.pair_df[["ISA_9", "ISB_26"]].min(axis=1)
+        ) & (
+            self.pair_df["close"].shift(1)
+            >= self.pair_df[["ISA_9", "ISB_26"]].min(axis=1).shift(1)
+        )
+        self.pair_df["ichimoku_cloud_signal"] = self.pair_df.apply(
+            lambda row: 1
+            if row["ichimoku_cloud_bullish_cross"]
+            else (-1 if row["ichimoku_cloud_bearish_cross"] else 0),
+            axis=1,
+        )
+        self.pair_df.drop(
+            columns=[
+                "ITS_9",
+                "IKS_26",
+                "ichimoku_cloud_bullish_cross",
+                "ichimoku_cloud_bearish_cross",
+            ],
+            inplace=True,
+        )
+
+    def add_adx_signals(self, adx_period: int = 14, adx_threshold: int = 25):
+        """
+        Implement ADX strategy with +DI/-DI crossovers
+        Returns DataFrame with signals: 1 (buy), -1 (sell), 0 (neutral)
+        """
+        # Calculate ADX and DI values
+        self.pair_df["adx"] = talib.ADX(
+            self.pair_df["high"],
+            self.pair_df["low"],
+            self.pair_df["close"],
+            timeperiod=adx_period,
+        )
+        self.pair_df["plus_di"] = talib.PLUS_DI(
+            self.pair_df["high"],
+            self.pair_df["low"],
+            self.pair_df["close"],
+            timeperiod=adx_period,
+        )
+        self.pair_df["minus_di"] = talib.MINUS_DI(
+            self.pair_df["high"],
+            self.pair_df["low"],
+            self.pair_df["close"],
+            timeperiod=adx_period,
+        )
+        # Generate signals (using vectorized operations for speed)
+        conditions = [
+            # Strong trend with bullish crossover
+            (self.pair_df["adx"] > adx_threshold)
+            & (self.pair_df["plus_di"] > self.pair_df["minus_di"]),
+            # Strong trend with bearish crossover
+            (self.pair_df["adx"] > adx_threshold)
+            & (self.pair_df["minus_di"] > self.pair_df["plus_di"]),
+            # Weak trend/no trend
+            (self.pair_df["adx"] < 20),
+        ]
+        choices = [1, -1, 0]
+        self.pair_df["adx_signal"] = np.select(conditions, choices, default=np.nan)
+        # Forward fill to maintain position until reversal
+        self.pair_df["adx_signal"].ffill(inplace=True)
+        self.pair_df.drop(columns=["adx", "plus_di", "minus_di"], inplace=True)
+
+    def add_sar_signal(self):
+        self.pair_df["sar"] = talib.SAR(self.pair_df["high"], self.pair_df["low"])
+        self.pair_df["sar_buy_signal"] = (
+            self.pair_df["close"] > self.pair_df["sar"]
+        ) & (self.pair_df["close"].shift(1) <= self.pair_df["sar"].shift(1))
+        self.pair_df["sar_sell_signal"] = (
+            self.pair_df["close"] < self.pair_df["sar"]
+        ) & (self.pair_df["close"].shift(1) >= self.pair_df["sar"].shift(1))
+        self.pair_df["sar_signal"] = self.pair_df.apply(
+            lambda row: 1
+            if row["sar_buy_signal"]
+            else (-1 if row["sar_sell_signal"] else 0),
+            axis=1,
+        )
+        self.pair_df.drop(
+            columns=["sar_buy_signal", "sar_sell_signal", "sar"], inplace=True
+        )
+
     def add_trend_indicators(self):
         """
         - SMA 50
         - SMA 200
         - EMA 100
-        - MACD
         - Current Trend
         - Is Death Cross
+
+        - SAR Signal: Buy when price crosses above SAR, Sell when price crosses below SAR
+        - Ichimoku Trend: Bullish when close > max(ISA, ISB), Bearish when close < min(ISA, ISB)
+        - Ichimoku Tenkan-Kijun Signal: Buy when Tenkan crosses above Kijun, Sell when Tenkan crosses below Kijun
+        - Ichimoku Cloud Signal: Buy when close > max(ISA, ISB) and close > prev max(ISA, ISB), Sell when close < min(ISA, ISB) and close < prev min(ISA, ISB)
+         - ADX Signal: Buy when +DI > -DI and ADX > 25, Sell when -DI > +DI and ADX > 25
+
         """
         self.log.info("Adding trend indicators")
         self.pair_df["sma_50"] = talib.SMA(self.pair_df["close"], timeperiod=50)
         self.pair_df["sma_200"] = talib.SMA(self.pair_df["close"], timeperiod=200)
         self.pair_df["ema_100"] = talib.EMA(self.pair_df["close"], timeperiod=100)
-        self.pair_df["macd"], self.pair_df["macd_signal"], self.pair_df["macd_hist"] = (
-            talib.MACD(self.pair_df["close"])
-        )
         self.add_current_trend()
         self.add_death_cross_pattern()
+
+        self.add_sar_signal()
+        self.add_ichimoku_indicators()
+        self.add_adx_signals()
 
     def add_price_indicators(self):
         """
@@ -454,6 +599,7 @@ class Indicators:
         - BTC/USD l/s ratio
         """
         self.log.info("Adding derivatives indicators")
+
         self.get_open_interest_history()
         self.get_funding_rate_history()
         self.get_liquidations_history()
@@ -466,12 +612,62 @@ class Indicators:
         ):
             self.pair_df = self.pair_df.merge(df, how="left", on="calendar_dt")
 
+    def add_macd_indicators(self):
+        self.pair_df["macd"], self.pair_df["macd_signal"], self.pair_df["macd_hist"] = (
+            talib.MACD(self.pair_df["close"])
+        )
+        self.pair_df["macd_bullish_signal"] = (
+            self.pair_df["macd"] > self.pair_df["macd_signal"]
+        ) & (self.pair_df["macd"].shift(1) < self.pair_df["macd_signal"].shift(1))
+        self.pair_df["macd_bearish_signal"] = (
+            self.pair_df["macd"] < self.pair_df["macd_signal"]
+        ) & (self.pair_df["macd"].shift(1) > self.pair_df["macd_signal"].shift(1))
+        self.pair_df["macd_signal"] = self.pair_df.apply(
+            lambda row: 1
+            if row["macd_bullish_signal"]
+            else (-1 if row["macd_bearish_signal"] else 0),
+            axis=1,
+        )
+        self.pair_df.drop(
+            columns=["macd_bullish_signal", "macd_bearish_signal", "macd"], inplace=True
+        )
+        self.pair_df["macd_hist"] = self.pair_df["macd_hist"].pct_change()
+
+    def add_stochastic_signal(self):
+        self.pair_df["stoch_k"], self.pair_df["stoch_d"] = talib.STOCH(
+            self.pair_df["high"], self.pair_df["low"], self.pair_df["close"]
+        )
+        self.pair_df["stochastic_overbought"] = self.pair_df["stoch_k"] > 80
+        self.pair_df["stochastic_oversold"] = self.pair_df["stoch_k"] < 20
+        self.pair_df["stochastic_signal"] = self.pair_df.apply(
+            lambda row: 1
+            if row["stochastic_overbought"]
+            else (-1 if row["stochastic_oversold"] else 0),
+            axis=1,
+        )
+        self.pair_df.drop(
+            columns=[
+                "stoch_k",
+                "stoch_d",
+                "stochastic_overbought",
+                "stochastic_oversold",
+            ],
+            inplace=True,
+        )
+
     def add_momentum_indicators(self):
         """
         - RSI
+        - MACD Bullish Signal: MACD line crosses above the signal line.
+        - MACD Bearish Signal: MACD line crosses below the signal line.
+        - MACD Histogram expansion: Identifies trend acceleration via histogram expansion.
+        - Stochastic Overbought: Stochastic K above 80.
+        - Stochastic Oversold: Stochastic K below 20.
         """
         self.log.info("Adding momentum indicators")
         self.pair_df["rsi"] = talib.RSI(self.pair_df["close"])
+        self.add_macd_indicators()
+        self.add_stochastic_signal()
 
     def add_volatility_indicators(self):
         """
@@ -525,6 +721,7 @@ class Indicators:
         - Has crossed previous day PoC resistance
         - Next PoC support
         - Has crossed previous day PoC support
+        - On Balance Volume
 
         """
         self.log.info("Adding volume indicators")
@@ -537,6 +734,7 @@ class Indicators:
         self.pair_df["has_crossed_poc_support"] = (
             self.pair_df["low"] < self.pair_df["poc_support"]  # .shift(1)
         )
+        self.pair_df["obv"] = talib.OBV(self.pair_df["close"], self.pair_df["volume"])
 
     async def add_btc_eth_correlation(self):
         if self.btc_eth_correlation is None:
@@ -634,25 +832,13 @@ class Indicators:
             - self.pair_df["calendar_dt"]
         ).dt.days
 
-    def get_raw_data(self) -> pd.DataFrame:
-        query = """
-        SELECT *
-        FROM TRAINING_DATA.OHLCV
-        LEFT JOIN TRAINING_DATA.KEY_LEVELS ON OHLCV.PAIR = KEY_LEVELS.PAIR
-        AND OHLCV.CALENDAR_DT = KEY_LEVELS.CALENDAR_DT
-
-        where pair = 'BTC/USD'
-        """
-        # todo: make this a view
-        return pd.read_sql_query(sql=query, con=self.db)
-
-    async def add_indicators(self):
-        self.raw_data = self.get_raw_data()
+    async def add_indicators(self, target_type: str) -> pd.DataFrame:
+        data_with_indicators = pd.DataFrame()
         for pair in self.raw_data["pair"].unique().tolist():
             self.log.info(f"Adding indicators for {pair}")
             self.pair_df = self.raw_data[self.raw_data["pair"] == pair]
 
-            self.add_valid_trades()
+            self.add_target(target_type)
 
             self.add_trend_indicators()
             self.add_price_indicators()
@@ -667,12 +853,6 @@ class Indicators:
             self.transform_ohlcv()
             if self.pair_df["calendar_dt"].duplicated().any():
                 raise Exception("Duplicates found!")
-            self.log.info("Adding to DB")
-            self.pair_df.to_sql(
-                "training_dataset",
-                schema="training_data",
-                con=self.db,
-                if_exists="append",
-                index=False,
-            )
             self.log.info(f"    {len(self.pair_df)} rows added to training_dataset")
+            data_with_indicators = pd.concat([data_with_indicators, self.pair_df])
+        return data_with_indicators

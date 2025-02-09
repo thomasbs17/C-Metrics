@@ -1,32 +1,23 @@
 import asyncio
 import pickle
-from pathlib import Path
 
 import pandas as pd
 
-from services.ai.train import Train
+from services.ai.indicators import Indicators
+from services.ai.raw_training_data import TrainingDataset
 
 
-class BackTest(Train):
+class BackTest(Indicators):
     starting_balance: int = 1000
     balance: int
-    backtest_df: pd.DataFrame
 
-    def __init__(self, new_training: bool, pairs: list[str] = None):
-        super().__init__(
-            new_training=new_training,
-            pairs=pairs,
-        )
-        self.new_training = new_training
-        if new_training:
-            self.train(with_optimization=True)
-        elif not Path(self.model_path).is_file():
-            raise ValueError("Training is required!")
-        self.reset()
+    def __init__(self, backtest_df: pd.DataFrame):
+        super().__init__()
+        self.backtest_df = backtest_df
+        # self.reset()
 
     def reset(self):
         self.balance = self.starting_balance
-        self.backtest_df = self.datasets["test"]["detailed_x"].copy(deep=True)
 
     def get_pnl(self, row: pd.Series):
         row.fillna(False, inplace=True)
@@ -84,15 +75,10 @@ class BackTest(Train):
         return (self.balance / self.starting_balance) - 1
 
 
-async def run_backtest(
-    new_training: bool,
-    test_multiple_thresholds: bool,
-    pairs: list[str] = None,
-):
-    backtest = BackTest(
-        new_training=new_training,
-        pairs=pairs,
-    )
+async def run_backtest(test_multiple_thresholds: bool):
+    dataset = TrainingDataset(force_refresh=False)
+    backtest_df = dataset.load_training_dataset()
+    backtest = BackTest(backtest_df=backtest_df)
     threshold_range = range(1, 101) if test_multiple_thresholds else [50]
     data = list()
     metadata_content = "\n\nBACKTESTING RESULTS:\n"
@@ -112,8 +98,6 @@ async def run_backtest(
 if __name__ == "__main__":
     asyncio.run(
         run_backtest(
-            new_training=False,
             test_multiple_thresholds=True,
-            # pairs=["BTC/USD", "XRP/USD"],
         )
     )

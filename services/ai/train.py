@@ -1,7 +1,9 @@
+import asyncio
 import json
 import pickle
 from datetime import datetime as dt
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import optuna
@@ -126,12 +128,9 @@ class Train(TrainingOptimization):
     validate_size: float = 0.1
     test_size: float = 0.1
 
-    def __init__(self, new_training: bool, pairs: list[str] = None):
+    def __init__(self):
         super().__init__()
-        self.new_training = new_training
         self.model_path = f"{self.assets_path}/{self.model_name}.pkl"
-        self.raw_training_data = self.load_training_dataset(pairs=pairs)
-        self.split()
 
     def split(self):
         # Temporal split (80-10-10)
@@ -151,10 +150,10 @@ class Train(TrainingOptimization):
                 self.raw_training_data["timestamp"].isin(details["dates"])
             ]
             new_training = True if dataset == "train" else False
-            datasets[dataset]["detailed_x"] = self.pre_process_data(
-                df=df.drop(columns=["is_valid_trade"]),
-                new_training=new_training,
-            )
+            # datasets[dataset]["detailed_x"] = self.pre_process_data(
+            #     df=df.drop(columns=["is_valid_trade"]),
+            #     new_training=new_training,
+            # )
             datasets[dataset]["x"] = (
                 datasets[dataset]["detailed_x"]
                 .copy(deep=True)
@@ -240,7 +239,14 @@ class Train(TrainingOptimization):
         with open(f"{self.assets_path}/{self.model_name}_metadata.txt", "w") as f:
             f.write(content)
 
-    def train(self, with_optimization: bool):
+    async def train(
+        self,
+        with_optimization: bool,
+        pairs: list[str],
+        target_type: Literal["take_profit", "stop_loss"],
+    ):
+        await self.pre_process_data(pairs=pairs, target_type=target_type)
+        self.split()
         if with_optimization:
             self.time_series_cross_validation()
         model = xgb.XGBClassifier(**self.model_base_params)
@@ -260,3 +266,12 @@ class Train(TrainingOptimization):
         self.save_model_and_metadata(model=model, roc_auc=roc_auc, report=report)
         self.log.info(f"Test ROC-AUC: {roc_auc:.3f}")
         print(report)
+
+
+if __name__ == "__main__":
+    training = Train()
+    asyncio.run(
+        training.train(
+            with_optimization=True, target_type="take_profit", pairs=["BTC/USD"]
+        )
+    )
