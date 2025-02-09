@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from services.ai.raw_training_data import TrainingDataset
 from services.ai.train import Train
 
 
@@ -87,13 +86,9 @@ class BackTest(Train):
 
 async def run_backtest(
     new_training: bool,
-    refresh_training_data: bool,
     test_multiple_thresholds: bool,
     pairs: list[str] = None,
 ):
-    if refresh_training_data:
-        dataset = TrainingDataset(force_refresh=True)
-        await dataset.get_raw_training_dataset()
     backtest = BackTest(
         new_training=new_training,
         pairs=pairs,
@@ -118,8 +113,7 @@ if __name__ == "__main__":
     asyncio.run(
         run_backtest(
             new_training=False,
-            refresh_training_data=True,
             test_multiple_thresholds=True,
-            pairs=["BTC/USD", "XRP/USD"],
+            # pairs=["BTC/USD", "XRP/USD"],
         )
     )

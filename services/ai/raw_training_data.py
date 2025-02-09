@@ -24,6 +24,7 @@ class TrainingDataset(Indicators):
     min_data_amt: int = 365
 
     ohlcv_table: str = "ohlcv"
+    formatted_data_view: str = "formatted_data"
 
     exchanges: list[str] = ["binance", "coinbase"]
 
@@ -40,9 +41,9 @@ class TrainingDataset(Indicators):
         return resp.json()["data"]
 
     def get_pre_stored_pairs(self) -> list[str]:
-        query = f"select distinct pair from training_data.{self.ohlcv_table}"
+        query = f"select distinct pair_formatted from training_data.{self.ohlcv_table}"
         df = pd.read_sql(sql=query, con=self.db)
-        pairs = df["pair"].unique().tolist()
+        pairs = df["pair_formatted"].unique().tolist()
         self.log.info(f"{len(pairs)} pairs available in DB")
         return pairs
 
@@ -161,7 +162,7 @@ class TrainingDataset(Indicators):
 
     def load_training_dataset(self, pairs: list[str] = None) -> pd.DataFrame:
         self.log.info("Loading training data")
-        query = "select * from training_data.training_dataset"
+        query = f"select * from training_data.{self.formatted_data_view}"
         if pairs:
             pairs_str = "','".join(pairs)
             query += f" where pair in ('{pairs_str}')"

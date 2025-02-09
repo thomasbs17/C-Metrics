@@ -246,8 +246,6 @@ class Indicators:
         self.pair_df["next_high"] = self.pair_df["high"].shift(-1)
         self.pair_df["next_low"] = self.pair_df["low"].shift(-1)
         self.pair_df["next_close"] = self.pair_df["close"].shift(-1)
-        if "is_valid_trade" in self.pair_df.columns.tolist():
-            self.pair_df.drop(columns=["is_valid_trade"], inplace=True)
         self.pair_df.insert(
             0,
             "is_valid_trade",
@@ -653,32 +651,28 @@ class Indicators:
         for pair in self.raw_data["pair"].unique().tolist():
             self.log.info(f"Adding indicators for {pair}")
             self.pair_df = self.raw_data[self.raw_data["pair"] == pair]
-            if len(self.pair_df) < 100:
-                self.log.warning(
-                    f"Skipping {pair} due to lack of data ({len(self.pair_df)} rows available)"
-                )
-            else:
-                self.add_valid_trades()
 
-                self.add_trend_indicators()
-                self.add_price_indicators()
-                self.add_derivatives_indicators()
-                self.add_momentum_indicators()
-                self.add_volatility_indicators()
-                self.add_volume_indicators()
-                await self.add_market_beta_indicators()
-                self.add_macro_indicators()
-                self.add_seasonality()
-                self.add_patterns()
-                self.transform_ohlcv()
-                if self.pair_df["calendar_dt"].duplicated().any():
-                    raise Exception("Duplicates found!")
-                self.log.info("Adding to DB")
-                self.pair_df.to_sql(
-                    "training_dataset",
-                    schema="training_data",
-                    con=self.db,
-                    if_exists="append",
-                    index=False,
-                )
-                self.log.info(f"    {len(self.pair_df)} rows added to training_dataset")
+            self.add_valid_trades()
+
+            self.add_trend_indicators()
+            self.add_price_indicators()
+            self.add_derivatives_indicators()
+            self.add_momentum_indicators()
+            self.add_volatility_indicators()
+            self.add_volume_indicators()
+            await self.add_market_beta_indicators()
+            self.add_macro_indicators()
+            self.add_seasonality()
+            self.add_patterns()
+            self.transform_ohlcv()
+            if self.pair_df["calendar_dt"].duplicated().any():
+                raise Exception("Duplicates found!")
+            self.log.info("Adding to DB")
+            self.pair_df.to_sql(
+                "training_dataset",
+                schema="training_data",
+                con=self.db,
+                if_exists="append",
+                index=False,
+            )
+            self.log.info(f"    {len(self.pair_df)} rows added to training_dataset")
