@@ -30,7 +30,7 @@
     "prettier": "^3.2.5",
     "react": "^19.0.0",
     "react-bootstrap": "^2.8.0",
-    "react-dom": "^18.2.0",
+    "react-dom": "^19.0.0",
     "react-full-screen": "^1.1.1",
     "react-grid-layout": "^1.4.4",
     "react-plotly.js": "^2.6.0",
