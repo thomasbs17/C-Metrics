@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 import warnings
+from typing import Literal
 
 import pandas as pd
 import requests
@@ -28,8 +29,12 @@ class TrainingDataset(Indicators):
 
     exchanges: list[str] = ["binance", "coinbase"]
 
-    def __init__(self, force_refresh: bool):
-        super().__init__()
+    def __init__(
+        self,
+        force_refresh: bool,
+        target_type: Literal["take_profit", "stop_loss"],
+    ):
+        super().__init__(target_type=target_type)
         self.force_refresh = force_refresh
         self.pre_stored_pairs = self.get_pre_stored_pairs()
 
@@ -163,8 +168,13 @@ class TrainingDataset(Indicators):
     def load_training_dataset(self, pairs: list[str] = None) -> pd.DataFrame:
         self.log.info("Loading training data")
         query = f"select * from training_data.{self.formatted_data_view}"
+        pairs_to_fetch = pairs.copy()
         if pairs:
-            pairs_str = "','".join(pairs)
+            required_pairs = ["BTC/USD", "ETH/USD"]
+            for pair in required_pairs:
+                if pair not in pairs:
+                    pairs_to_fetch.append(pair)
+            pairs_str = "','".join(pairs_to_fetch)
             query += f" where pair in ('{pairs_str}')"
         query += " order by calendar_dt"
         df = pd.read_sql_query(sql=query, con=self.db)
@@ -188,5 +198,5 @@ class TrainingDataset(Indicators):
 
 
 if __name__ == "__main__":
-    dataset = TrainingDataset(force_refresh=False)
+    dataset = TrainingDataset(force_refresh=False, target_type="take_profit")
     asyncio.run(dataset.get_raw_training_dataset())

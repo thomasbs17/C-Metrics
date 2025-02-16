@@ -20,12 +20,47 @@ class TrainingOptimization(PreProcessing):
 
     datasets: dict
 
-    def __init__(self):
-        super().__init__()
+    def __init__(
+        self,
+        target_type: Literal["take_profit", "stop_loss"],
+    ):
+        super().__init__(is_training=True, target_type=target_type)
         self.best_params_path = f"{self.assets_path}/best_hyperparameters.json"
 
     def backtest(self, confidence_threshold: float):
         pass
+
+    def get_training_columns(
+        self, col_type: Literal["features", "target"]
+    ) -> list[str]:
+        target_col = f"hit_{self.target_type}"
+        if col_type == "target":
+            return [target_col]
+        df = self.pre_processed_df.copy(deep=True)
+        cols_to_remove = ["pair", "calendar_dt"]
+        df.drop(columns=cols_to_remove, inplace=True)
+        cols = df.columns.tolist()
+        return [col for col in cols if col != target_col]
+
+    def get_datasets(
+        self,
+    ) -> tuple[
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame,
+    ]:
+        target_col = self.get_training_columns("target")[0]
+        features_cols = self.get_training_columns("features")
+        train_x = self.datasets["train"]["df"][features_cols]
+        train_y = self.datasets["train"]["df"][target_col]
+        test_x = self.datasets["test"]["df"][features_cols]
+        test_y = self.datasets["test"]["df"][target_col]
+        val_x = self.datasets["val"]["df"][features_cols]
+        val_y = self.datasets["val"]["df"][target_col]
+        return train_x, train_y, val_x, val_y, test_x, test_y
 
     def objective(self, trial):
         params = {
@@ -63,44 +98,43 @@ class TrainingOptimization(PreProcessing):
             "eval_metric": trial.suggest_categorical("eval_metric", ["auc", "logloss"]),
         }
         model = xgb.XGBClassifier(**params)
+        train_x, train_y, val_x, val_y, _, _ = self.get_datasets()
         model.fit(
-            self.datasets["train"]["x"],
-            self.datasets["train"]["y"],
-            eval_set=[(self.datasets["val"]["x"], self.datasets["val"]["y"])],
+            train_x,
+            train_y,
+            eval_set=[(val_x, val_y)],
             verbose=False,
         )
         return roc_auc_score(
-            self.datasets["val"]["y"],
-            model.predict_proba(self.datasets["val"]["x"])[:, 1],
+            val_y,
+            model.predict_proba(val_x)[:, 1],
         )
 
-    def hyper_parameter_tuning(self) -> dict:
+    def hyper_parameter_tuning(self, n_trials: int = 100) -> dict:
         self.log.info("Hyperparameters fine-tuning...")
         study = optuna.create_study(direction="maximize")
-        study.optimize(self.objective, n_trials=100)
+        study.optimize(self.objective, n_trials=n_trials)
         best_params = {**self.model_base_params, **study.best_params}
         with open(self.best_params_path, "w") as f:
             f.write(json.dumps(best_params))
         self.log.info(f"Best parameters:\n{best_params}")
         return best_params
 
-    def time_series_cross_validation(self):
+    def time_series_cross_validation(self, best_params: dict):
         tscv = TimeSeriesSplit(n_splits=5)
         cv_scores = []
         self.log.info("Running time-series cross-validation...")
-        y_train = self.datasets["train"]["y"]
-        best_params = self.hyper_parameter_tuning()
-        for fold, (train_idx, val_idx) in enumerate(
-            tscv.split(self.datasets["train"]["x"])
-        ):
+        train_x, train_y, val_x, val_y, _, _ = self.get_datasets()
+
+        for fold, (train_idx, val_idx) in enumerate(tscv.split(train_x)):
             self.log.info(f"Fold {fold + 1}")
             x_train_fold, x_val_fold = (
-                self.datasets["train"]["x"].iloc[train_idx],
-                self.datasets["train"]["x"].iloc[val_idx],
+                train_x.iloc[train_idx],
+                val_x.iloc[val_idx],
             )
             y_train_fold, y_val_fold = (
-                y_train.iloc[train_idx],
-                y_train.iloc[val_idx],
+                train_y.iloc[train_idx],
+                val_y.iloc[val_idx],
             )
             model = xgb.XGBClassifier(**best_params)
             model.fit(
@@ -128,16 +162,16 @@ class Train(TrainingOptimization):
     validate_size: float = 0.1
     test_size: float = 0.1
 
-    def __init__(self):
-        super().__init__()
+    def __init__(
+        self,
+        target_type: Literal["take_profit", "stop_loss"],
+    ):
+        super().__init__(target_type=target_type)
         self.model_path = f"{self.assets_path}/{self.model_name}.pkl"
 
     def split(self):
         # Temporal split (80-10-10)
-        self.raw_training_data["timestamp"] = pd.to_datetime(
-            self.raw_training_data["timestamp"]
-        ).dt.date
-        all_dates = self.raw_training_data["timestamp"].unique().tolist()
+        all_dates = self.pre_processed_df["calendar_dt"].unique().tolist()
         train_size = int(len(all_dates) * self.train_size)
         val_size = int(len(all_dates) * self.validate_size)
         datasets = {
@@ -146,35 +180,22 @@ class Train(TrainingOptimization):
             "test": {"dates": all_dates[train_size + val_size :]},
         }
         for dataset, details in datasets.items():
-            df = self.raw_training_data[
-                self.raw_training_data["timestamp"].isin(details["dates"])
+            df = self.pre_processed_df[
+                self.pre_processed_df["calendar_dt"].isin(details["dates"])
             ]
-            new_training = True if dataset == "train" else False
-            # datasets[dataset]["detailed_x"] = self.pre_process_data(
-            #     df=df.drop(columns=["is_valid_trade"]),
-            #     new_training=new_training,
-            # )
-            datasets[dataset]["x"] = (
-                datasets[dataset]["detailed_x"]
-                .copy(deep=True)
-                .drop(columns=["pair", "timestamp"])
-            )
-            y = df[["timestamp", "pair", "is_valid_trade"]]
-            y = datasets[dataset]["detailed_x"].merge(
-                right=y, how="left", on=["timestamp", "pair"]
-            )
-            datasets[dataset]["y"] = y["is_valid_trade"]
+            datasets[dataset]["df"] = df
         self.datasets = datasets
 
     @property
     def model_base_params(self) -> dict:
         # Handle class imbalance
-        y = self.datasets["train"]["y"]
-        scale_pos_weight = len(y[y == 0]) / len(y[y == 1])
+        _, train_y, _, _, _, _ = self.get_datasets()
+        scale_pos_weight = len(train_y[train_y == 0]) / len(train_y[train_y == 1])
         best_params = {}
         if Path(self.best_params_path).is_file():
             with open(self.best_params_path) as f:
                 best_params = json.loads(f.read())
+        # todo: implement custom objective to maximize pnl and heavy penalization for false positives
         base_params = {
             # Core Parameters
             "objective": "binary:logistic",
@@ -217,15 +238,16 @@ class Train(TrainingOptimization):
         report: str,
     ):
         pickle.dump(model, open(self.model_path, "wb"))
+        x, _, _, _, _, _ = self.get_datasets()
         pairs = (
-            self.datasets["train"]["x"]["pair_encoded"]
+            x["pair_encoded"]
             .apply(lambda x: self.encoded_pair_to_pair(x))
             .unique()
             .tolist()
         )
         metadata = dict(
             trained_on=dt.now().isoformat(),
-            dataset_size=len(self.datasets["train"]["x"]),
+            dataset_size=len(x),
             included_pairs=pairs,
             train_size=self.train_size,
             validate_size=self.validate_size,
@@ -239,39 +261,30 @@ class Train(TrainingOptimization):
         with open(f"{self.assets_path}/{self.model_name}_metadata.txt", "w") as f:
             f.write(content)
 
-    async def train(
-        self,
-        with_optimization: bool,
-        pairs: list[str],
-        target_type: Literal["take_profit", "stop_loss"],
-    ):
-        await self.pre_process_data(pairs=pairs, target_type=target_type)
+    async def train(self, with_optimization: bool, pairs: list[str]):
+        await self.pre_process_data(pairs=pairs)
         self.split()
         if with_optimization:
-            self.time_series_cross_validation()
+            best_params = self.hyper_parameter_tuning(n_trials=10)
+            # self.time_series_cross_validation(best_params)
         model = xgb.XGBClassifier(**self.model_base_params)
+        train_x, train_y, val_x, val_y, test_x, test_y = self.get_datasets()
         model.fit(
-            self.datasets["train"]["x"],
-            self.datasets["train"]["y"],
-            eval_set=[(self.datasets["val"]["x"], self.datasets["val"]["y"])],
+            train_x,
+            train_y,
+            eval_set=[(val_x, val_y)],
             verbose=20,
         )
         roc_auc = roc_auc_score(
-            self.datasets["test"]["y"],
-            model.predict_proba(self.datasets["test"]["x"])[:, 1],
+            test_y,
+            model.predict_proba(test_x)[:, 1],
         )
-        report = classification_report(
-            self.datasets["test"]["y"], model.predict(self.datasets["test"]["x"])
-        )
+        report = classification_report(test_y, model.predict(test_x))
         self.save_model_and_metadata(model=model, roc_auc=roc_auc, report=report)
         self.log.info(f"Test ROC-AUC: {roc_auc:.3f}")
         print(report)
 
 
 if __name__ == "__main__":
-    training = Train()
-    asyncio.run(
-        training.train(
-            with_optimization=True, target_type="take_profit", pairs=["BTC/USD"]
-        )
-    )
+    training = Train(target_type="take_profit")
+    asyncio.run(training.train(with_optimization=True, pairs=["BTC/USD"]))

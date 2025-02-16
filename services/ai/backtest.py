@@ -1,23 +1,47 @@
 import asyncio
 import pickle
+from typing import Literal
 
 import pandas as pd
 
-from services.ai.indicators import Indicators
-from services.ai.raw_training_data import TrainingDataset
+from services.ai.train import Train
 
 
-class BackTest(Indicators):
+class BackTest(Train):
     starting_balance: int = 1000
     balance: int
+    backtest_df: pd.DataFrame
+    backtest_x: pd.DataFrame
+    backtest_y: pd.Series
 
-    def __init__(self, backtest_df: pd.DataFrame):
-        super().__init__()
-        self.backtest_df = backtest_df
+    def __init__(
+        self, target_type: Literal["take_profit", "stop_loss"], pairs: list[str]
+    ):
+        super().__init__(target_type=target_type)
+        self.pairs = pairs
         # self.reset()
+
+    async def get_backtesting_df(self):
+        await self.pre_process_data(pairs=self.pairs)
+        self.split()
+        self.backtest_df = self.datasets["test"]["df"]
+        _, _, _, _, self.backtest_x, self.backtest_y = self.get_datasets()
 
     def reset(self):
         self.balance = self.starting_balance
+
+    def transform_ohlcv(self):
+        self.log.info("Transforming OHLCV")
+        self.pair_df.insert(
+            0, "day_peak", self.pair_df["high"] / self.pair_df["open"] - 1
+        )
+        self.pair_df.insert(
+            0, "day_drawdown", self.pair_df["low"] / self.pair_df["open"] - 1
+        )
+        self.pair_df.insert(
+            0, "day_return", self.pair_df["close"] / self.pair_df["open"] - 1
+        )
+        self.pair_df["volume"] = self.pair_df["volume"] * self.pair_df["close"]
 
     def get_pnl(self, row: pd.Series):
         row.fillna(False, inplace=True)
@@ -41,10 +65,13 @@ class BackTest(Indicators):
         final_df = pd.DataFrame()
         for pair in self.backtest_df["pair"].unique().tolist():
             pair_df = self.backtest_df[self.backtest_df["pair"] == pair]
-            for shift_col in ["prediction", "model_buy", "is_valid_trade"]:
+            target_col = self.get_training_columns(col_type="target")[0]
+            for shift_col in ["prediction", "model_buy", target_col]:
                 pair_df[shift_col] = pair_df[shift_col].shift(1).fillna(0)
             final_df = pd.concat([final_df, pair_df])
-        self.backtest_df = final_df.sort_values(by=["pair"]).reset_index(drop=True)
+        self.backtest_df = final_df.sort_values(by=["pair", "calendar_dt"]).reset_index(
+            drop=True
+        )
 
     def backtest(self, confidence_threshold: float = 0.5) -> float:
         self.reset()
@@ -52,34 +79,30 @@ class BackTest(Indicators):
         self.backtest_df.insert(
             0,
             "prediction",
-            model.predict_proba(self.datasets["test"]["x"])[:, 1],
+            model.predict_proba(self.backtest_x)[:, 1],
         )
         self.backtest_df.insert(
             0,
             "model_buy",
             self.backtest_df["prediction"] > confidence_threshold,
         )
-        self.backtest_df.insert(0, "is_valid_trade", self.datasets["test"]["y"])
         self.align_in_time()
+        self.backtest_df.drop(self.backtest_df.tail(1).index, inplace=True)
         self.backtest_df.replace({True: 1, False: 0}, inplace=True)
-        self.backtest_df.insert(
-            0, "pnl", self.backtest_df.apply(lambda x: self.get_pnl(x), axis=1)
-        )
+        self.backtest_df.insert(0, "pnl", self.backtest_df.apply(self.get_pnl, axis=1))
         self.backtest_df.insert(
             0, "usd_pnl", self.backtest_df.apply(self.update_balance, axis=1)
         )
         self.backtest_df.insert(
             0, "cumulative_pnl", self.backtest_df["usd_pnl"].cumsum()
         )
-        self.backtest_df.drop(self.backtest_df.tail(1).index, inplace=True)
         return (self.balance / self.starting_balance) - 1
 
 
-async def run_backtest(test_multiple_thresholds: bool):
-    dataset = TrainingDataset(force_refresh=False)
-    backtest_df = dataset.load_training_dataset()
-    backtest = BackTest(backtest_df=backtest_df)
-    threshold_range = range(1, 101) if test_multiple_thresholds else [50]
+async def run_backtest(test_multiple_confidence_thresholds: bool, pairs: list[str]):
+    backtest = BackTest(target_type="take_profit", pairs=pairs)
+    await backtest.get_backtesting_df()
+    threshold_range = range(1, 101) if test_multiple_confidence_thresholds else [50]
     data = list()
     metadata_content = "\n\nBACKTESTING RESULTS:\n"
     for threshold in threshold_range:
@@ -97,7 +120,5 @@ async def run_backtest(test_multiple_thresholds: bool):
 
 if __name__ == "__main__":
     asyncio.run(
-        run_backtest(
-            test_multiple_thresholds=True,
-        )
+        run_backtest(test_multiple_confidence_thresholds=False, pairs=["SAND/USD"])
     )
