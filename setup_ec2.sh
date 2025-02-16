@@ -1,3 +1,7 @@
+sudo yum install python-pip -y
+
+pip install uv
+
 sudo dnf install python3-devel -y
 
 # TA-Lib Installation:
@@ -9,7 +13,9 @@ cd ta-lib-0.6.4/
 ./configure --prefix=/usr
 make
 sudo make install
-python3 -m venv venv
+
+uv init
+uv venv venv
 source venv/bin/activate
 cd ..
-pip install -r requirements.txt
+uv pip install -r requirements.txt
