@@ -329,4 +329,4 @@ class Train(TrainingOptimization):
 
 if __name__ == "__main__":
     training = Train(target_type="take_profit")
-    asyncio.run(training.train(with_optimization=True, pairs=["BTC/USD"]))
+    asyncio.run(training.train(with_optimization=True))
