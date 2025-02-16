@@ -168,8 +168,8 @@ class TrainingDataset(Indicators):
     def load_training_dataset(self, pairs: list[str] = None) -> pd.DataFrame:
         self.log.info("Loading training data")
         query = f"select * from training_data.{self.formatted_data_view}"
-        pairs_to_fetch = pairs.copy()
         if pairs:
+            pairs_to_fetch = pairs.copy()
             required_pairs = ["BTC/USD", "ETH/USD"]
             for pair in required_pairs:
                 if pair not in pairs:
