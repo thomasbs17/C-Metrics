@@ -7,6 +7,7 @@ tenacity==9.0.0
 scikit-learn==1.6.1
 xgboost==2.1.3
 optuna==4.2.0
+boto3==1.36.21
 
 psycopg2-binary==2.9.10
 ta-lib==0.6.1

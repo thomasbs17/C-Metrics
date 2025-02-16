@@ -1,6 +1,5 @@
 import asyncio
 import json
-import pickle
 from datetime import datetime as dt
 from pathlib import Path
 from typing import Literal
@@ -11,8 +10,10 @@ import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import roc_auc_score, classification_report
 from sklearn.model_selection import TimeSeriesSplit
+from xgboost import XGBClassifier
 
 from services.ai.pre_process import PreProcessing
+from utils.helpers import write_file_to_s3, load_from_s3
 
 
 class TrainingOptimization(PreProcessing):
@@ -20,15 +21,15 @@ class TrainingOptimization(PreProcessing):
 
     datasets: dict
 
+    starting_balance: int = 1000
+    balance: int
+
     def __init__(
         self,
         target_type: Literal["take_profit", "stop_loss"],
     ):
         super().__init__(is_training=True, target_type=target_type)
         self.best_params_path = f"{self.assets_path}/best_hyperparameters.json"
-
-    def backtest(self, confidence_threshold: float):
-        pass
 
     def get_training_columns(
         self, col_type: Literal["features", "target"]
@@ -61,6 +62,52 @@ class TrainingOptimization(PreProcessing):
         val_x = self.datasets["val"]["df"][features_cols]
         val_y = self.datasets["val"]["df"][target_col]
         return train_x, train_y, val_x, val_y, test_x, test_y
+
+    def reset_balance(self):
+        self.balance = self.starting_balance
+
+    def get_pnl(self, row: pd.Series):
+        row.fillna(False, inplace=True)
+        if row["model_buy"]:
+            if row["day_drawdown"] < self.stop_loss:
+                return self.stop_loss
+            if row["day_peak"] > self.take_profit:
+                return self.take_profit
+            return row["day_return"]
+        return 0
+
+    def update_balance(self, row: pd.Series, weight: float = 1) -> float:
+        trade_usd_pnl = 0
+        if row["model_buy"]:
+            investable_amount = self.balance * weight
+            trade_usd_pnl = (investable_amount * (row["pnl"] + 1)) - investable_amount
+            self.balance += trade_usd_pnl
+        return trade_usd_pnl
+
+    def backtest(
+        self,
+        raw_df: pd.DataFrame,
+        model: XGBClassifier,
+        confidence_threshold: float = 0.5,
+    ) -> float:
+        df = raw_df.copy(deep=True)
+        self.reset_balance()
+        features_col = self.get_training_columns("features")
+        df.insert(
+            0,
+            "prediction",
+            model.predict_proba(df[features_col])[:, 1],
+        )
+        df.insert(
+            0,
+            "model_buy",
+            df["prediction"] > confidence_threshold,
+        )
+        df.drop(df.tail(1).index, inplace=True)
+        df.insert(0, "pnl", df.apply(self.get_pnl, axis=1))
+        df.insert(0, "usd_pnl", df.apply(self.update_balance, axis=1))
+        df.insert(0, "cumulative_pnl", df["usd_pnl"].cumsum())
+        return (self.balance / self.starting_balance) - 1
 
     def objective(self, trial):
         params = {
@@ -105,18 +152,14 @@ class TrainingOptimization(PreProcessing):
             eval_set=[(val_x, val_y)],
             verbose=False,
         )
-        return roc_auc_score(
-            val_y,
-            model.predict_proba(val_x)[:, 1],
-        )
+        return self.backtest(self.datasets["val"]["df"], model)
 
     def hyper_parameter_tuning(self, n_trials: int = 100) -> dict:
         self.log.info("Hyperparameters fine-tuning...")
         study = optuna.create_study(direction="maximize")
         study.optimize(self.objective, n_trials=n_trials)
         best_params = {**self.model_base_params, **study.best_params}
-        with open(self.best_params_path, "w") as f:
-            f.write(json.dumps(best_params))
+        write_file_to_s3(self.best_params_path, json.dumps(best_params))
         self.log.info(f"Best parameters:\n{best_params}")
         return best_params
 
@@ -192,6 +235,7 @@ class Train(TrainingOptimization):
         _, train_y, _, _, _, _ = self.get_datasets()
         scale_pos_weight = len(train_y[train_y == 0]) / len(train_y[train_y == 1])
         best_params = {}
+        load_from_s3("best_hyperparameters.json")
         if Path(self.best_params_path).is_file():
             with open(self.best_params_path) as f:
                 best_params = json.loads(f.read())
@@ -237,7 +281,7 @@ class Train(TrainingOptimization):
         roc_auc: float,
         report: str,
     ):
-        pickle.dump(model, open(self.model_path, "wb"))
+        write_file_to_s3(self.model_path, model, is_pickle=True)
         x, _, _, _, _, _ = self.get_datasets()
         pairs = (
             x["pair_encoded"]
@@ -258,14 +302,13 @@ class Train(TrainingOptimization):
         for k, v in metadata.items():
             content += f"- {k}: {v}\n"
         content += f"\n\nTRAINING RESULTS:\n\n{report}"
-        with open(f"{self.assets_path}/{self.model_name}_metadata.txt", "w") as f:
-            f.write(content)
+        write_file_to_s3(f"{self.assets_path}/{self.model_name}_metadata.txt", content)
 
     async def train(self, with_optimization: bool, pairs: list[str]):
         await self.pre_process_data(pairs=pairs)
         self.split()
         if with_optimization:
-            best_params = self.hyper_parameter_tuning(n_trials=10)
+            self.hyper_parameter_tuning(n_trials=10)
             # self.time_series_cross_validation(best_params)
         model = xgb.XGBClassifier(**self.model_base_params)
         train_x, train_y, val_x, val_y, test_x, test_y = self.get_datasets()
@@ -287,4 +330,4 @@ class Train(TrainingOptimization):
 
 if __name__ == "__main__":
     training = Train(target_type="take_profit")
-    asyncio.run(training.train(with_optimization=True, pairs=["BTC/USD"]))
+    asyncio.run(training.train(with_optimization=True, pairs=["SAND/USD"]))

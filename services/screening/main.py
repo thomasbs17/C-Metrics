@@ -14,7 +14,7 @@ from indicators import vbp, fractals
 warnings.filterwarnings("ignore")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from utils import helpers
+from utils import helpers  # noqa: E402
 
 WS_PORT = 8768
 LOG = helpers.get_logger("screening_service")

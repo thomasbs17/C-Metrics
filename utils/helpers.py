@@ -1,20 +1,24 @@
 import asyncio
 import logging
 import os
+import pickle
 import time
 from datetime import datetime as dt, timedelta
 from pathlib import Path
 
 import aiohttp
+import boto3
 import ccxt
 
 # import django
 # import environ
 import pandas as pd
 import sqlalchemy as sql
+from botocore.exceptions import ClientError
 from ccxt import async_support as async_ccxt
 from dotenv import load_dotenv
 from tenacity import retry, stop_after_attempt
+from xgboost import XGBClassifier
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = BASE_DIR / ".env"
@@ -37,6 +41,8 @@ MAX_OHLCV_SIZE = 300
 
 THROTLE_PERIOD = 1
 MAX_RETRIES = 20
+
+S3_CLIENT = boto3.client("s3", region_name=os.getenv("PREFERRED_AWS_REGION"))
 
 
 def get_api_keys(exchange: str, websocket: bool = False) -> dict:
@@ -198,3 +204,26 @@ def get_ohlcv_history(
                         all_history_fetched = True
             ohlc_data += _ohlc_data
     return ohlc_data
+
+
+def write_file_to_s3(
+    local_path: str, content_to_write: str or XGBClassifier, is_pickle: bool = False
+):
+    path = Path(local_path)
+    if is_pickle:
+        pickle.dump(content_to_write, open(local_path, "wb"))
+    else:
+        with open(path, "w") as f:
+            f.write(content_to_write)
+    bucket_name = "cmetrics-ai"
+    file_name = path.name
+    S3_CLIENT.upload_file(Filename=local_path, Bucket=bucket_name, Key=file_name)
+
+
+def load_from_s3(file_name: str):
+    bucket_name = "cmetrics-ai"
+    local_path = f"./services/ai/assets/{file_name}"
+    try:
+        S3_CLIENT.download_file(bucket_name, file_name, local_path)
+    except ClientError:
+        print(f"Could not download '{file_name}' file from S3")

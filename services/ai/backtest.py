@@ -3,13 +3,13 @@ import pickle
 from typing import Literal
 
 import pandas as pd
+from xgboost import XGBClassifier
 
 from services.ai.train import Train
+from utils.helpers import write_file_to_s3, load_from_s3
 
 
 class BackTest(Train):
-    starting_balance: int = 1000
-    balance: int
     backtest_df: pd.DataFrame
     backtest_x: pd.DataFrame
     backtest_y: pd.Series
@@ -27,9 +27,6 @@ class BackTest(Train):
         self.backtest_df = self.datasets["test"]["df"]
         _, _, _, _, self.backtest_x, self.backtest_y = self.get_datasets()
 
-    def reset(self):
-        self.balance = self.starting_balance
-
     def transform_ohlcv(self):
         self.log.info("Transforming OHLCV")
         self.pair_df.insert(
@@ -43,24 +40,6 @@ class BackTest(Train):
         )
         self.pair_df["volume"] = self.pair_df["volume"] * self.pair_df["close"]
 
-    def get_pnl(self, row: pd.Series):
-        row.fillna(False, inplace=True)
-        if row["model_buy"]:
-            if row["day_drawdown"] < self.stop_loss:
-                return self.stop_loss
-            if row["day_peak"] > self.take_profit:
-                return self.take_profit
-            return row["day_return"]
-        return 0
-
-    def update_balance(self, row: pd.Series, weight: float = 1) -> float:
-        trade_usd_pnl = 0
-        if row["model_buy"]:
-            investable_amount = self.balance * weight
-            trade_usd_pnl = (investable_amount * (row["pnl"] + 1)) - investable_amount
-            self.balance += trade_usd_pnl
-        return trade_usd_pnl
-
     def align_in_time(self):
         final_df = pd.DataFrame()
         for pair in self.backtest_df["pair"].unique().tolist():
@@ -73,8 +52,14 @@ class BackTest(Train):
             drop=True
         )
 
-    def backtest(self, confidence_threshold: float = 0.5) -> float:
-        self.reset()
+    def backtest(
+        self,
+        raw_df: pd.DataFrame = None,
+        model: XGBClassifier = None,
+        confidence_threshold: float = 0.5,
+    ) -> float:
+        self.reset_balance()
+        load_from_s3(f"{self.model_name}.pkl")
         model = pickle.load(open(self.model_path, "rb"))
         self.backtest_df.insert(
             0,
@@ -113,8 +98,10 @@ async def run_backtest(test_multiple_confidence_thresholds: bool, pairs: list[st
         metadata_content += f"- {threshold:,.0%}: {final_pnl:,.2%}\n"
     df = pd.DataFrame(data)
     df.to_csv(f"{backtest.assets_path}/confidence_thresholds_results.csv")
-    with open(f"{backtest.assets_path}/{backtest.model_name}_metadata.txt", "a") as f:
-        f.write(metadata_content)
+    write_file_to_s3(
+        local_path=f"{backtest.assets_path}/{backtest.model_name}_metadata.txt",
+        content_to_write=metadata_content,
+    )
     print(df.to_string(index=False))
 
 

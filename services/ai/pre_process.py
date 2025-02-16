@@ -9,6 +9,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 from services.ai.raw_training_data import TrainingDataset
+from utils.helpers import write_file_to_s3, load_from_s3
 
 
 class PreProcessing(TrainingDataset):
@@ -58,6 +59,7 @@ class PreProcessing(TrainingDataset):
         self.pre_processed_df.drop(columns=distance_to_close_metrics, inplace=True)
 
     def get_pair_encoding_mapping(self) -> dict:
+        load_from_s3("pair_encode.json")
         with open(self.encoded_pairs_path) as f:
             return json.loads(f.read())
 
@@ -75,8 +77,7 @@ class PreProcessing(TrainingDataset):
             pair_target_means = self.pre_processed_df.groupby("pair")[
                 "day_return"
             ].mean()
-            with open(f"{self.assets_path}/pair_encode.json", "w") as f:
-                f.write(pair_target_means.to_json())
+            write_file_to_s3(self.encoded_pairs_path, pair_target_means.to_json())
         else:
             pair_target_means = self.get_pair_encoding_mapping()
         self.pre_processed_df["pair_encoded"] = self.pre_processed_df["pair"].map(
@@ -96,12 +97,15 @@ class PreProcessing(TrainingDataset):
     def standardize_with_cache(
         self, pair_df: pd.DataFrame, cols: list[str], standardizer_name: str
     ) -> pd.DataFrame:
-        standardizer_path = f"{self.assets_path}/{standardizer_name}.gz"
+        scalers_path = f"{self.assets_path}/scalers"
+        os.makedirs(scalers_path, exist_ok=True)
+        standardizer_path = f"{scalers_path}/{standardizer_name}.gz"
         if self.is_training:
             scaler = StandardScaler()
             scaler.fit(pair_df[cols])
-            joblib.dump(scaler, standardizer_path)
+            write_file_to_s3(standardizer_path, scaler, is_pickle=True)
         else:
+            load_from_s3(f"{standardizer_name}.gz")
             scaler = joblib.load(standardizer_path)
         pair_df[cols] = scaler.transform(pair_df[cols])
         return pair_df
