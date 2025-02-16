@@ -84,7 +84,9 @@ class BackTest(Train):
         return (self.balance / self.starting_balance) - 1
 
 
-async def run_backtest(test_multiple_confidence_thresholds: bool, pairs: list[str]):
+async def run_backtest(
+    test_multiple_confidence_thresholds: bool, pairs: list[str] = None
+):
     backtest = BackTest(target_type="take_profit", pairs=pairs)
     await backtest.get_backtesting_df()
     threshold_range = range(1, 101) if test_multiple_confidence_thresholds else [50]
@@ -106,6 +108,4 @@ async def run_backtest(test_multiple_confidence_thresholds: bool, pairs: list[st
 
 
 if __name__ == "__main__":
-    asyncio.run(
-        run_backtest(test_multiple_confidence_thresholds=False, pairs=["SAND/USD"])
-    )
+    asyncio.run(run_backtest(test_multiple_confidence_thresholds=False))

@@ -14,8 +14,8 @@ cd ta-lib-0.6.4/
 make
 sudo make install
 
+cd ..
 uv init
 uv venv venv
 source venv/bin/activate
-cd ..
 uv pip install -r requirements.txt

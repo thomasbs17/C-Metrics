@@ -308,7 +308,7 @@ class Train(TrainingOptimization):
         content += f"\n\nTRAINING RESULTS:\n\n{report}"
         write_file_to_s3(f"{self.assets_path}/{self.model_name}_metadata.txt", content)
 
-    async def train(self, with_optimization: bool, pairs: list[str]):
+    async def train(self, with_optimization: bool, pairs: list[str] = None):
         await self.pre_process_data(pairs=pairs)
         self.split()
         if with_optimization:
@@ -334,4 +334,4 @@ class Train(TrainingOptimization):
 
 if __name__ == "__main__":
     training = Train(target_type="take_profit")
-    asyncio.run(training.train(with_optimization=True, pairs=["SAND/USD"]))
+    asyncio.run(training.train(with_optimization=True))

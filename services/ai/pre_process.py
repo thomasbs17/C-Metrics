@@ -85,14 +85,11 @@ class PreProcessing(TrainingDataset):
         )
 
     def encoded_pair_to_pair(self, encoded_pair: float) -> str:
-        pair = None
         mapping = self.get_pair_encoding_mapping()
         for p, encoding in mapping.items():
             if round(encoding, 4) == round(encoded_pair, 4):
-                pair = p
-        if not pair:
-            raise ValueError("Unknown pair")
-        return pair
+                return p
+        raise ValueError("Unknown pair")
 
     def standardize_with_cache(
         self, pair_df: pd.DataFrame, cols: list[str], standardizer_name: str
