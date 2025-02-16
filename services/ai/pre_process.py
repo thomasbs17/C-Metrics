@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from typing import Literal
 
 import joblib
 import numpy as np
@@ -11,13 +12,16 @@ from services.ai.raw_training_data import TrainingDataset
 
 
 class PreProcessing(TrainingDataset):
-    new_training: bool
     assets_path: Path = Path("./services/ai/assets")
     pre_processed_df: pd.DataFrame
-    raw_training_data: pd.DataFrame
 
-    def __init__(self):
-        super().__init__(force_refresh=False)
+    def __init__(
+        self,
+        is_training: bool,
+        target_type: Literal["take_profit", "stop_loss"],
+    ):
+        super().__init__(force_refresh=False, target_type=target_type)
+        self.is_training = is_training
         os.makedirs(self.assets_path, exist_ok=True)
         self.encoded_pairs_path = f"{self.assets_path}/pair_encode.json"
 
@@ -35,14 +39,6 @@ class PreProcessing(TrainingDataset):
             "sma_50",
             "sma_200",
             "ema_100",
-            "fractal_support",
-            "fractal_resistance",
-            "bollinger_upper",
-            "bollinger_middle",
-            "bollinger_lower",
-            "poc",
-            "poc_resistance",
-            "poc_support",
         ]
         for metric in distance_to_close_metrics:
             self.pre_processed_df[f"close_to_{metric}"] = (
@@ -52,10 +48,12 @@ class PreProcessing(TrainingDataset):
             self.pre_processed_df["sma_50"] / self.pre_processed_df["sma_200"] - 1
         )
         self.pre_processed_df["volume_to_volume_sma"] = (
-            self.pre_processed_df["volume"] / self.pre_processed_df["volume_smma_50"]
+            self.pre_processed_df["usd_volume"] / self.pre_processed_df["volume_sma_50"]
             - 1
         )
-        self.pre_processed_df.drop(columns=["volume", "volume_smma_50"], inplace=True)
+        self.pre_processed_df.drop(
+            columns=["usd_volume", "volume_sma_50"], inplace=True
+        )
         self.to_pct(columns=["rsi", "greed_and_fear_index", "vix"])
         self.pre_processed_df.drop(columns=distance_to_close_metrics, inplace=True)
 
@@ -72,7 +70,7 @@ class PreProcessing(TrainingDataset):
         How It Works
         Each pair is replaced with its average target value (e.g., next-day price movement, returns).
         """
-        if self.new_training:
+        if self.is_training:
             # can only be done on training data to avoid data leakage (using future data)
             pair_target_means = self.pre_processed_df.groupby("pair")[
                 "day_return"
@@ -95,23 +93,50 @@ class PreProcessing(TrainingDataset):
             raise ValueError("Unknown pair")
         return pair
 
-    def standardize_values(self, columns: list[str]):
+    def standardize_with_cache(
+        self, pair_df: pd.DataFrame, cols: list[str], standardizer_name: str
+    ) -> pd.DataFrame:
+        standardizer_path = f"{self.assets_path}/{standardizer_name}.gz"
+        if self.is_training:
+            scaler = StandardScaler()
+            scaler.fit(pair_df[cols])
+            joblib.dump(scaler, standardizer_path)
+        else:
+            scaler = joblib.load(standardizer_path)
+        pair_df[cols] = scaler.transform(pair_df[cols])
+        return pair_df
+
+    def standardize_values(self):
         full_df = pd.DataFrame()
+        cols = [
+            "distance_to_atl",
+            "distance_to_ath",
+            "btc_usd_open_interest",
+            "qrt_liquidity",
+        ]
+        nfp_cols = [
+            "nfp_actual",
+            "nfp_forecast",
+            "nfp_previous",
+        ]
+        liquidation_cols = ["longs_liquidations", "shorts_liquidations"]
         for encoded_pair in self.pre_processed_df["pair_encoded"].unique().tolist():
             pair_df = self.pre_processed_df[
                 self.pre_processed_df["pair_encoded"] == encoded_pair
             ]
             pair = self.encoded_pair_to_pair(encoded_pair).replace("/", "-")
-            standardizer_path = f"{self.assets_path}/{pair}_standard_scaler.gz"
-            if self.new_training:
-                scaler = StandardScaler()
-                scaler.fit(pair_df[columns])
-                joblib.dump(scaler, standardizer_path)
-            else:
-                scaler = joblib.load(standardizer_path)
-            pair_df[columns] = scaler.transform(pair_df[columns])
+            for col in cols:
+                pair_df = self.standardize_with_cache(
+                    pair_df, [col], f"{pair}_{col}_standard_scaler"
+                )
+            pair_df = self.standardize_with_cache(
+                pair_df, nfp_cols, f"{pair}_nfp_standard_scaler"
+            )
+            pair_df = self.standardize_with_cache(
+                pair_df, liquidation_cols, f"{pair}_liquidation_standard_scaler"
+            )
             full_df = pd.concat([full_df, pair_df])
-        self.pre_processed_df = full_df.sort_values(by="timestamp").reset_index(
+        self.pre_processed_df = full_df.sort_values(by="calendar_dt").reset_index(
             drop=True
         )
 
@@ -232,7 +257,7 @@ class PreProcessing(TrainingDataset):
         # 3. Liquidity interaction
         self.pre_processed_df["qrt_liquidity"] = (
             self.pre_processed_df.days_to_quarter_end
-            * self.pre_processed_df.volume_smma_50
+            * self.pre_processed_df.volume_sma_50
         )
 
     def encode_time_features(self):
@@ -251,49 +276,23 @@ class PreProcessing(TrainingDataset):
             inplace=True,
         )
 
-    def handle_non_available_fractals(self):
-        self.pre_processed_df["fractal_resistance"] = self.pre_processed_df.apply(
-            lambda x: x["close"] / (x["distance_to_ath"] + 1)
-            if x["fractal_resistance"] == 999999999
-            else x["fractal_resistance"],
-            axis=1,
-        )
-
-    def fix_target(self):
-        full_df = pd.DataFrame()
-        for pair in self.raw_training_data["pair"].unique().tolist():
-            pair_df = self.raw_training_data[self.raw_training_data["pair"] == pair]
-            self.add_valid_trades(df=pair_df)
-            full_df = pd.concat([full_df, pair_df])
-        self.raw_training_data = full_df.sort_values(by="timestamp")
-
     def encoding(self):
         self.pre_processed_df.replace({False: 0, True: 1}, inplace=True)
-        self.pre_processed_df["short_term_trend"].replace(
-            {"BEARISH": -1, "NEUTRAL": 0, "BULLISH": 1}, inplace=True
-        )
         self.encode_pairs()
         self.encode_time_features()
 
-    def pre_process_data(self, df: pd.DataFrame, new_training: bool) -> pd.DataFrame:
-        self.pre_processed_df = df[df["day_return"].notnull()]
-        self.new_training = new_training
+    async def pre_process_data(self, pairs: list[str]) -> pd.DataFrame:
+        self.raw_data = self.load_training_dataset(pairs=pairs)
+        self.pre_processed_df = await self.add_indicators()
         self.log.info("Pre-processing data")
-        self.handle_non_available_fractals()
         self.encoding()
         self.handle_absolute_values()
-        self.standardize_values(
-            columns=[
-                "distance_to_atl",
-                "btc_usd_open_interest",
-                "longs_liquidations",
-                "shorts_liquidations",
-                "nfp",
-                "volume_to_volume_sma",
-                "qrt_liquidity",
-            ],
-        )
+        self.standardize_values()
         self.remove_non_used_columns()
-        self.pre_processed_df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        # self.pre_processed_df.replace([np.inf, -np.inf], np.nan, inplace=True)
         self.log.info("Pre-processing ended")
+        if pairs:
+            self.pre_processed_df = self.pre_processed_df[
+                self.pre_processed_df["pair"].isin(pairs)
+            ]
         return self.pre_processed_df

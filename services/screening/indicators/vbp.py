@@ -1,8 +1,11 @@
 import pandas as pd
 
 
-def get_vbp(ohlcv: pd.DataFrame, periods: int = 30) -> pd.DataFrame:
+def get_vbp(
+    ohlcv: pd.DataFrame, periods: int = 30, lookback: int = 365
+) -> pd.DataFrame:
     """Volume by price"""
+    ohlcv = ohlcv.tail(lookback)  # only last year worth of data to avoid distortions
     ohlcv["volume_type"] = ohlcv.apply(
         lambda row: "positive" if row["close"] > row["open"] else "negative", axis=1
     )
@@ -16,7 +19,6 @@ def get_vbp(ohlcv: pd.DataFrame, periods: int = 30) -> pd.DataFrame:
     )
     total_volume = ohlcv.groupby("price_bin")["volume"].sum().reset_index()
     vbp = pd.merge(total_volume, volume_by_type, on="price_bin")
-    vbp = vbp.rename(columns={"close": "price"})
     vbp["price"] = vbp["price_bin"].apply(lambda x: min(x.left, x.right))
     last_close = ohlcv["close"].iloc[-1]
     vbp["level_type"] = vbp["price"].apply(
