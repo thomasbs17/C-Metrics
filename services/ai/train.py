@@ -1,5 +1,7 @@
 import asyncio
 import json
+import os
+import sys
 from datetime import datetime as dt
 from pathlib import Path
 from typing import Literal
@@ -11,6 +13,8 @@ import xgboost as xgb
 from sklearn.metrics import roc_auc_score, classification_report
 from sklearn.model_selection import TimeSeriesSplit
 from xgboost import XGBClassifier
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from services.ai.pre_process import PreProcessing
 from utils.helpers import write_file_to_s3, load_from_s3
