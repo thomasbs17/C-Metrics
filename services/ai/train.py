@@ -287,12 +287,7 @@ class Train(TrainingOptimization):
     ):
         write_file_to_s3(self.model_path, model, is_pickle=True)
         x, _, _, _, _, _ = self.get_datasets()
-        pairs = (
-            x["pair_encoded"]
-            .apply(lambda x: self.encoded_pair_to_pair(x))
-            .unique()
-            .tolist()
-        )
+        pairs = self.pre_processed_df["pair"].unique().tolist()
         metadata = dict(
             trained_on=dt.now().isoformat(),
             dataset_size=len(x),
@@ -312,7 +307,7 @@ class Train(TrainingOptimization):
         await self.pre_process_data(pairs=pairs)
         self.split()
         if with_optimization:
-            self.hyper_parameter_tuning(n_trials=10)
+            self.hyper_parameter_tuning()
             # self.time_series_cross_validation(best_params)
         model = xgb.XGBClassifier(**self.model_base_params)
         train_x, train_y, val_x, val_y, test_x, test_y = self.get_datasets()
@@ -334,4 +329,4 @@ class Train(TrainingOptimization):
 
 if __name__ == "__main__":
     training = Train(target_type="take_profit")
-    asyncio.run(training.train(with_optimization=True))
+    asyncio.run(training.train(with_optimization=True, pairs=["BTC/USD"]))
