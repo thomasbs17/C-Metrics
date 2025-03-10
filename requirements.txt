@@ -9,7 +9,7 @@ cryptofeed==2.4.1
 pandas==2.2.3
 redis==5.2.1
 msgpack==1.1.0
-websockets==15.0
+websockets==15.0.1
 sqlalchemy==2.0.38
 
 # POSTGRES
